@@ -1,0 +1,222 @@
+---
+# ============================================================
+# agent-customer
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-customer
+  namespace: ai-mall
+  labels:
+    app: agent-customer
+    component: agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-customer
+  template:
+    metadata:
+      labels:
+        app: agent-customer
+        component: agent
+    spec:
+      containers:
+        - name: agent-customer
+          image: ${DOCKER_REGISTRY}/agent-customer:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8082
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "k8s"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8082
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8082
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-customer
+  namespace: ai-mall
+  labels:
+    app: agent-customer
+    component: agent
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8082
+      targetPort: 8082
+      protocol: TCP
+  selector:
+    app: agent-customer
+---
+# ============================================================
+# agent-ops
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-ops
+  namespace: ai-mall
+  labels:
+    app: agent-ops
+    component: agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-ops
+  template:
+    metadata:
+      labels:
+        app: agent-ops
+        component: agent
+    spec:
+      containers:
+        - name: agent-ops
+          image: ${DOCKER_REGISTRY}/agent-ops:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8083
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "k8s"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8083
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8083
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-ops
+  namespace: ai-mall
+  labels:
+    app: agent-ops
+    component: agent
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8083
+      targetPort: 8083
+      protocol: TCP
+  selector:
+    app: agent-ops
+---
+# ============================================================
+# agent-test
+# ============================================================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agent-test
+  namespace: ai-mall
+  labels:
+    app: agent-test
+    component: agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agent-test
+  template:
+    metadata:
+      labels:
+        app: agent-test
+        component: agent
+    spec:
+      containers:
+        - name: agent-test
+          image: ${DOCKER_REGISTRY}/agent-test:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8085
+              protocol: TCP
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "k8s"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8085
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8085
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent-test
+  namespace: ai-mall
+  labels:
+    app: agent-test
+    component: agent
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 8085
+      targetPort: 8085
+      protocol: TCP
+  selector:
+    app: agent-test

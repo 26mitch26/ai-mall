@@ -1,0 +1,91 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ai-gateway
+  profiles:
+    active: dev
+  cloud:
+    gateway:
+      routes:
+        - id: mall-admin
+          predicates:
+            - Path=/admin/**
+          uri: lb://mall-admin
+          filters:
+            - StripPrefix=0
+        - id: mall-portal
+          predicates:
+            - Path=/api/**
+          uri: lb://mall-portal
+          filters:
+            - StripPrefix=0
+        - id: mall-search
+          predicates:
+            - Path=/search/**
+          uri: lb://mall-search
+          filters:
+            - StripPrefix=0
+        - id: agent-customer
+          predicates:
+            - Path=/agent/customer/**
+          uri: lb://agent-customer
+          filters:
+            - StripPrefix=0
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOrigins: '*'
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+              - OPTIONS
+            allowedHeaders: '*'
+            allowCredentials: true
+            maxAge: 3600
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  security:
+    filter:
+      order: -100
+
+jwt:
+  tokenHeader: Authorization
+  secret: ${JWT_SECRET:default-dev-secret-change-in-prod}
+  expiration: 604800
+  tokenHead: 'Bearer '
+
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        slidingWindowSize: 100
+        permittedNumberOfCallsInHalfOpenState: 10
+        failureRateThreshold: 60
+        waitDurationInOpenState: 60s
+        permittedNumberOfCallsInClosedState: 100
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 3s
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,circuitbreakers,circuitbreakerslimevents
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.ai.mall.gateway: DEBUG
+    org.springframework.cloud.gateway: DEBUG

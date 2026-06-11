@@ -1,0 +1,48 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+  datasource:
+    url: jdbc:mysql://db:3306/mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=true&requireSSL=true
+    username: reader
+    password: ${DB_PASSWORD:?Set DB_PASSWORD}
+    druid:
+      initial-size: 5
+      min-idle: 10
+      max-active: 20
+      validation-query: SELECT 1
+      test-while-idle: true
+      test-on-borrow: false
+      test-on-return: false
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+      web-stat-filter:
+        enabled: false
+      stat-view-servlet:
+        enabled: false
+  data:
+    redis:
+      host: redis
+      database: 0
+      port: 6379
+      password: ${REDIS_PASSWORD:}
+      timeout: 300ms
+
+minio:
+  endpoint: http://192.168.3.101:9090
+  bucketName: mall
+  accessKey: ${MINIO_ACCESS_KEY:?Set MINIO_ACCESS_KEY}
+  secretKey: ${MINIO_SECRET_KEY:?Set MINIO_SECRET_KEY}
+
+logging:
+  file:
+    path: /var/logs
+  level:
+    root: info
+    com.ai.mall: info
+
+logstash:
+  host: logstash

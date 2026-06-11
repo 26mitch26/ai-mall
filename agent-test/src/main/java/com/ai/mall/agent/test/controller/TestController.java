@@ -1,0 +1,68 @@
+package com.ai.mall.agent.test.controller;
+
+import com.ai.mall.agent.test.model.TestReport;
+import com.ai.mall.agent.test.service.agent.TestAgent;
+import com.ai.mall.agent.test.service.report.TestReportGenerator;
+import com.ai.mall.agent.test.service.report.TestReportStore;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+
+@Slf4j
+@RestController
+@RequestMapping("/api/v1/test")
+@RequiredArgsConstructor
+@Tag(name = "自动化测试", description = "自动化测试接口")
+public class TestController {
+
+    private final TestAgent testAgent;
+    private final TestReportGenerator reportGenerator;
+    private final TestReportStore reportStore;
+
+    @PostMapping("/generate")
+    @Operation(summary = "生成并运行测试用例", description = "为指定模块自动发现API并生成/运行测试用例")
+    public TestReport generateAndRunTests(@RequestParam String module) {
+        log.info("Generating and running tests for module: {}", module);
+        return testAgent.runTests(module);
+    }
+
+    @GetMapping("/reports")
+    @Operation(summary = "获取所有测试报告", description = "获取所有已存储的测试报告列表")
+    public List<TestReport> getAllReports() {
+        log.debug("Fetching all test reports");
+        return reportStore.findAllAsList();
+    }
+
+    @GetMapping("/report/{reportId}")
+    @Operation(summary = "获取JSON格式报告", description = "获取指定测试报告的JSON格式")
+    public ResponseEntity<TestReport> getReport(@PathVariable String reportId) {
+        log.debug("Fetching report: {}", reportId);
+        TestReport report = reportStore.findById(reportId);
+        if (report == null) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(report);
+    }
+
+    @GetMapping("/report/{reportId}/html")
+    @Operation(summary = "获取HTML格式报告", description = "获取指定测试报告的HTML格式")
+    public ResponseEntity<String> getHtmlReport(@PathVariable String reportId) {
+        log.debug("Fetching HTML report: {}", reportId);
+        TestReport report = reportStore.findById(reportId);
+        if (report == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        String html = reportGenerator.generateHtmlReport(report);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_TYPE, MediaType.TEXT_HTML_VALUE + "; charset=utf-8")
+                .body(html);
+    }
+}

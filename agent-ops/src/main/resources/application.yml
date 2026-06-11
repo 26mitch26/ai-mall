@@ -1,0 +1,31 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: agent-ops
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: aiops-consumer
+      auto-offset-reset: earliest
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  data:
+    neo4j:
+      uri: bolt://localhost:7687
+      authentication:
+        username: neo4j
+        password: aiops_password
+
+aiops:
+  topics:
+    alerts: aiops.alerts
+    events: aiops.events
+    commands: aiops.commands
+    audit: aiops.audit
+
+logging:
+  level:
+    com.ai.mall.agent.ops: DEBUG

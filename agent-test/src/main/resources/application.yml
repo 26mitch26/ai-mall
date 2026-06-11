@@ -1,0 +1,43 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: agent-test
+
+  # Spring AI OpenAI configuration
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      chat:
+        options:
+          model: ${test.agent.ai.model:gpt-4o-mini}
+          temperature: ${test.agent.ai.temperature:0.3}
+
+test:
+  agent:
+    base-url: http://localhost:8080
+    offline-mode: false
+    connect-timeout: 5000
+    read-timeout: 10000
+    max-connections: 50
+    max-connections-per-route: 25
+    response-time-threshold-ms: 5000
+    modules:
+      - mall-admin
+      - mall-portal
+    ai:
+      enabled: false
+      model: gpt-4o-mini
+      temperature: 0.3
+
+# SpringDoc OpenAPI
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    com.ai.mall.agent.test: DEBUG
