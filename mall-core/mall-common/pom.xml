@@ -90,5 +90,25 @@
             <artifactId>logstash-logback-encoder</artifactId>
             <version>8.0</version>
         </dependency>
+
+        <!-- Testcontainers：基准测试与集成测试使用，运行时需要本地 Docker 环境 -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Redisson：仅缓存性能基准测试使用，纳入 test scope 避免污染运行时依赖 -->
+        <dependency>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson</artifactId>
+            <version>3.39.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>

@@ -300,6 +300,17 @@
                 </configuration>
             </plugin>
             <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!--
+                        标记为 benchmark 的测试依赖 Docker（Testcontainers 起 Redis）且耗时较长，
+                        默认不在常规构建中执行；需要时通过 mvn test -Dgroups=benchmark 手动触发。
+                    -->
+                    <excludedGroups>benchmark</excludedGroups>
+                </configuration>
+            </plugin>
+            <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
                 <version>0.8.12</version>

@@ -3,6 +3,7 @@ package com.ai.mall.common.benchmark;
 import com.ai.mall.common.service.RedisService;
 import com.ai.mall.common.service.impl.RedisServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.redisson.api.RedissonClient;
@@ -31,6 +32,7 @@ import static org.mockito.Mockito.*;
  * 断言QPS提升 >= 3倍（300%）
  */
 @Testcontainers
+@Tag("benchmark")
 class CachePerformanceTest {
 
     private static final String REDIS_IMAGE = "redis:7-alpine";

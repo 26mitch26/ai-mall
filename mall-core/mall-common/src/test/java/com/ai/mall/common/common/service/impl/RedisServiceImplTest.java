@@ -186,7 +186,9 @@ class RedisServiceImplTest {
     void testSAddWithExpiry() {
         when(setOperations.add("set1", "a")).thenReturn(1L);
         when(redisTemplate.expire("set1", 100L, TimeUnit.SECONDS)).thenReturn(true);
-        Long result = redisService.sAdd("set1", 100L, "a");
+        // 显式构造数组以命中 sAdd(String, long, Object...) 重载，
+        // 否则与 sAdd(String, Object...) 形成二义性，导致编译失败
+        Long result = redisService.sAdd("set1", 100L, new Object[]{"a"});
         assertEquals(1L, result);
     }
 
