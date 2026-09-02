@@ -77,6 +77,9 @@
 
         <!-- Testing -->
         <testcontainers.version>1.20.4</testcontainers.version>
+
+        <!-- 默认排除的测试分组：benchmark(压测)/integration(容器集成)，可用 -Dexcluded.groups=none 显式开启 -->
+        <excluded.groups>benchmark,integration</excluded.groups>
     </properties>
 
     <dependencyManagement>
@@ -310,7 +313,7 @@
                         需要时可覆盖：mvn test -Dgroups=benchmark,integration
                         （groups 与 excludedGroups 冲突时以显式 groups 为准需搭配 -DexcludedGroups=）
                     -->
-                    <excludedGroups>benchmark,integration</excludedGroups>
+                    <excludedGroups>${excluded.groups}</excludedGroups>
                 </configuration>
             </plugin>
             <plugin>

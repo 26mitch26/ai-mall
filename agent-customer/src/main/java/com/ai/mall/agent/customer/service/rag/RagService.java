@@ -667,6 +667,68 @@ public class RagService {
         }
 
         /**
+         * Parent-Child 分块：把 parent（句子级）块再切分为更短的 child 子块。
+         * <p>
+         * 检索用短子块（更聚焦、噪音小、BMM25 长度归一化更友好），命中的子块再回填其
+         * parent 完整上下文给生成阶段。解决"大块里混了多主题导致检索被稀释"的问题。
+         * 切分点优先落在中文逗号/顿号/分号/括号收尾等天然语义边界，尽量不切断词义。
+         *
+         * @param parentText 父块文本
+         * @param maxChild   子块最大字符数（<=0 时用默认 180）
+         * @return 子块列表（至少 1 块）
+         */
+        public static List<String> childBlocks(String parentText, int maxChild) {
+            if (parentText == null || parentText.isBlank()) {
+                return List.of();
+            }
+            int max = maxChild > 0 ? maxChild : 180;
+            int softMin = 18;
+
+            // 1) 按中文语义标点切段（,、；。！？ 及括号收尾），长句内部再按字符软切
+            List<String> segs = new ArrayList<>();
+            StringBuilder cur = new StringBuilder();
+            for (int i = 0; i < parentText.length(); i++) {
+                char c = parentText.charAt(i);
+                cur.append(c);
+                boolean boundary = c == '，' || c == '、' || c == '；' || c == '。'
+                        || c == '！' || c == '？' || c == ';' || c == ',' || c == ')'
+                        || c == '）' || c == '」' || c == '》' || c == '"' || c == '"';
+                if ((boundary && cur.toString().trim().length() >= softMin) || cur.length() >= 80) {
+                    if (!cur.toString().trim().isEmpty()) {
+                        segs.add(cur.toString().trim());
+                    }
+                    cur = new StringBuilder();
+                }
+            }
+            if (!cur.toString().trim().isEmpty()) {
+                segs.add(cur.toString().trim());
+            }
+
+            // 2) 贪心合并成 <= max 的语义子块
+            List<String> blocks = new ArrayList<>();
+            StringBuilder b = new StringBuilder();
+            for (String s : segs) {
+                if (b.length() + s.length() > max && b.length() > 0) {
+                    blocks.add(b.toString().trim());
+                    b = new StringBuilder();
+                }
+                b.append(s);
+            }
+            if (b.length() > 0) {
+                blocks.add(b.toString().trim());
+            }
+            if (blocks.isEmpty()) {
+                blocks.add(parentText.trim());
+            }
+            return blocks;
+        }
+
+        /** Parent-Child 子块（使用默认最大长度 180） */
+        public static List<String> childBlocks(String parentText) {
+            return childBlocks(parentText, 180);
+        }
+
+        /**
          * 分块时保留元信息（来源、位置、前后文关系）
          * <p>
          * 将原始文档按指定策略分块后，为每个分块附加：
@@ -756,18 +818,41 @@ public class RagService {
      */
     public class CrossEncoderReranker {
 
-        /** 特征权重配置 */
-        private static final double WEIGHT_QUERY_TERM_COVERAGE = 0.25;
-        private static final double WEIGHT_SEMANTIC_SIMILARITY = 0.30;
-        private static final double WEIGHT_BM25_SCORE = 0.20;
-        private static final double WEIGHT_POSITION_BONUS = 0.10;
-        private static final double WEIGHT_LENGTH_PENALTY = 0.05;
-        private static final double WEIGHT_QUERY_DOC_RATIO = 0.10;
-
         /** 长度惩罚的参考文档长度（超过此长度开始惩罚） */
         private static final double LENGTH_PENALTY_THRESHOLD = 512.0;
 
+        /** 默认特征权重（未显式配置时使用，与历史版本一致） */
+        private static final double DEFAULT_W_COVERAGE = 0.25;
+        private static final double DEFAULT_W_SEMANTIC = 0.30;
+        private static final double DEFAULT_W_BM25 = 0.20;
+        private static final double DEFAULT_W_POSITION = 0.10;
+        private static final double DEFAULT_W_LENGTH = 0.05;
+        private static final double DEFAULT_W_RATIO = 0.10;
+
+        private final double wCoverage;
+        private final double wSemantic;
+        private final double wBm25;
+        private final double wPosition;
+        private final double wLength;
+        private final double wRatio;
+
         public CrossEncoderReranker() {
+            this(DEFAULT_W_COVERAGE, DEFAULT_W_SEMANTIC, DEFAULT_W_BM25,
+                    DEFAULT_W_POSITION, DEFAULT_W_LENGTH, DEFAULT_W_RATIO);
+        }
+
+        /**
+         * 可注入特征权重构造器：生产默认用无参构造；评测/调优可显式传入领域权重，
+         * 在不改变默认行为的前提下验证权重对 top1 精度的影响（可解释、可复现）。
+         */
+        public CrossEncoderReranker(double wCoverage, double wSemantic, double wBm25,
+                                    double wPosition, double wLength, double wRatio) {
+            this.wCoverage = wCoverage;
+            this.wSemantic = wSemantic;
+            this.wBm25 = wBm25;
+            this.wPosition = wPosition;
+            this.wLength = wLength;
+            this.wRatio = wRatio;
         }
 
         /**
@@ -793,12 +878,12 @@ public class RagService {
                 double lengthPenalty = extractLengthPenalty(doc.getContent());
                 double queryDocRatio = extractQueryDocRatio(query, doc.getContent());
 
-                double rawScore = queryTermCoverage * WEIGHT_QUERY_TERM_COVERAGE
-                        + semanticSimilarity * WEIGHT_SEMANTIC_SIMILARITY
-                        + bm25Score * WEIGHT_BM25_SCORE
-                        + positionBonus * WEIGHT_POSITION_BONUS
-                        + lengthPenalty * WEIGHT_LENGTH_PENALTY
-                        + queryDocRatio * WEIGHT_QUERY_DOC_RATIO;
+                double rawScore = queryTermCoverage * wCoverage
+                        + semanticSimilarity * wSemantic
+                        + bm25Score * wBm25
+                        + positionBonus * wPosition
+                        + lengthPenalty * wLength
+                        + queryDocRatio * wRatio;
 
                 log.debug("文档[{}]特征: coverage={}, semantic={}, bm25={}, position={}, lengthPenalty={}, ratio={}, rawScore={}",
                         doc.getId(), String.format("%.4f", queryTermCoverage),
