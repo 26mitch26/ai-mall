@@ -7,6 +7,11 @@
 | 1 | Redis 缓存 QPS 提升 300% | 真实 MySQL 延迟（15~35ms）下 ≥ 3.0x | 商品查询 **12.83x**、对话记忆 **17.66x**（600%+ ~ 1700%+） | [cache-qps-validation.md](cache-qps-validation.md) | 见下文 §2 |
 | 2 | RAG 混合检索显著提升召回率 | 混合链路 Recall@1 显著高于纯向量基线 | Recall@1 **75.0% → 83.3%**（+8.3pp）、Recall@3 **91.7% → 100.0%**、MRR 0.823 → 0.910 | [rag-recall-validation.md](rag-recall-validation.md) | 见下文 §3 |
 | 3 | PDF/Word/HTML/TXT 非结构化知识自动化 | 一键把网页符号、扫描排版转为清洗后纯文本知识 | 4 类文件现场构造 → 解析 → 断言全绿 | [rag-recall-validation.md](rag-recall-validation.md#文档解析管线) | 见下文 §4 |
+| 4 | 语义检索升级：bge-m3 中文语义向量（实测） | 换语义 embedding 解锁词法 embedding 的召回天花板 | 纯向量 Recall@1 **75% → 87.5%**（Recall@3 100%、MRR 0.938）；规范标签 V5 达 91.7%（MRR 0.958）| [rag-recall-validation.md](rag-recall-validation.md#51-语义-embedding-实测) | 见下文 §5 |
+
+---
+
+> 📌 **面试叙事**：想讲"为什么这么改、否决了什么、深层洞察"的完整故事线，见 **[rag-interview-notes.md](rag-interview-notes.md)**（含"混合检索不一定优于纯向量"的反直觉实证）。
 
 ---
 
@@ -50,3 +55,14 @@ mvn -pl agent-customer test "-Dtest=KnowledgeParserTest" "-Djacoco.skip=true"
 
 - 解析器：[KnowledgeFileParser.java](../agent-customer/src/main/java/com/ai/mall/agent/customer/service/rag/KnowledgeFileParser.java)
 - 测试：[KnowledgeParserTest.java](../agent-customer/src/test/java/com/ai/mall/agent/customer/service/rag/KnowledgeParserTest.java)
+
+## §5 语义 Embedding 实测（bge-m3，需本机 Ollama 在线）
+
+```bash
+# 前置：本机 ollama serve 在线且已 ollama pull bge-m3
+mvn -pl agent-customer test "-Dtest=RagRecallSemanticTest" "-Drag.embed.model=bge-m3" "-Djacoco.skip=true"
+```
+
+- 完整链路与数据落盘 `agent-customer/target/rag-recall-semantic-report.txt`
+- 语义模型封装：[OllamaEmbeddingModel.java](../agent-customer/src/test/java/com/ai/mall/agent/customer/rag/OllamaEmbeddingModel.java)
+- 语义评测入口：[RagRecallSemanticTest.java](../agent-customer/src/test/java/com/ai/mall/agent/customer/rag/RagRecallSemanticTest.java)
