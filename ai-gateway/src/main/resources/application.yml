@@ -4,6 +4,10 @@ server:
 spring:
   application:
     name: ai-gateway
+  main:
+    # 父 POM 全局引入了 spring-boot-starter-web（WebMvc），
+    # 网关基于 WebFlux，必须显式声明为响应式应用，否则默认按 Servlet 模式启动导致路由不生效
+    web-application-type: reactive
   profiles:
     active: dev
   cloud:
@@ -12,25 +16,26 @@ spring:
         - id: mall-admin
           predicates:
             - Path=/admin/**
-          uri: lb://mall-admin
+          # 项目未引入注册中心，路由使用直连地址；容器部署时可用环境变量覆盖
+          uri: ${GATEWAY_ROUTE_ADMIN:http://localhost:8081}
           filters:
             - StripPrefix=0
         - id: mall-portal
           predicates:
             - Path=/api/**
-          uri: lb://mall-portal
+          uri: ${GATEWAY_ROUTE_PORTAL:http://localhost:8087}
           filters:
             - StripPrefix=0
         - id: mall-search
           predicates:
             - Path=/search/**
-          uri: lb://mall-search
+          uri: ${GATEWAY_ROUTE_SEARCH:http://localhost:8082}
           filters:
             - StripPrefix=0
         - id: agent-customer
           predicates:
             - Path=/agent/customer/**
-          uri: lb://agent-customer
+          uri: ${GATEWAY_ROUTE_CUSTOMER:http://localhost:8083}
           filters:
             - StripPrefix=0
       default-filters:

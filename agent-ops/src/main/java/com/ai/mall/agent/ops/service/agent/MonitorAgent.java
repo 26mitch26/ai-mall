@@ -17,9 +17,12 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * 监控Agent：基于3-Sigma + EWMA双算法投票的异常检测
  *
- * 投票机制：3-Sigma与EWMA任一算法单独触发不告警，需两算法均触发才告警，降低误报率约85%。
+ * 投票机制：3-Sigma与EWMA任一算法单独触发不告警，需两算法均触发才告警，以过滤单算法误报。
  * - 3-Sigma：基于滑动窗口计算真实均值和标准差，检测偏离3倍标准差的数据点
  * - EWMA：指数加权移动平均，对近期数据赋予更高权重，检测趋势性异常
+ * <p>
+ * ⚠️ 诚信提示：类内 85% 误报率下降等指标来自内置的【合成演示数据】（见
+ * {@link #initHistoricalData()}），并非真实线上回放；对外陈述请注明为 demo 数据。
  */
 @Slf4j
 @Service
@@ -54,15 +57,17 @@ public class MonitorAgent {
     private LocalDateTime historicalDataInitTime;
 
     /**
-     * 历史数据初始化：预加载基于真实运维场景的模拟检测数据集
+     * 历史数据初始化：预加载一组【合成演示数据】，用于展示双算法投票机制的过滤逻辑
      *
-     * 数据来源：基于线上6个月的异常检测数据回放，覆盖CPU/内存/磁盘/网络4类指标
-     * 数据集规模：1000条历史检测记录
-     * 数据分布：
-     *   - 约850次单算法触发（被投票过滤掉的误报）
-     *   - 约150次双算法同时触发（投票通过，发出告警）
-     *   - 其中约22次为人工确认的误报，128次为真实异常
-     * 核心指标：
+     * ⚠️ 诚信提示：以下 1000 条"历史检测记录"为内置的模拟数据（手工构造的比例关系），
+     * 并非来自线上回放或真实运行。85% 的误报率下降只是对这组假设数据的计算演示，
+     * 不能作为真实系统效果的证据；对外/简历表述应注明为 demo 数据。
+     *
+     * 合成数据分布：
+     *   - 850次单算法触发（被投票过滤）
+     *   - 150次双算法同时触发（发出告警）
+     *   - 其中22次人工确认误报、128次真实异常
+     * 演示指标：
      *   - 误报率降低 = 1 - 150/(850+150) = 85%
      *   - 实际误报率 = 22/(22+128) ≈ 14.7%
      */
@@ -70,17 +75,17 @@ public class MonitorAgent {
     public void initHistoricalData() {
         historicalDataInitTime = LocalDateTime.now();
 
-        // 各指标检测次数分布（模拟6个月线上数据回放）
-        // CPU指标：高频检测，约占总检测的35%
+        // 各指标检测次数分布（合成演示数据）
+        // CPU指标：演示占比 35%
         historicalMetricDistribution.put("cpu_usage", new AtomicLong(350));
-        // 内存指标：中频检测，约占总检测的30%
+        // 内存指标：演示占比 30%
         historicalMetricDistribution.put("memory_usage", new AtomicLong(300));
-        // 磁盘指标：低频检测，约占总检测的20%
+        // 磁盘指标：演示占比 20%
         historicalMetricDistribution.put("disk_usage", new AtomicLong(200));
-        // 网络指标：中低频检测，约占总检测的15%
+        // 网络指标：演示占比 15%
         historicalMetricDistribution.put("network_latency", new AtomicLong(150));
 
-        // 批量预加载历史检测统计数据（用循环批量写入AtomicLong，非逐条add）
+        // 批量预加载合成演示统计数据（用循环批量写入AtomicLong，非逐条add）
         // 单算法触发次数：850次（3-Sigma或EWMA单独触发，被投票机制过滤）
         stats.singleAlgorithmAlerts.addAndGet(850);
         // 双算法同时触发次数：150次（3-Sigma + EWMA均触发，投票通过发出告警）
@@ -92,11 +97,11 @@ public class MonitorAgent {
         // 真实异常次数：128次（告警后人工复核确认为真实异常）
         stats.truePositives.addAndGet(128);
 
-        log.info("[HistoricalData] Preloaded 1000 historical detection records from 6-month production data replay");
+        log.info("[HistoricalData] Preloaded 1000 SYNTHETIC demo records (NOT production data)");
         log.info("[HistoricalData] Distribution - CPU:350, Memory:300, Disk:200, Network:150");
         log.info("[HistoricalData] Single-algorithm alerts(filtered): 850, Dual-algorithm alerts(passed): 150");
         log.info("[HistoricalData] False positives: 22, True positives: 128");
-        log.info("[HistoricalData] False positive reduction rate: 85.00%, Actual false positive rate: 14.67%");
+        log.info("[HistoricalData] Demo reduction rate: 85.00%, Demo actual false positive rate: 14.67%");
     }
 
     /**
@@ -156,8 +161,8 @@ public class MonitorAgent {
     }
 
     /**
-     * 异常检测统计内部类：记录3-Sigma + EWMA双算法投票的检测统计数据，
-     * 为"降低误报率85%"提供真实运行数据支撑。
+     * 异常检测统计内部类：记录3-Sigma + EWMA双算法投票的检测统计数据。
+     * 初始基数来自合成演示数据（见 {@link #initHistoricalData()}），运行中的实时检测会持续累计。
      *
      * 核心公式：误报率降低比例 = 1 - (双算法同时触发次数 / 单算法触发次数)
      * 即：双算法投票机制过滤掉了多少比例的单算法误报
@@ -428,8 +433,8 @@ public class MonitorAgent {
     }
 
     /**
-     * 定时统计报告：每小时输出3-Sigma + EWMA双算法投票的误报率降低数据
-     * 为"降低误报率85%"提供真实运行数据支撑
+     * 定时统计报告：每小时输出3-Sigma + EWMA双算法投票的统计指标。
+     * 注意：摘要中包含合成演示数据，不代表真实生产指标。
      */
     @Scheduled(fixedRate = 3600000) // 每小时执行一次
     public void reportDetectionStats() {
@@ -451,11 +456,11 @@ public class MonitorAgent {
         log.info("Actual false positive rate (by human feedback): {:.2f}%", actualFPRate);
         log.info("Pending alerts awaiting confirmation: {}", pendingAlerts.size());
 
-        // 历史数据摘要
-        log.info("----- Historical Data Summary (6-month production replay) -----");
-        log.info("Historical records preloaded: 1000 (CPU:350, Memory:300, Disk:200, Network:150)");
-        log.info("Historical false positive reduction rate: 85.00% (850 single-filtered / 150 dual-passed)");
-        log.info("Historical actual false positive rate: 14.67% (22 FP / 150 alerts with human feedback)");
+        // 历史数据摘要（合成演示数据，非生产回放）
+        log.info("----- Historical Demo Data Summary (SYNTHETIC, not production) -----");
+        log.info("Demo records preloaded: 1000 (CPU:350, Memory:300, Disk:200, Network:150)");
+        log.info("Demo false positive reduction rate: 85.00% (850 single-filtered / 150 dual-passed)");
+        log.info("Demo actual false positive rate: 14.67% (22 FP / 150 alerts with human feedback)");
         log.info("==============================================================");
     }
 }

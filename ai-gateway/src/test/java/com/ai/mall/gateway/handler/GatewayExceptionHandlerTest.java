@@ -47,16 +47,16 @@ class GatewayExceptionHandlerTest {
     void setUp() {
         handler = new GatewayExceptionHandler();
         lenient().when(exchange.getRequest()).thenReturn(request);
+        lenient().when(exchange.getResponse()).thenReturn(response);
         lenient().when(request.getURI()).thenReturn(URI.create("/api/test"));
         lenient().when(response.isCommitted()).thenReturn(false);
     }
 
     @Test
     void testHandleNotFoundException() {
-        when(response.getStatusCode()).thenReturn(null);
         when(response.getHeaders()).thenReturn(new org.springframework.http.HttpHeaders());
         when(response.bufferFactory()).thenReturn(new DefaultDataBufferFactory());
-        when(response.writeWith(any(DataBuffer.class))).thenReturn(Mono.empty());
+        when(response.writeWith(any(org.reactivestreams.Publisher.class))).thenReturn(Mono.empty());
 
         NotFoundException ex = new NotFoundException("Service not found");
         Mono<Void> result = handler.handle(exchange, ex);
@@ -71,10 +71,9 @@ class GatewayExceptionHandlerTest {
 
     @Test
     void testHandleResponseStatusException() {
-        when(response.getStatusCode()).thenReturn(null);
         when(response.getHeaders()).thenReturn(new org.springframework.http.HttpHeaders());
         when(response.bufferFactory()).thenReturn(new DefaultDataBufferFactory());
-        when(response.writeWith(any(DataBuffer.class))).thenReturn(Mono.empty());
+        when(response.writeWith(any(org.reactivestreams.Publisher.class))).thenReturn(Mono.empty());
 
         ResponseStatusException ex = new ResponseStatusException(HttpStatus.BAD_REQUEST, "参数错误");
         Mono<Void> result = handler.handle(exchange, ex);
@@ -85,10 +84,9 @@ class GatewayExceptionHandlerTest {
 
     @Test
     void testHandleGenericException() {
-        when(response.getStatusCode()).thenReturn(null);
         when(response.getHeaders()).thenReturn(new org.springframework.http.HttpHeaders());
         when(response.bufferFactory()).thenReturn(new DefaultDataBufferFactory());
-        when(response.writeWith(any(DataBuffer.class))).thenReturn(Mono.empty());
+        when(response.writeWith(any(org.reactivestreams.Publisher.class))).thenReturn(Mono.empty());
 
         RuntimeException ex = new RuntimeException("数据库连接失败");
         Mono<Void> result = handler.handle(exchange, ex);
@@ -109,13 +107,13 @@ class GatewayExceptionHandlerTest {
 
     @Test
     void testResponseBody_NotFoundException() throws Exception {
-        when(response.getStatusCode()).thenReturn(null);
         when(response.getHeaders()).thenReturn(new org.springframework.http.HttpHeaders());
         when(response.bufferFactory()).thenReturn(new DefaultDataBufferFactory());
 
         // Capture the DataBuffer written to response
-        when(response.writeWith(any(DataBuffer.class))).thenAnswer(invocation -> {
-            DataBuffer buffer = invocation.getArgument(0);
+        when(response.writeWith(any(org.reactivestreams.Publisher.class))).thenAnswer(invocation -> {
+            org.reactivestreams.Publisher<? extends DataBuffer> pub = invocation.getArgument(0);
+            DataBuffer buffer = Mono.from(pub).block();
             byte[] bytes = new byte[buffer.readableByteCount()];
             buffer.read(bytes);
             String body = new String(bytes, StandardCharsets.UTF_8);
@@ -132,12 +130,12 @@ class GatewayExceptionHandlerTest {
 
     @Test
     void testResponseBody_GenericException() throws Exception {
-        when(response.getStatusCode()).thenReturn(null);
         when(response.getHeaders()).thenReturn(new org.springframework.http.HttpHeaders());
         when(response.bufferFactory()).thenReturn(new DefaultDataBufferFactory());
 
-        when(response.writeWith(any(DataBuffer.class))).thenAnswer(invocation -> {
-            DataBuffer buffer = invocation.getArgument(0);
+        when(response.writeWith(any(org.reactivestreams.Publisher.class))).thenAnswer(invocation -> {
+            org.reactivestreams.Publisher<? extends DataBuffer> pub = invocation.getArgument(0);
+            DataBuffer buffer = Mono.from(pub).block();
             byte[] bytes = new byte[buffer.readableByteCount()];
             buffer.read(bytes);
             String body = new String(bytes, StandardCharsets.UTF_8);

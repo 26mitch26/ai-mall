@@ -1,3 +1,6 @@
+server:
+  port: 8081 # 与 ai-gateway(8080) 及其他模块端口错开，避免冲突
+
 spring:
   application:
     name: mall-admin

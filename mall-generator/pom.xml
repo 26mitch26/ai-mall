@@ -56,12 +56,10 @@
         </dependency>
     </dependencies>
 
+    <!-- mall-generator 为代码生成工具模块，无可执行主类，
+         不引入 spring-boot-maven-plugin 的 repackage -->
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
         </plugins>
     </build>
 </project>

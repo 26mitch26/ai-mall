@@ -4,6 +4,7 @@ import com.ai.mall.dao.PmsMemberPriceDao;
 import com.ai.mall.dao.PmsProductDao;
 import com.ai.mall.dto.PmsProductResult;
 import com.ai.mall.model.PmsMemberPrice;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,9 +26,11 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/** 依赖 Docker（Testcontainers 启动 MySQL/Redis），默认构建不执行（见 surefire excludedGroups） */
 @SpringBootTest
 @Testcontainers
 @ActiveProfiles("test")
+@Tag("integration")
 class MallIntegrationTest {
 
     @Container

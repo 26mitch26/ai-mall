@@ -1,5 +1,5 @@
 server:
-  port: 8084
+  port: 8086 # 避免与 agent-ops(8084) 冲突
 
 spring:
   application:

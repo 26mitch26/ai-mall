@@ -2,6 +2,7 @@ package com.ai.mall.agent.test.integration;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.redis.connection.RedisConnection;
@@ -33,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 @SpringBootTest
 @Testcontainers
+@Tag("integration")
 @DisplayName("Testcontainers集成测试")
 public class IntegrationTest {
 

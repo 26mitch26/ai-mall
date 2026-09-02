@@ -6,6 +6,7 @@ import com.ai.mall.dao.PmsMemberPriceDao;
 import com.ai.mall.dao.PmsProductDao;
 import com.ai.mall.dto.PmsProductResult;
 import com.ai.mall.model.PmsMemberPrice;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +21,9 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/** 需要真实 MySQL 的 DAO 集成测试，默认构建不执行（见 surefire excludedGroups） */
 @SpringBootTest
+@Tag("integration")
 public class PmsDaoTests {
     @Autowired
     private PmsMemberPriceDao memberPriceDao;

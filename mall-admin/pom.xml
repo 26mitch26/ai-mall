@@ -73,11 +73,8 @@
             <artifactId>mysql</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>redis</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <!-- 注意：自 Testcontainers 1.20.0 起 redis 模块不再随主版本发布（独立版本线），
+            本模块测试使用 GenericContainer 启动 Redis，因此无需该 artifact -->
     </dependencies>
 
     <build>

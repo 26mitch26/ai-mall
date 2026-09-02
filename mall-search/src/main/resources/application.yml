@@ -8,7 +8,7 @@ spring:
       matching-strategy: ant_path_matcher
 
 server:
-  port: 8081
+  port: 8082 # 避免与 mall-admin(8081) 冲突
 
 mybatis:
   mapper-locations:

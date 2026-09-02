@@ -304,10 +304,13 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <!--
-                        标记为 benchmark 的测试依赖 Docker（Testcontainers 起 Redis）且耗时较长，
-                        默认不在常规构建中执行；需要时通过 mvn test -Dgroups=benchmark 手动触发。
+                        需要 Docker 的测试分组默认不参与常规构建：
+                        - benchmark：性能基准测试（Testcontainers 起 Redis，耗时且不稳定）
+                        - integration：Testcontainers 集成测试（起 MySQL/Redis 容器）
+                        需要时可覆盖：mvn test -Dgroups=benchmark,integration
+                        （groups 与 excludedGroups 冲突时以显式 groups 为准需搭配 -DexcludedGroups=）
                     -->
-                    <excludedGroups>benchmark</excludedGroups>
+                    <excludedGroups>benchmark,integration</excludedGroups>
                 </configuration>
             </plugin>
             <plugin>

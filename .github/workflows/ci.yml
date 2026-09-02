@@ -32,7 +32,7 @@ jobs:
         run: mvn compile -DskipTests=true --no-transfer-progress
 
       - name: Run tests (core modules)
-        run: mvn test -pl mall-core/mall-common,mall-core/mall-security,mall-core/mall-admin,mall-core/mall-portal,ai-gateway,agent-test --no-transfer-progress
+        run: mvn test -pl mall-core/mall-common,mall-core/mall-security,mall-admin,mall-portal,ai-gateway,agent-test -am --no-transfer-progress
 
       - name: Upload test results
         if: always()

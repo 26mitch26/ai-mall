@@ -227,7 +227,7 @@ services:
   mall-admin:
     build:
       context: ..
-      dockerfile: mall-core/mall-admin/Dockerfile
+      dockerfile: mall-admin/Dockerfile
     container_name: ai-mall-admin
     ports:
       - "8080:8080"
@@ -257,7 +257,7 @@ services:
   mall-portal:
     build:
       context: ..
-      dockerfile: mall-core/mall-portal/Dockerfile
+      dockerfile: mall-portal/Dockerfile
     container_name: ai-mall-portal
     ports:
       - "8081:8081"
@@ -287,7 +287,7 @@ services:
   mall-search:
     build:
       context: ..
-      dockerfile: mall-core/mall-search/Dockerfile
+      dockerfile: mall-search/Dockerfile
     container_name: ai-mall-search
     ports:
       - "8082:8082"

@@ -29,11 +29,13 @@ class JwtSecurityValidatorTest {
     }
 
     @Test
-    void testDefaultSecretLengthIsShort() {
-        // The default secret is 31 chars, below 32-char minimum
-        assertTrue(DEFAULT_SECRET.length() < 32,
-                "Default secret is below minimum length - this triggers a warning");
-        assertEquals(31, DEFAULT_SECRET.length());
+    void testDefaultSecretLength() {
+        // 默认开发密钥实际为 33 字符（>= 32 最小长度，历史版本注释误记为 31）。
+        // 生产环境的风险由 JwtSecurityValidator 的「secret 等于默认占位值」检测兜底，
+        // 与长度检查共同构成双保险；此用例锁定真实长度，防止占位符被意外改短。
+        assertEquals(33, DEFAULT_SECRET.length(),
+                "默认密钥长度应与 application.yml / JwtSecurityValidator 常量一致");
+        assertTrue(DEFAULT_SECRET.length() >= 32);
     }
 
     @Test

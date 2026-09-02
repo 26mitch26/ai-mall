@@ -1,169 +1,120 @@
 package com.ai.mall.agent.ops.service.event;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.kafka.core.KafkaTemplate;
 
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
+/**
+ * EventBus 单元测试
+ * <p>
+ * 语义说明：EventBus 的发布链路为「publish → Kafka → @KafkaListener 回调 →
+ * dispatchToLocalSubscribers 本地分发」。单测不依赖真实 Kafka：
+ * - 发布侧：验证消息被发送到正确的 Kafka topic
+ * - 订阅侧：通过调用对应 topic 的 listener 方法模拟「Kafka 收到消息后的回调分发」
+ */
+@ExtendWith(MockitoExtension.class)
 class EventBusTest {
+
+    @Mock
+    private KafkaTemplate<String, String> kafkaTemplate;
 
     private EventBus eventBus;
 
     @BeforeEach
     void setUp() {
-        eventBus = new EventBus();
+        eventBus = new EventBus(kafkaTemplate, new ObjectMapper());
     }
 
     @Test
-    void testPublishToSubscribedTopic() {
-        AtomicInteger counter = new AtomicInteger(0);
-
-        eventBus.subscribe("test.topic", event -> counter.incrementAndGet());
+    void testPublishSendsEventToKafkaTopic() {
         eventBus.publish("test.topic", "hello");
 
-        assertEquals(1, counter.get());
+        verify(kafkaTemplate).send(eq("test.topic"), eq("\"hello\""));
     }
 
     @Test
-    void testPublishToMultipleSubscribers() {
-        AtomicInteger counter1 = new AtomicInteger(0);
-        AtomicInteger counter2 = new AtomicInteger(0);
+    void testPublishByEventTypeRoutesToMappedTopic() {
+        eventBus.publish(EventBus.EventType.ALERT, "{\"level\":\"high\"}");
 
-        eventBus.subscribe("test.topic", event -> counter1.incrementAndGet());
-        eventBus.subscribe("test.topic", event -> counter2.incrementAndGet());
-        eventBus.publish("test.topic", "hello");
-
-        assertEquals(1, counter1.get());
-        assertEquals(1, counter2.get());
+        verify(kafkaTemplate).send(eq(EventBus.AIOPS_ALERTS), anyString());
     }
 
     @Test
-    void testPublishToUnsubscribedTopicDoesNothing() {
-        eventBus.subscribe("topic.a", event -> { throw new RuntimeException("Should not be called"); });
-        // Publishing to a different topic should not trigger the subscriber
-        eventBus.publish("topic.b", "data");
-        // If no exception is thrown, the test passes
-    }
-
-    @Test
-    void testSubscriberReceivesCorrectEvent() {
+    void testListenerDispatchToLocalSubscribers() {
         AtomicInteger counter = new AtomicInteger(0);
-        String[] receivedEvent = new String[1];
+        String[] received = new String[1];
 
-        eventBus.subscribe("test.topic", event -> {
+        eventBus.subscribe(EventBus.AIOPS_ALERTS, event -> {
             counter.incrementAndGet();
-            receivedEvent[0] = (String) event;
+            received[0] = (String) event;
         });
 
-        eventBus.publish("test.topic", "expected-data");
+        // 模拟 Kafka 收到 alerts topic 的消息后触发回调
+        eventBus.onAlert("alert-payload");
 
         assertEquals(1, counter.get());
-        assertEquals("expected-data", receivedEvent[0]);
+        assertEquals("alert-payload", received[0]);
     }
 
     @Test
-    void testSubscriberErrorDoesNotPropagate() {
-        eventBus.subscribe("test.topic", event -> { throw new RuntimeException("Subscriber error"); });
-        // This should not throw
-        assertDoesNotThrow(() -> eventBus.publish("test.topic", "data"));
-    }
+    void testListenerDispatchIsFilteredByTopic() {
+        AtomicInteger counter = new AtomicInteger(0);
 
-    @Test
-    void testMultipleTopicsAreIndependent() {
-        AtomicInteger topicACounter = new AtomicInteger(0);
-        AtomicInteger topicBCounter = new AtomicInteger(0);
+        // 只订阅 EVENTS topic
+        eventBus.subscribe(EventBus.AIOPS_EVENTS, event -> counter.incrementAndGet());
 
-        eventBus.subscribe("topic.a", event -> topicACounter.incrementAndGet());
-        eventBus.subscribe("topic.b", event -> topicBCounter.incrementAndGet());
+        // alerts topic 的消息不应触发 events 的订阅者
+        eventBus.onAlert("alert-payload");
+        assertEquals(0, counter.get());
 
-        eventBus.publish("topic.a", "data");
-        assertEquals(1, topicACounter.get());
-        assertEquals(0, topicBCounter.get());
-
-        eventBus.publish("topic.b", "data");
-        assertEquals(1, topicACounter.get());
-        assertEquals(1, topicBCounter.get());
-    }
-
-    @Test
-    void testConcurrentEventHandling() throws InterruptedException {
-        int threadCount = 10;
-        int eventsPerThread = 20;
-        AtomicInteger totalReceived = new AtomicInteger(0);
-        CountDownLatch latch = new CountDownLatch(threadCount);
-
-        eventBus.subscribe("concurrent.topic", event -> {
-            totalReceived.incrementAndGet();
-        });
-
-        for (int i = 0; i < threadCount; i++) {
-            final int threadId = i;
-            new Thread(() -> {
-                try {
-                    for (int j = 0; j < eventsPerThread; j++) {
-                        eventBus.publish("concurrent.topic", "event-" + threadId + "-" + j);
-                    }
-                } finally {
-                    latch.countDown();
-                }
-            }).start();
-        }
-
-        boolean completed = latch.await(5, TimeUnit.SECONDS);
-        assertTrue(completed, "Concurrent events should complete within timeout");
-        assertEquals(threadCount * eventsPerThread, totalReceived.get());
-    }
-
-    @Test
-    void testConcurrentSubscribeAndPublish() throws InterruptedException {
-        AtomicInteger received = new AtomicInteger(0);
-        CountDownLatch latch = new CountDownLatch(2);
-
-        // Thread 1: subscribe
-        new Thread(() -> {
-            eventBus.subscribe("dynamic.topic", event -> received.incrementAndGet());
-            latch.countDown();
-        }).start();
-
-        // Thread 2: publish
-        new Thread(() -> {
-            eventBus.publish("dynamic.topic", "data");
-            latch.countDown();
-        }).start();
-
-        boolean completed = latch.await(5, TimeUnit.SECONDS);
-        assertTrue(completed, "Concurrent subscribe and publish should complete");
-    }
-
-    @Test
-    void testSameSubscriberReceivesMultiplePublishes() {
-        ConcurrentLinkedQueue<String> received = new ConcurrentLinkedQueue<>();
-
-        eventBus.subscribe("test.topic", event -> received.add((String) event));
-
-        eventBus.publish("test.topic", "first");
-        eventBus.publish("test.topic", "second");
-        eventBus.publish("test.topic", "third");
-
-        assertEquals(3, received.size());
-        assertTrue(received.contains("first"));
-        assertTrue(received.contains("second"));
-        assertTrue(received.contains("third"));
+        eventBus.onEvent("event-payload");
+        assertEquals(1, counter.get());
     }
 
     @Test
     void testOneFailingSubscriberDoesNotAffectOthers() {
         AtomicInteger successCounter = new AtomicInteger(0);
 
-        eventBus.subscribe("test.topic", event -> { throw new RuntimeException("Failing subscriber"); });
-        eventBus.subscribe("test.topic", event -> successCounter.incrementAndGet());
+        eventBus.subscribe(EventBus.AIOPS_ALERTS, event -> { throw new RuntimeException("Failing subscriber"); });
+        eventBus.subscribe(EventBus.AIOPS_ALERTS, event -> successCounter.incrementAndGet());
 
-        assertDoesNotThrow(() -> eventBus.publish("test.topic", "data"));
+        // 单个订阅者抛异常不应影响其他订阅者，也不应向上传播
+        assertDoesNotThrow(() -> eventBus.onAlert("data"));
         assertEquals(1, successCounter.get());
+    }
+
+    @Test
+    void testSameSubscriberReceivesMultipleEvents() {
+        AtomicInteger counter = new AtomicInteger(0);
+
+        eventBus.subscribe(EventBus.AIOPS_COMMANDS, event -> counter.incrementAndGet());
+
+        eventBus.onCommand("cmd-1");
+        eventBus.onCommand("cmd-2");
+        eventBus.onCommand("cmd-3");
+
+        assertEquals(3, counter.get());
+    }
+
+    @Test
+    void testUnknownEventTypeFallsBackToDefaultTopic() {
+        // 枚举外不存在的类型不会编译，这里只验证 publish(String) 不经过类型路由
+        eventBus.publish("custom.topic", "payload");
+
+        verify(kafkaTemplate).send(eq("custom.topic"), anyString());
+        // 自定义 topic 不应误发到预定义 Kafka topic
+        verify(kafkaTemplate, never()).send(eq(EventBus.AIOPS_ALERTS), anyString());
     }
 }

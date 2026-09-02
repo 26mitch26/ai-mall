@@ -2,12 +2,14 @@ package com.ai.mall.demo;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ai.mall.model.PmsProduct;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
+@Tag("integration")
 public class MallDemoApplicationTests {
 	private Logger logger = LoggerFactory.getLogger(MallDemoApplicationTests.class);
 	@Test

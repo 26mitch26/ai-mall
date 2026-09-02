@@ -17,7 +17,8 @@ spring:
       uri: bolt://localhost:7687
       authentication:
         username: neo4j
-        password: aiops_password
+        # 与 docker-compose 的 NEO4J_AUTH 保持一致，支持环境变量覆盖
+        password: ${NEO4J_PASSWORD:neo4j123}
 
 aiops:
   topics:

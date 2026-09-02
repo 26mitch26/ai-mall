@@ -42,6 +42,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- Spring Data Redis：集成测试验证记忆/缓存链路使用 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- JUnit 5 -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -61,18 +68,16 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Testcontainers -->
+        <!-- Testcontainers（注意：自 1.20.0 起 redis 模块独立版本线发布，此处用 GenericContainer 启动 Redis） -->
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>mysql</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>redis</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <!-- SpringDoc -->
