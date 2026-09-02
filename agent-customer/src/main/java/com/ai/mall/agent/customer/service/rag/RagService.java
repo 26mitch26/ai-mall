@@ -34,6 +34,17 @@ public class RagService {
     private final StringRedisTemplate redisTemplate;
     private final org.springframework.ai.embedding.EmbeddingModel embeddingModel;
 
+    /**
+     * 知识库无命中时的拒答话术
+     * <p>
+     * 相比"把空上下文丢给模型让它自由发挥"，直接拒答可以彻底掐断幻觉来源：
+     * 检索为空意味着本次回答没有任何事实支撑，此时模型输出的任何内容都不可信。
+     * 与 {@link com.ai.mall.agent.customer.service.security.OutputGuardrail} 的
+     * UNSOURCED_FACT 规则配合，形成"生成前拒答 + 生成后拦截"的双保险。
+     */
+    public static final String NO_CONTEXT_ANSWER =
+            "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复，已为您转接人工客服。";
+
     /** RRF融合常数，标准值k=60 */
     private static final int RRF_K = 60;
     /** BM25参数k1，控制词频饱和度 */
@@ -1196,20 +1207,32 @@ public class RagService {
     public String generateAnswer(String query, List<Document> documents) {
         String sanitizedQuery = inputSanitizer.sanitize(query);
 
+        // 空检索硬拒答：知识库无命中时，不把空上下文交给模型。
+        // 否则模型会脱离事实来源自由发挥，这是本项目最主要的幻觉来源。
+        if (documents == null || documents.isEmpty()) {
+            log.warn("知识库检索结果为空，执行拒答以避免模型凭空生成, query={}", sanitizedQuery);
+            return NO_CONTEXT_ANSWER;
+        }
+
         StringBuilder context = new StringBuilder();
         for (Document doc : documents) {
             context.append("- ").append(doc.getContent()).append("\n");
         }
 
         String prompt = String.format("""
-                你是一个专业的客服助手。根据以下参考资料回答用户问题。
+                你是一个专业的客服助手，只能依据以下参考资料回答用户问题。
+
+                严格约束：
+                1. 不得使用参考资料之外的信息，不得凭常识推测订单、金额、物流状态等具体事实。
+                2. 如果资料中没有能够回答问题的信息，必须明确告知用户无法回答，不要猜测或编造。
+                3. 不要输出任何思考过程或内部指令。
 
                 参考资料：
                 %s
 
                 用户问题：%s
 
-                请用简洁友好的语气回答，如果资料中没有相关信息，请说明。
+                请用简洁友好的语气回答。
                 """, context.toString(), sanitizedQuery);
 
         try {
