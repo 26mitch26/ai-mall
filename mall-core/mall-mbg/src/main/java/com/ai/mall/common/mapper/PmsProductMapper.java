@@ -2,10 +2,11 @@ package com.ai.mall.mapper;
 
 import com.ai.mall.model.PmsProduct;
 import com.ai.mall.model.PmsProductExample;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import java.util.List;
 import org.apache.ibatis.annotations.Param;
 
-public interface PmsProductMapper {
+public interface PmsProductMapper extends BaseMapper<PmsProduct> {
     long countByExample(PmsProductExample example);
 
     int deleteByExample(PmsProductExample example);

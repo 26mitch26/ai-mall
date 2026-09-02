@@ -17,6 +17,13 @@
     <description>智能运维Agent - 多Agent协作架构</description>
 
     <dependencies>
+        <!-- Mall Common (模型熔断器) -->
+        <dependency>
+            <groupId>com.ai.mall</groupId>
+            <artifactId>mall-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Spring AI -->
         <dependency>
             <groupId>org.springframework.ai</groupId>

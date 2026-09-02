@@ -240,7 +240,7 @@ public class OpenApiConfig {
     /**
      * Fallback API definitions when the OpenAPI endpoint is unreachable.
      */
-    private List<ApiDefinition> getFallbackApiDefinitions() {
+    public List<ApiDefinition> getFallbackApiDefinitions() {
         log.info("Using fallback API definitions");
         List<ApiDefinition> apis = new ArrayList<>();
 

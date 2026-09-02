@@ -114,6 +114,9 @@ public class PmsProduct implements Serializable {
 
     private String detailDesc;
 
+    @Schema(title = "创建时间")
+    private Date createTime;
+
     @Schema(title = "产品详情网页内容")
     private String detailHtml;
 
@@ -440,6 +443,14 @@ public class PmsProduct implements Serializable {
 
     public void setDetailDesc(String detailDesc) {
         this.detailDesc = detailDesc;
+    }
+
+    public Date getCreateTime() {
+        return createTime;
+    }
+
+    public void setCreateTime(Date createTime) {
+        this.createTime = createTime;
     }
 
     public String getDetailHtml() {

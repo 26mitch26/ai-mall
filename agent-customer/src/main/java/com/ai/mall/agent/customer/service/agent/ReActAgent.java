@@ -6,8 +6,11 @@ import com.ai.mall.agent.customer.service.memory.MemoryService;
 import com.ai.mall.agent.customer.service.rag.RagService;
 import com.ai.mall.agent.customer.service.security.InputSanitizer;
 import com.ai.mall.agent.customer.service.tool.ToolRegistry;
+import com.ai.mall.common.common.circuitbreaker.ModelCircuitBreaker;
+import com.ai.mall.common.common.circuitbreaker.ModelRouterService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.openai.OpenAiChatModel;
@@ -21,6 +24,7 @@ import java.util.List;
 public class ReActAgent {
 
     private final OpenAiChatModel mimoChatModel;
+    private final ModelRouterService modelRouterService;
     private final ToolRegistry toolRegistry;
     private final MemoryService memoryService;
     private final RagService ragService;
@@ -28,6 +32,19 @@ public class ReActAgent {
     private final InputSanitizer inputSanitizer;
 
     private static final int MAX_ITERATIONS = 5;
+
+    /**
+     * 初始化模型路由：注册MiMo主模型和本地RAG降级模型调用器
+     */
+    @PostConstruct
+    public void initModelRouter() {
+        modelRouterService.registerMimoCaller(prompt -> mimoChatModel.call(prompt));
+        modelRouterService.registerLocalCaller(prompt -> {
+            log.warn("MiMo模型不可用，降级使用RAG本地检索生成回答");
+            return ragService.generateAnswer(prompt, ragService.retrieve(prompt, 3));
+        });
+        log.info("ReActAgent模型路由初始化完成，MiMo主模型 + RAG本地降级模型已注册");
+    }
 
     public String think(String sessionId, String query) {
         log.info("ReAct Agent thinking for session: {}, query: {}", sessionId, query);
@@ -69,8 +86,15 @@ public class ReActAgent {
         for (int i = 0; i < MAX_ITERATIONS; i++) {
             log.info("ReAct iteration: {}", i + 1);
 
-            String response = mimoChatModel.call(systemPrompt + "\n" + userMessage);
-            log.info("Agent response: {}", response);
+            // 通过熔断器路由调用模型，MiMo不可用时自动降级到本地模型
+            String selectedModel = modelRouterService.route();
+            ModelCircuitBreaker.CircuitState mimoState = modelRouterService.getMimoCircuitBreaker().getState();
+            if (mimoState != ModelCircuitBreaker.CircuitState.CLOSED) {
+                log.warn("MiMo熔断器状态: {}，当前路由到: {}模型，发生降级", mimoState, selectedModel);
+            }
+
+            String response = modelRouterService.callWithFallback(systemPrompt + "\n" + userMessage);
+            log.info("Agent response (model={}): {}", selectedModel, response);
 
             if (response.contains("Final Answer:")) {
                 String answer = response.substring(response.indexOf("Final Answer:") + 13).trim();

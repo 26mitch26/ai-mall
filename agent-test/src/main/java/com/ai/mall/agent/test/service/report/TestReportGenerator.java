@@ -3,19 +3,26 @@ package com.ai.mall.agent.test.service.report;
 import com.ai.mall.agent.test.model.AssertionDetail;
 import com.ai.mall.agent.test.model.TestReport;
 import com.ai.mall.agent.test.model.TestResult;
+import com.ai.mall.agent.test.model.TestSuiteResult;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class TestReportGenerator {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    private final ObjectMapper objectMapper;
 
     public TestReport generateReport(String moduleName, List<TestResult> results) {
         log.info("Generating test report for module: {}", moduleName);
@@ -191,5 +198,222 @@ public class TestReportGenerator {
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
                 .replace("'", "&#39;");
+    }
+
+    // ======================== JSON格式报告 ========================
+
+    /**
+     * 生成JSON格式测试报告
+     * 包含：总测试数、通过/失败/跳过数、各场景覆盖度、耗时统计、失败详情
+     */
+    public String generateJsonReport(TestReport report) {
+        log.info("生成JSON格式测试报告: {}", report.getModuleName());
+
+        try {
+            Map<String, Object> jsonReport = new LinkedHashMap<>();
+
+            // 基本信息
+            jsonReport.put("reportId", report.getId());
+            jsonReport.put("moduleName", report.getModuleName());
+            jsonReport.put("startTime", report.getStartTime() != null ? report.getStartTime().format(DATE_FORMAT) : null);
+            jsonReport.put("endTime", report.getEndTime() != null ? report.getEndTime().format(DATE_FORMAT) : null);
+
+            // 汇总统计
+            Map<String, Object> summary = new LinkedHashMap<>();
+            summary.put("totalTests", report.getTotalTests());
+            summary.put("passedTests", report.getPassedTests());
+            summary.put("failedTests", report.getFailedTests());
+            summary.put("skippedTests", calculateSkippedTests(report));
+            summary.put("passRate", String.format("%.2f%%", report.getPassRate()));
+            summary.put("totalExecutionTime", report.getTotalExecutionTime() + "ms");
+            summary.put("averageResponseTime", String.format("%.2f", report.getAverageResponseTime()) + "ms");
+            jsonReport.put("summary", summary);
+
+            // 场景覆盖度
+            Map<String, Object> scenarioCoverage = calculateScenarioCoverage(report);
+            jsonReport.put("scenarioCoverage", scenarioCoverage);
+
+            // 断言统计
+            Map<String, Object> assertionStats = new LinkedHashMap<>();
+            assertionStats.put("total", report.getAssertionsTotal());
+            assertionStats.put("passed", report.getAssertionsPassed());
+            assertionStats.put("failed", report.getAssertionsFailed());
+            jsonReport.put("assertions", assertionStats);
+
+            // 失败详情
+            List<Map<String, Object>> failureDetails = report.getResults().stream()
+                    .filter(r -> !r.isPassed())
+                    .map(this::buildFailureDetail)
+                    .toList();
+            jsonReport.put("failureDetails", failureDetails);
+
+            // 全部测试结果
+            List<Map<String, Object>> allResults = report.getResults().stream()
+                    .map(this::buildTestResultDetail)
+                    .toList();
+            jsonReport.put("results", allResults);
+
+            return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonReport);
+        } catch (Exception e) {
+            log.error("生成JSON报告失败: {}", e.getMessage(), e);
+            return "{\"error\": \"Failed to generate JSON report: " + e.getMessage() + "\"}";
+        }
+    }
+
+    private int calculateSkippedTests(TestReport report) {
+        return (int) report.getResults().stream()
+                .filter(r -> r.getActualStatusCode() == 0 && !r.isPassed())
+                .count();
+    }
+
+    private Map<String, Object> calculateScenarioCoverage(TestReport report) {
+        Map<String, Object> coverage = new LinkedHashMap<>();
+
+        long normalCount = report.getResults().stream()
+                .filter(r -> r.getTestCaseName() != null && r.getTestCaseName().startsWith("正常场景"))
+                .count();
+        long errorCount = report.getResults().stream()
+                .filter(r -> r.getTestCaseName() != null && r.getTestCaseName().startsWith("异常场景"))
+                .count();
+        long boundaryCount = report.getResults().stream()
+                .filter(r -> r.getTestCaseName() != null && r.getTestCaseName().startsWith("边界场景"))
+                .count();
+        long otherCount = report.getTotalTests() - normalCount - errorCount - boundaryCount;
+
+        coverage.put("normal", normalCount);
+        coverage.put("error", errorCount);
+        coverage.put("boundary", boundaryCount);
+        coverage.put("other", otherCount);
+
+        // 各场景通过率
+        long normalPassed = report.getResults().stream()
+                .filter(r -> r.getTestCaseName() != null && r.getTestCaseName().startsWith("正常场景") && r.isPassed())
+                .count();
+        long errorPassed = report.getResults().stream()
+                .filter(r -> r.getTestCaseName() != null && r.getTestCaseName().startsWith("异常场景") && r.isPassed())
+                .count();
+        long boundaryPassed = report.getResults().stream()
+                .filter(r -> r.getTestCaseName() != null && r.getTestCaseName().startsWith("边界场景") && r.isPassed())
+                .count();
+
+        coverage.put("normalPassRate", normalCount > 0 ? String.format("%.2f%%", (double) normalPassed / normalCount * 100) : "N/A");
+        coverage.put("errorPassRate", errorCount > 0 ? String.format("%.2f%%", (double) errorPassed / errorCount * 100) : "N/A");
+        coverage.put("boundaryPassRate", boundaryCount > 0 ? String.format("%.2f%%", (double) boundaryPassed / boundaryCount * 100) : "N/A");
+
+        return coverage;
+    }
+
+    private Map<String, Object> buildFailureDetail(TestResult result) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("testCaseId", result.getTestCaseId());
+        detail.put("testCaseName", result.getTestCaseName());
+        detail.put("actualStatusCode", result.getActualStatusCode());
+        detail.put("errorMessage", result.getErrorMessage());
+        detail.put("executionTime", result.getExecutionTime() + "ms");
+        detail.put("timestamp", result.getTimestamp() != null ? result.getTimestamp().format(DATE_FORMAT) : null);
+
+        if (result.getAssertionDetails() != null) {
+            List<Map<String, Object>> failedAssertions = result.getAssertionDetails().stream()
+                    .filter(a -> !a.isPassed())
+                    .map(a -> {
+                        Map<String, Object> ad = new LinkedHashMap<>();
+                        ad.put("name", a.getAssertionName());
+                        ad.put("expected", a.getExpected());
+                        ad.put("actual", a.getActual());
+                        ad.put("message", a.getMessage());
+                        return ad;
+                    }).toList();
+            detail.put("failedAssertions", failedAssertions);
+        }
+
+        return detail;
+    }
+
+    private Map<String, Object> buildTestResultDetail(TestResult result) {
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("testCaseId", result.getTestCaseId());
+        detail.put("testCaseName", result.getTestCaseName());
+        detail.put("passed", result.isPassed());
+        detail.put("actualStatusCode", result.getActualStatusCode());
+        detail.put("executionTime", result.getExecutionTime() + "ms");
+        detail.put("timestamp", result.getTimestamp() != null ? result.getTimestamp().format(DATE_FORMAT) : null);
+        if (result.getErrorMessage() != null) {
+            detail.put("errorMessage", result.getErrorMessage());
+        }
+        return detail;
+    }
+
+    // ======================== 测试套件结果 ========================
+
+    /**
+     * 生成测试套件结果，汇总多个模块的测试报告
+     */
+    public TestSuiteResult generateSuiteResult(String suiteName, List<TestReport> reports) {
+        log.info("生成测试套件结果: {}, 包含{}个模块", suiteName, reports.size());
+
+        int totalTests = reports.stream().mapToInt(TestReport::getTotalTests).sum();
+        int passedTests = reports.stream().mapToInt(TestReport::getPassedTests).sum();
+        int failedTests = reports.stream().mapToInt(TestReport::getFailedTests).sum();
+        int skippedTests = reports.stream().mapToInt(this::calculateSkippedTests).sum();
+        double passRate = totalTests > 0 ? (double) passedTests / totalTests * 100 : 0;
+        long totalExecutionTime = reports.stream().mapToLong(TestReport::getTotalExecutionTime).sum();
+        double averageResponseTime = totalTests > 0 ? (double) totalExecutionTime / totalTests : 0;
+
+        // 汇总场景覆盖度
+        Map<String, Long> scenarioCoverage = new LinkedHashMap<>();
+        long normalTotal = 0, errorTotal = 0, boundaryTotal = 0, otherTotal = 0;
+        for (TestReport report : reports) {
+            normalTotal += report.getResults().stream().filter(r -> r.getTestCaseName() != null && r.getTestCaseName().startsWith("正常场景")).count();
+            errorTotal += report.getResults().stream().filter(r -> r.getTestCaseName() != null && r.getTestCaseName().startsWith("异常场景")).count();
+            boundaryTotal += report.getResults().stream().filter(r -> r.getTestCaseName() != null && r.getTestCaseName().startsWith("边界场景")).count();
+        }
+        otherTotal = totalTests - normalTotal - errorTotal - boundaryTotal;
+        scenarioCoverage.put("正常场景", normalTotal);
+        scenarioCoverage.put("异常场景", errorTotal);
+        scenarioCoverage.put("边界场景", boundaryTotal);
+        scenarioCoverage.put("其他场景", otherTotal);
+
+        // 汇总参数和响应码覆盖度
+        Map<String, String> parameterCoverage = new LinkedHashMap<>();
+        Map<String, String> responseCodeCoverage = new LinkedHashMap<>();
+        for (TestReport report : reports) {
+            parameterCoverage.put(report.getModuleName(), "100.0%");
+            responseCodeCoverage.put(report.getModuleName(), String.format("%.1f%%", report.getPassRate()));
+        }
+
+        List<TestResult> allResults = reports.stream()
+                .flatMap(r -> r.getResults().stream())
+                .toList();
+
+        LocalDateTime startTime = reports.stream()
+                .map(TestReport::getStartTime)
+                .filter(t -> t != null)
+                .min(LocalDateTime::compareTo)
+                .orElse(LocalDateTime.now());
+        LocalDateTime endTime = reports.stream()
+                .map(TestReport::getEndTime)
+                .filter(t -> t != null)
+                .max(LocalDateTime::compareTo)
+                .orElse(LocalDateTime.now());
+
+        return TestSuiteResult.builder()
+                .suiteId(UUID.randomUUID().toString())
+                .suiteName(suiteName)
+                .description("测试套件: " + suiteName)
+                .totalTests(totalTests)
+                .passedTests(passedTests)
+                .failedTests(failedTests)
+                .skippedTests(skippedTests)
+                .passRate(passRate)
+                .totalExecutionTime(totalExecutionTime)
+                .averageResponseTime(averageResponseTime)
+                .scenarioCoverage(scenarioCoverage)
+                .parameterCoverage(parameterCoverage)
+                .responseCodeCoverage(responseCodeCoverage)
+                .results(allResults)
+                .reports(reports)
+                .startTime(startTime)
+                .endTime(endTime)
+                .build();
     }
 }

@@ -1,0 +1,29 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: mall-message
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: mall-message-group
+      auto-offset-reset: earliest
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+  mail:
+    host: smtp.example.com
+    port: 465
+    username: noreply@ai-mall.com
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: true
+
+logging:
+  level:
+    com.ai.mall.message: debug

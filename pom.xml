@@ -21,10 +21,16 @@
 
     <modules>
         <module>mall-core</module>
+        <module>mall-admin</module>
+        <module>mall-portal</module>
+        <module>mall-search</module>
+        <module>mall-demo</module>
+        <module>mall-generator</module>
         <module>ai-gateway</module>
         <module>agent-customer</module>
         <module>agent-ops</module>
         <module>agent-test</module>
+        <module>mall-message</module>
     </modules>
 
     <properties>
@@ -129,6 +135,16 @@
                 <artifactId>mall-demo</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.ai.mall</groupId>
+                <artifactId>mall-generator</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.ai.mall</groupId>
+                <artifactId>mall-message</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <!-- MyBatis Plus -->
             <dependency>
@@ -155,6 +171,7 @@
             <dependency>
                 <groupId>org.springframework.kafka</groupId>
                 <artifactId>spring-kafka</artifactId>
+                <version>3.2.4</version>
             </dependency>
 
             <!-- Milvus -->
