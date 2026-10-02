@@ -1,6 +1,6 @@
 # AI-Mall：AI 增强电商系统
 
-基于 **Spring Boot 3.5 + JDK 21** 的 AI 增强电商系统，集成智能客服、智能运维、自动化测试三大 AI Agent 能力，支持小米 MiMo 大模型接入。
+基于 **Spring Boot 3.5 + JDK 21** 的 AI 增强电商系统，集成智能客服、智能运维、自动化测试三大 AI Agent 能力。大模型**默认运行在本地 Ollama**（生成用 `qwen3.5-noVL`、向量化用 `bge-m3`，零外网、零 API Key），亦可切换到小米 MiMo / OpenAI 兼容云服务。
 
 ## 项目亮点
 
@@ -9,7 +9,7 @@
   - 智能客服 Agent（RAG + ReAct 架构，含输入净化 / 输出护栏 / 工具鉴权 / 审计闭环）
   - 智能运维 Agent（多 Agent 协作 + 事件驱动 + 3-Sigma/EWMA 双算法异常检测）
   - 自动化测试 Agent（OpenAPI 发现 + Spring AI 生成用例）
-- **国产技术栈**：小米 MiMo 大模型 + Milvus 向量数据库 + Neo4j 知识图谱
+- **本地优先、可上云**：默认本地 Ollama（qwen3.5-noVL 生成 + bge-m3 向量化，免外网免 Key），可选接入小米 MiMo / OpenAI 兼容云模型；向量库 Milvus + 知识图谱 Neo4j
 - **RAG 全链路**：文档解析 → 分块 → 向量化（Milvus）→ 关键词检索（BM25）→ RRF 融合 → 特征重排 → 生成
 - **CI/CD**：GitHub Actions + Docker 多阶段构建 + Kubernetes 部署（见 `.github/workflows/` 与 `infra/`）
 
@@ -28,7 +28,7 @@
 | 知识图谱 | Neo4j | 5.x |
 | 文档库 | MongoDB | 7.x |
 | AI 框架 | Spring AI | 1.0 |
-| 大模型 | 小米 MiMo（可切 OpenAI 兼容） | - |
+| 大模型 | 本地 Ollama（qwen3.5-noVL 生成 / bge-m3 向量化，零外网零 Key）；可选 MiMo / OpenAI 兼容云模型 | 默认本地 |
 | 测试 | JUnit 5 + Mockito | - |
 
 ## 项目结构
@@ -175,7 +175,7 @@ mvn -pl mall-core/mall-common,mall-admin,mall-portal,ai-gateway test -am
 
 ## 已知边界（如实说明）
 
-- 各 Agent 调用大模型需要配置 `MIMO_API_KEY`（或 `OPENAI_API_KEY`）环境变量，未配置时相应链路降级/不可用
+- 大模型默认走**本地 Ollama**，**无需任何 API Key、零外网**即可跑通全部 Agent 链路；仅当切换到小米 MiMo / OpenAI 云服务时才需配置 `MIMO_API_KEY` / `OPENAI_API_KEY` 与 `AI_OPENAI_BASE_URL`（见各模块 `application.yml`）。未配置云服务变量时不走云链路，也不影响本地 Ollama 运行
 - 智能客服的知识库（Milvus/Redis 索引）需要先通过文档导入接口写入数据，索引为空时 RAG 会直接拒答
 - 智能运维 Agent 的异常检测效果由离线评测 `AnomalyDetectionBenchmarkTest` 实测得出，不再预置任何演示数据。评测在带 ground-truth 标签的**合成**时序数据上进行（20 场景 × 600 点，注入尖峰/阶跃/漂移/噪声放大四类异常，固定随机种子可复现），非生产数据回放；运行 `mvn -pl agent-ops test -Dtest=AnomalyDetectionBenchmarkTest` 可复现全部指标
 - 评测结论：AND 投票相对单算法可将误报率降低约 73%（vs 3-Sigma）~86%（vs EWMA），精确率 92.31%→94.61%，但召回率同步下降（39.24%→15.53%），F1 低于单用 3-Sigma。这是"以召回换精度"的取舍，在告警疲劳为痛点的场景下成立，选型依据见评测输出
