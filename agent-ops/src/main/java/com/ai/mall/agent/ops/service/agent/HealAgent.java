@@ -4,6 +4,7 @@ import com.ai.mall.agent.ops.model.HealAction;
 import com.ai.mall.agent.ops.model.HealLevel;
 import com.ai.mall.agent.ops.model.RCAResult;
 import com.ai.mall.agent.ops.service.event.EventBus;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,15 @@ import java.util.*;
 public class HealAgent {
 
     private final EventBus eventBus;
+
+    /**
+     * 事件驱动入口：消费 aiops.events 上的根因结果，产出处置动作发布到 aiops.commands。
+     * 与 RCAAgent 之间完全经由事件总线解耦。
+     */
+    @PostConstruct
+    public void subscribeToRcaResults() {
+        eventBus.subscribe(EventBus.AIOPS_EVENTS, RCAResult.class, this::heal);
+    }
 
     /**
      * Playbook定义：预定义的故障修复剧本
@@ -75,7 +85,7 @@ public class HealAgent {
 
         // Step1: 匹配最佳Playbook（基于评分机制）
         PlaybookMatchResult matchResult = matchBestPlaybook(rcaResult);
-        log.info("Playbook match: playbook={}, score={:.2f}", matchResult.playbook.name, matchResult.score);
+        log.info("Playbook match: playbook={}, score={}", matchResult.playbook.name, formatDouble(matchResult.score));
 
         // Step2: 确定自愈级别
         HealLevel level = determineLevel(rcaResult, matchResult);
@@ -99,8 +109,8 @@ public class HealAgent {
                 .build();
 
         eventBus.publish("aiops.commands", healAction);
-        log.info("Heal action created: level={}, playbook={}, blastRadius={:.2f}, dryRun={}",
-                level, matchResult.playbook.name, blastRadius, dryRunPassed);
+        log.info("Heal action created: level={}, playbook={}, blastRadius={}, dryRun={}",
+                level, matchResult.playbook.name, formatDouble(blastRadius), dryRunPassed);
         return healAction;
     }
 
@@ -218,4 +228,12 @@ public class HealAgent {
 
     /** Playbook匹配结果 */
     private record PlaybookMatchResult(Playbook playbook, double score) {}
+
+    /**
+     * 格式化小数为固定两位小数字符串。
+     * SLF4J 只识别 {} 占位符，不支持 Python 风格的 {:.2f}，需先自行格式化。
+     */
+    private static String formatDouble(double value) {
+        return String.format("%.2f", value);
+    }
 }

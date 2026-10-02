@@ -1,0 +1,29 @@
+[ {
+  "apiKey" : "GET /brand/recommendList",
+  "summary" : "HTTP 200 成功但业务码为 404，疑似吞错",
+  "occurrences" : 15,
+  "hitThisRun" : true,
+  "firstSeen" : "2026-09-30T23:22:22.4366503",
+  "lastSeen" : "2026-10-02T01:55:35.2515946"
+}, {
+  "apiKey" : "GET /product/categoryTreeList",
+  "summary" : "HTTP 200 成功但业务码为 401，疑似吞错",
+  "occurrences" : 12,
+  "hitThisRun" : false,
+  "firstSeen" : "2026-09-30T23:22:22.3804272",
+  "lastSeen" : "2026-10-02T00:43:33.6054981"
+}, {
+  "apiKey" : "GET /product/search",
+  "summary" : "HTTP 200 成功但业务码为 401，疑似吞错",
+  "occurrences" : 4,
+  "hitThisRun" : false,
+  "firstSeen" : "2026-10-02T00:43:33.5369795",
+  "lastSeen" : "2026-10-02T00:43:33.5749065"
+}, {
+  "apiKey" : "GET /home/content",
+  "summary" : "HTTP 200 成功但业务码为 401，疑似吞错",
+  "occurrences" : 3,
+  "hitThisRun" : false,
+  "firstSeen" : "2026-10-02T00:43:33.5010885",
+  "lastSeen" : "2026-10-02T00:43:33.5238806"
+} ]

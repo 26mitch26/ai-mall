@@ -51,7 +51,10 @@ ai-mall/
 ├── agent-ops/                       ← 智能运维 Agent（事件总线）
 ├── agent-test/                      ← 自动化测试 Agent
 ├── infra/                           ← docker-compose、K8s 部署等
-├── docker-compose.yml               ← 本地开发基础设施编排
+├── frontend/                        ← Vue 3 后台运营端
+├── frontend-app/                    ← UniApp 商城端
+├── scripts/                         ← 本地数据库与演示启动脚本
+├── docker-compose.yml               ← Redis/ES 等本地中间件（不包含 MySQL）
 └── .github/workflows/               ← CI/CD
 ```
 
@@ -59,27 +62,31 @@ ai-mall/
 
 ### 环境要求
 
-- JDK 21、Maven 3.9+
+- JDK 21、Maven 3.9+、Node.js 20+
+- Windows 本机 MySQL 9.7（默认 `127.0.0.1:3306`）
 - Docker 24+（含 Docker Compose v2）
 
 ### 启动步骤
 
-```bash
-# 1. 启动基础设施（MySQL/Redis/ES/Kafka/RabbitMQ/MongoDB/Milvus/Neo4j/MinIO）
-docker compose up -d
+```powershell
+# 1. 初始化本机 MySQL（密码会安全提示输入，不写入仓库）
+.\scripts\init-local-db.ps1
 
-# 2. 编译并安装核心模块
-mvn -pl mall-core/mall-common,mall-core/mall-mbg,mall-core/mall-security install -DskipTests
+# 2. 一键启动课设演示闭环：核心商城 + 三个 Agent + Milvus/Neo4j + 后台前端
+.\scripts\start-demo.ps1
 
-# 3. 启动网关与各服务（本地开发推荐逐个启动）
-mvn -pl ai-gateway spring-boot:run
-mvn -pl mall-admin spring-boot:run
-mvn -pl agent-customer spring-boot:run
-# ... 其余模块同理
-
-# 4. 运行测试
-mvn test   # 默认跳过需要 Docker 的 benchmark 分组（-Dgroups=benchmark 可手动触发）
+# 3. 演示结束后停止由脚本启动的进程
+.\scripts\stop-demo.ps1
 ```
+
+初始化脚本检测到已有 `mall` 数据库时会默认停止，避免误覆盖数据。确认已备份且需要重置
+演示数据时，显式运行 `.\scripts\init-local-db.ps1 -ResetDemoData`。
+
+启动后访问 `http://localhost:5173`。后台账号为 `admin / Admin@123`；商城账号为
+`demo / Demo@123`。这两个账号只用于本地演示，部署环境必须替换。
+
+如果不使用脚本，可通过 `MALL_DB_URL`、`MALL_DB_USERNAME`、`MALL_DB_PASSWORD`
+覆盖所有服务的数据库连接。默认 URL 指向本机 `mall` 库的 3306 端口。
 
 ### 服务端口（本地开发）
 
@@ -95,6 +102,7 @@ mvn test   # 默认跳过需要 Docker 的 benchmark 分组（-Dgroups=benchmark
 | mall-portal | 8087 | 前台商城 API |
 | mall-demo | 8088 | 演示页面 |
 | mall-message | 8090 | 消息服务 |
+| admin-web | 5173 | Vue 3 后台运营端 |
 
 网关路由（无注册中心，直连地址可用 `GATEWAY_ROUTE_*` 环境变量覆盖）：
 
@@ -104,12 +112,14 @@ mvn test   # 默认跳过需要 Docker 的 benchmark 分组（-Dgroups=benchmark
 | `/api/**` | mall-portal (8087) |
 | `/search/**` | mall-search (8082) |
 | `/agent/customer/**` | agent-customer (8083) |
+| `/agent/ops/**` | agent-ops (8084) |
+| `/agent/test/**` | agent-test (8085) |
 
 ### 基础设施端口
 
 | 服务 | 端口 | 说明 |
 |------|------|------|
-| MySQL | 3306 | 账号 root/root（可环境变量覆盖） |
+| MySQL | 3306 | Windows 本机服务；密码由 `MALL_DB_PASSWORD` 或脚本输入 |
 | Redis | 6379 | 本地开发无密码 |
 | RabbitMQ | 5672 / 15672 | 账号 mall/mall，vhost /mall |
 | Kafka | 9092 | - |
@@ -118,6 +128,16 @@ mvn test   # 默认跳过需要 Docker 的 benchmark 分组（-Dgroups=benchmark
 | Neo4j | 7474 / 7687 | 账号 neo4j/neo4j123 |
 | Elasticsearch | 9200 | 本地开发关闭安全认证 |
 | MinIO | 9000 / 9001 | minioadmin/minioadmin |
+
+## Agent 课设演示
+
+启动前确保本机 Ollama 已运行，并具备 `qwen3.5-noVL:latest` 与 `bge-m3` 模型。
+
+- **智能客服**：`bge-m3 → Milvus ANN` 与 Redis BM25 双路召回，RRF 融合、特征重排后交给本地 Ollama 生成；首次启动自动写入退货、运费和支付知识。
+- **智能运维**：自动建立指标基线后注入异常，展示 Monitor → Bayesian/Neo4j RCA → Playbook → Change Gate 全链路，并由 Ollama 生成根因摘要。
+- **自动化测试**：从 OpenAPI 优先发现真实接口，异常时使用项目内置契约；安全演示模式最多执行 8 个只读 GET API，输出状态码、响应耗时、JSON/Schema 与业务语义断言。
+
+需要展示 Ollama 扩写测试用例时，可在启动前设置 `TEST_AGENT_AI_ENABLED=true`；默认关闭是为了保证课堂现场速度与可复现性。
 
 ## API 文档
 
@@ -157,5 +177,13 @@ mvn -pl mall-core/mall-common,mall-admin,mall-portal,ai-gateway test -am
 
 - 各 Agent 调用大模型需要配置 `MIMO_API_KEY`（或 `OPENAI_API_KEY`）环境变量，未配置时相应链路降级/不可用
 - 智能客服的知识库（Milvus/Redis 索引）需要先通过文档导入接口写入数据，索引为空时 RAG 会直接拒答
-- 智能运维 Agent 中 85% 误报率下降等指标基于内置合成演示数据（源码内已明确标注），非真实生产回放
-- 本地启动的数据库凭据与中间件以 `docker-compose.yml` 与各模块 `application-dev.yml` 为准
+- 智能运维 Agent 的异常检测效果由离线评测 `AnomalyDetectionBenchmarkTest` 实测得出，不再预置任何演示数据。评测在带 ground-truth 标签的**合成**时序数据上进行（20 场景 × 600 点，注入尖峰/阶跃/漂移/噪声放大四类异常，固定随机种子可复现），非生产数据回放；运行 `mvn -pl agent-ops test -Dtest=AnomalyDetectionBenchmarkTest` 可复现全部指标
+- 评测结论：AND 投票相对单算法可将误报率降低约 73%（vs 3-Sigma）~86%（vs EWMA），精确率 92.31%→94.61%，但召回率同步下降（39.24%→15.53%），F1 低于单用 3-Sigma。这是"以召回换精度"的取舍，在告警疲劳为痛点的场景下成立，选型依据见评测输出
+- 本地 MySQL 不由 Docker 管理；`docker-compose.yml` 仅负责 Redis、MinIO 等中间件
+
+## 项目归属与第三方说明
+
+AI-Mall 的运行入口、AI Agent、网关、数据初始化、本地演示链路和前端品牌均由本项目维护，
+不依赖公众号、外部体验账号或上游在线 API。项目演进自 Apache-2.0 许可的 mall 生态代码，
+许可证与第三方来源说明保留在 `LICENSE`/各前端许可证及 `THIRD_PARTY_NOTICES.md` 中；
+保留这些法定归属不影响本项目独立运行和自主维护。

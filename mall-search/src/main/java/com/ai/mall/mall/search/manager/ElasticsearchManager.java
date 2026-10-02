@@ -19,7 +19,12 @@ import java.util.stream.Collectors;
 
 /**
  * Elasticsearch管理器
- * 支持中文分词（ik_max_word）、同义词匹配搜索
+ * 支持中文分词（ES 内置 CJK bigram）、同义词匹配搜索
+ * <p>
+ * 说明：IK 插件需外网下载，离线环境无法安装会导致“analyzer [ik_max_word] has not been configured”。
+ * 这里改用 ES 内置的 CJK bigram 分析器（cjk_width + cjk_bigram），零插件零外网，
+ * 中文按单字/双字切分（“手机壳” -> “手机/机壳/壳”），可返回可复现的检索效果；
+ * 生产如需词典级分词，安装 IK 插件并把 analyzer 名替换为 ik_max_word 即可。
  */
 @Component
 public class ElasticsearchManager {
@@ -77,13 +82,15 @@ public class ElasticsearchManager {
                       "settings": {
                         "analysis": {
                           "analyzer": {
-                            "ik_smart_synonym": {
-                              "tokenizer": "ik_smart",
-                              "filter": ["synonym_filter"]
+                            "cjk_synonym": {
+                              "type": "custom",
+                              "tokenizer": "standard",
+                              "filter": ["cjk_width", "cjk_bigram", "synonym_filter"]
                             },
-                            "ik_max_word_synonym": {
-                              "tokenizer": "ik_max_word",
-                              "filter": ["synonym_filter"]
+                            "cjk_synonym_search": {
+                              "type": "custom",
+                              "tokenizer": "standard",
+                              "filter": ["cjk_width", "cjk_bigram", "synonym_filter"]
                             }
                           },
                           "filter": {
@@ -98,18 +105,18 @@ public class ElasticsearchManager {
                         "properties": {
                           "name": {
                             "type": "text",
-                            "analyzer": "ik_max_word_synonym",
-                            "search_analyzer": "ik_smart_synonym"
+                            "analyzer": "cjk_synonym",
+                            "search_analyzer": "cjk_synonym_search"
                           },
                           "subTitle": {
                             "type": "text",
-                            "analyzer": "ik_max_word_synonym",
-                            "search_analyzer": "ik_smart_synonym"
+                            "analyzer": "cjk_synonym",
+                            "search_analyzer": "cjk_synonym_search"
                           },
                           "keywords": {
                             "type": "text",
-                            "analyzer": "ik_max_word_synonym",
-                            "search_analyzer": "ik_smart_synonym"
+                            "analyzer": "cjk_synonym",
+                            "search_analyzer": "cjk_synonym_search"
                           },
                           "brandName": {
                             "type": "keyword"
@@ -167,7 +174,7 @@ public class ElasticsearchManager {
                                     .multiMatch(mm -> mm
                                             .fields(fields)
                                             .query(keyword)
-                                            .analyzer("ik_max_word")
+                                            .analyzer("cjk_synonym")
                                     )
                             ),
                     JsonData.class
@@ -222,7 +229,7 @@ public class ElasticsearchManager {
                                                 .multiMatch(mm -> mm
                                                         .fields(fields)
                                                         .query(keyword)
-                                                        .analyzer("ik_smart_synonym")
+                                                        .analyzer("cjk_synonym_search")
                                                         .boost(2.0f)
                                         ));
                                         // 额外对每个同义词进行匹配，提高召回率
@@ -231,7 +238,7 @@ public class ElasticsearchManager {
                                                     .multiMatch(mm -> mm
                                                             .fields(fields)
                                                             .query(term)
-                                                            .analyzer("ik_smart")
+                                                            .analyzer("cjk_synonym_search")
                                                             .boost(0.5f)
                                                     )
                                             );

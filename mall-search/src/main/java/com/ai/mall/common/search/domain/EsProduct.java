@@ -33,11 +33,15 @@ public class EsProduct implements Serializable {
     @Field(type = FieldType.Keyword)
     private String productCategoryName;
     private String pic;
-    @Field(analyzer = "ik_max_word",type = FieldType.Text)
+    /**
+     * 中文分词统一使用 ES 内置 CJK bigram 分析器（零外网插件依赖）。
+     * 生产环境如偏好 IK/SmartCN 词典分词，仅需把 analyzer 名替换回 ik_max_word 并安装对应插件。
+     */
+    @Field(analyzer = "cjk",type = FieldType.Text)
     private String name;
-    @Field(analyzer = "ik_max_word",type = FieldType.Text)
+    @Field(analyzer = "cjk",type = FieldType.Text)
     private String subTitle;
-    @Field(analyzer = "ik_max_word",type = FieldType.Text)
+    @Field(analyzer = "cjk",type = FieldType.Text)
     private String keywords;
     private BigDecimal price;
     private Integer sale;

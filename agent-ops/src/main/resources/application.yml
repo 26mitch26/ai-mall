@@ -4,6 +4,17 @@ server:
 spring:
   application:
     name: agent-ops
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:ollama-local}
+      base-url: ${AI_OPENAI_BASE_URL:http://localhost:11434}
+      chat:
+        options:
+          model: ${AGENT_LLM_MODEL:qwen3.5-noVL:latest}
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
@@ -12,15 +23,23 @@ spring:
     producer:
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
       value-serializer: org.apache.kafka.common.serialization.StringSerializer
-  data:
-    neo4j:
-      uri: bolt://localhost:7687
-      authentication:
-        username: neo4j
-        # 与 docker-compose 的 NEO4J_AUTH 保持一致，支持环境变量覆盖
-        password: ${NEO4J_PASSWORD:neo4j123}
+    listener:
+      auto-startup: false
+  neo4j:
+    uri: bolt://localhost:7687
+    authentication:
+      username: neo4j
+      # 与 docker-compose 的 NEO4J_AUTH 保持一致，支持环境变量覆盖
+      password: ${NEO4J_PASSWORD:neo4j123}
 
 aiops:
+  eventbus:
+    # 课设单机演示走同步本地事件总线；生产可设为 false 接入 Kafka。
+    local-mode: ${AIOPS_LOCAL_MODE:true}
+  llm:
+    base-url: ${AGENT_LLM_BASE_URL:http://localhost:11434/api/chat}
+    model: ${AGENT_LLM_MODEL:qwen3.5-noVL:latest}
+    enabled: ${AIOPS_LLM_ENABLED:true}
   topics:
     alerts: aiops.alerts
     events: aiops.events

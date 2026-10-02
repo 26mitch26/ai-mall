@@ -3,6 +3,7 @@ package com.ai.mall.agent.test.service.generator;
 import com.ai.mall.agent.test.model.ApiDefinition;
 import com.ai.mall.agent.test.model.Parameter;
 import com.ai.mall.agent.test.model.TestCase;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -14,7 +15,10 @@ import java.util.UUID;
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class TestCaseGenerator {
+
+    private final TestCaseContractGuard contractGuard;
 
     public List<TestCase> generateTestCases(ApiDefinition api) {
         log.info("Generating test cases for API: {} {}", api.getMethod(), api.getPath());
@@ -26,8 +30,12 @@ public class TestCaseGenerator {
         testCases.add(generateInvalidParamCase(api));
         testCases.add(generateEdgeCaseForNumericParams(api));
 
-        log.info("Generated {} test cases for {} {}", testCases.size(), api.getMethod(), api.getPath());
-        return testCases;
+        // 期望值契约对齐：正向锚定文档声明成功码，负向按声明精确或降级 4xx 弱断言
+        List<TestCase> aligned = contractGuard.align(testCases, api);
+
+        log.info("Generated {} contract-aligned test cases for {} {} ({} dropped as unverifiable)",
+                aligned.size(), api.getMethod(), api.getPath(), testCases.size() - aligned.size());
+        return aligned;
     }
 
     private TestCase generateSuccessCase(ApiDefinition api) {

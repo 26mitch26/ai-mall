@@ -2,14 +2,28 @@ server:
   port: 8087 # 避免与 agent-test(8085) 冲突
 
 spring:
+  autoconfigure:
+    exclude:
+      # MongoDB 已由 infra/docker-compose.yml 提供（会员收藏/浏览历史/品牌关注依赖 MongoTemplate 才注册控制器），
+      # 不再排除 Mongo 自动配置；RabbitMQ 仍不在本地演示范围内，继续排除。
+      - org.springframework.boot.autoconfigure.amqp.RabbitAutoConfiguration
+  threads:
+    virtual:
+      # Java 21 + Spring Boot 3.5 虚拟线程（预研开启，见面试准备.md §十 A/B 论证）。
+      # ◀ 默认关闭（enabled: false）：k6 全链路 200VU 长压（3m30s）在 1m45s 处触发 JVM 原生崩溃
+      #   0xC0000005（ACCESS_VIOLATION），退出码 -1073741819，DB 连接池释放与事务边界在虚拟线程
+      #   挂起/恢复下存在不可靠风险；实测平台线程（默认 Tomcat 200）同脚本稳定 0 错误率跑完全程。
+      #   工程决策：生产以"可复现的稳定容量"为准 → 平台线程；虚拟线程作为技术验证保留，待
+      #   JDK/驱动栈成熟后按 A/B 门槛（连续 3 轮 200VU 长压 0 崩溃）再灰度开启。
+      enabled: false
   datasource:
-    url: jdbc:mysql://localhost:3306/mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false
-    username: root
-    password: root
+    url: ${MALL_DB_URL:jdbc:mysql://127.0.0.1:3306/mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${MALL_DB_USERNAME:root}
+    password: ${MALL_DB_PASSWORD:}
     druid:
       initial-size: 5 #连接池初始化大小
       min-idle: 10 #最小空闲连接数
-      max-active: 20 #最大连接数
+      max-active: 50 #最大连接数（压测调优：20→50，见面试准备.md §九 连接池A/B）
       web-stat-filter:
         exclusions: "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*" #不统计这些请求数据
       stat-view-servlet: #访问监控网页的登录用户名和密码
@@ -32,11 +46,16 @@ spring:
     virtual-host: /mall
     username: mall
     password: mall
+    listener:
+      simple:
+        # 本地压测/无 RabbitMQ 容器时关闭监听器，避免无限重连刷日志刷线程（曾导致 portal.log 1.1GB、QPS 593→139）。
+        # 生产环境由 application-prod.yml 显式开启。
+        auto-startup: false
 
 logging:
   level:
     root: info
-    com.ai.mall: debug
+    com.ai.mall: info # 压测调优：debug→info。原 debug 会让 WebLogAspect 每请求写完整 JSON 日志（GB级磁盘I/O），见面试准备.md §九-4
 
 logstash:
   host: localhost

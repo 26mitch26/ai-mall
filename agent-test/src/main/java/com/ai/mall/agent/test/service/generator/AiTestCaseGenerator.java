@@ -30,6 +30,7 @@ public class AiTestCaseGenerator {
     private final ChatClient.Builder chatClientBuilder;
     private final AgentTestConfig config;
     private final ObjectMapper objectMapper;
+    private final TestCaseContractGuard contractGuard;
 
     // ======================== API文档解析 ========================
 
@@ -230,8 +231,10 @@ public class AiTestCaseGenerator {
             }
         }
 
-        log.info("正常场景测试用例生成完成，共{}条", cases.size());
-        return cases;
+        // 期望值契约对齐：正向用例锚定文档声明成功码，未声明成功响应的正向用例作废
+        List<TestCase> aligned = contractGuard.align(cases, api);
+        log.info("正常场景测试用例生成完成，共{}条（契约对齐后）", aligned.size());
+        return aligned;
     }
 
     // ======================== 异常场景测试用例生成 ========================
@@ -308,44 +311,53 @@ public class AiTestCaseGenerator {
                     .build());
         }
 
-        // 4. 未授权访问 → 401
-        cases.add(TestCase.builder()
-                .id(UUID.randomUUID().toString())
-                .name("异常场景-未授权访问: " + api.getMethod() + " " + api.getPath())
-                .apiPath(api.getPath())
-                .method(api.getMethod())
-                .requestParams(null)
-                .expectedStatusCode(401)
-                .expectedResponse("未授权")
-                .description("不携带认证信息访问，期望返回401")
-                .build());
+        // 4. 未授权访问 → 401（契约驱动：文档未声明 401 的接口，其鉴权行为
+        //    取决于全局安全配置而非该接口契约，无差别生成只会制造误报）
+        if (api.declaredStatusCodes().contains(401)) {
+            cases.add(TestCase.builder()
+                    .id(UUID.randomUUID().toString())
+                    .name("异常场景-未授权访问: " + api.getMethod() + " " + api.getPath())
+                    .apiPath(api.getPath())
+                    .method(api.getMethod())
+                    .requestParams(null)
+                    .expectedStatusCode(401)
+                    .expectedResponse("未授权")
+                    .description("不携带认证信息访问，期望返回401")
+                    .build());
+        }
 
-        // 5. 禁止访问 → 403
-        cases.add(TestCase.builder()
-                .id(UUID.randomUUID().toString())
-                .name("异常场景-权限不足: " + api.getMethod() + " " + api.getPath())
-                .apiPath(api.getPath())
-                .method(api.getMethod())
-                .requestParams(null)
-                .expectedStatusCode(403)
-                .expectedResponse("权限不足")
-                .description("使用低权限用户访问，期望返回403")
-                .build());
+        // 5. 禁止访问 → 403（同上，契约驱动）
+        if (api.declaredStatusCodes().contains(403)) {
+            cases.add(TestCase.builder()
+                    .id(UUID.randomUUID().toString())
+                    .name("异常场景-权限不足: " + api.getMethod() + " " + api.getPath())
+                    .apiPath(api.getPath())
+                    .method(api.getMethod())
+                    .requestParams(null)
+                    .expectedStatusCode(403)
+                    .expectedResponse("权限不足")
+                    .description("使用低权限用户访问，期望返回403")
+                    .build());
+        }
 
-        // 6. 请求方法不允许 → 405
-        cases.add(TestCase.builder()
-                .id(UUID.randomUUID().toString())
-                .name("异常场景-方法不允许: " + api.getMethod() + " " + api.getPath())
-                .apiPath(api.getPath())
-                .method("OPTIONS")
-                .requestParams(null)
-                .expectedStatusCode(405)
-                .expectedResponse("方法不允许")
-                .description("使用不支持的HTTP方法，期望返回405")
-                .build());
+        // 6. 请求方法不允许 → 405（协议层行为，仅文档显式声明时才验证）
+        if (api.declaredStatusCodes().contains(405)) {
+            cases.add(TestCase.builder()
+                    .id(UUID.randomUUID().toString())
+                    .name("异常场景-方法不允许: " + api.getMethod() + " " + api.getPath())
+                    .apiPath(api.getPath())
+                    .method("OPTIONS")
+                    .requestParams(null)
+                    .expectedStatusCode(405)
+                    .expectedResponse("方法不允许")
+                    .description("使用不支持的HTTP方法，期望返回405")
+                    .build());
+        }
 
-        log.info("异常场景测试用例生成完成，共{}条", cases.size());
-        return cases;
+        // 期望值契约对齐：文档声明了对应错误码 → 精确断言，否则降级 4xx 弱断言
+        List<TestCase> aligned = contractGuard.align(cases, api);
+        log.info("异常场景测试用例生成完成，共{}条（契约对齐后）", aligned.size());
+        return aligned;
     }
 
     // ======================== 边界场景测试用例生成 ========================
@@ -482,8 +494,10 @@ public class AiTestCaseGenerator {
             }
         }
 
-        log.info("边界场景测试用例生成完成，共{}条", cases.size());
-        return cases;
+        // 期望值契约对齐：正向锚定声明成功码，负向精确或降级 4xx 弱断言
+        List<TestCase> aligned = contractGuard.align(cases, api);
+        log.info("边界场景测试用例生成完成，共{}条（契约对齐后）", aligned.size());
+        return aligned;
     }
 
     // ======================== 覆盖率分析 ========================
@@ -569,6 +583,10 @@ public class AiTestCaseGenerator {
     /**
      * Generate test cases using Spring AI OpenAI for intelligent test generation.
      * Falls back to basic generation if AI call fails.
+     *
+     * <p>AI 产出必须通过 {@link TestCaseContractGuard#guardAiCase} 契约守卫：
+     * 幻觉路径/方法/参数直接拦截，无契约背书的状态码降级弱断言或丢弃。
+     * 守卫后一条不剩时回退规则生成，保证链路总有契约合法的用例产出。
      */
     public List<TestCase> generateTestCases(ApiDefinition api) {
         log.info("AI generating test cases for API: {} {}", api.getMethod(), api.getPath());
@@ -585,10 +603,23 @@ public class AiTestCaseGenerator {
 
             if (response != null && !response.isBlank()) {
                 List<TestCase> aiTestCases = parseAiResponse(response, api);
-                if (!aiTestCases.isEmpty()) {
-                    log.info("AI generated {} test cases for {} {}", aiTestCases.size(), api.getMethod(), api.getPath());
-                    return aiTestCases;
+                List<TestCase> guarded = new ArrayList<>();
+                for (TestCase tc : aiTestCases) {
+                    contractGuard.guardAiCase(tc, api).ifPresent(guarded::add);
                 }
+
+                int hallucinated = aiTestCases.size() - guarded.size();
+                if (hallucinated > 0) {
+                    log.warn("[Schema-Guard] Rejected {}/{} AI cases for {} {} (hallucinated path/params/status)",
+                            hallucinated, aiTestCases.size(), api.getMethod(), api.getPath());
+                }
+
+                if (!guarded.isEmpty()) {
+                    log.info("AI generated {} contract-valid test cases for {} {}",
+                            guarded.size(), api.getMethod(), api.getPath());
+                    return guarded;
+                }
+                log.warn("All AI cases rejected by contract guard, falling back to rule-based generation");
             }
 
             log.warn("AI returned empty response, falling back to basic generation");
@@ -665,11 +696,16 @@ public class AiTestCaseGenerator {
                 String method = parts[1].trim();
                 String path = parts[2].trim();
                 String paramsStr = parts[3].trim();
+
+                // 状态码解析失败的行直接丢弃：静默默认 200 会把坏行变成
+                // "期望 200"的假用例，正是期望值不可信的来源之一。
+                // 后续契约守卫还会再校验一次状态码是否有文档背书。
                 int expectedStatus;
                 try {
                     expectedStatus = Integer.parseInt(parts[4].trim());
                 } catch (NumberFormatException e) {
-                    expectedStatus = 200;
+                    log.warn("Dropped malformed AI line (non-numeric status): {}", line);
+                    continue;
                 }
                 String description = parts.length > 5 ? parts[5].trim() : "";
 
@@ -738,7 +774,8 @@ public class AiTestCaseGenerator {
                     .build());
         }
 
-        return testCases;
+        // 降级路径同样经契约对齐，保证任何分支产出的期望值都可追溯到文档
+        return contractGuard.align(testCases, api);
     }
 
     private Map<String, Object> generateRequiredParams(ApiDefinition api) {

@@ -43,7 +43,11 @@ public class PmsPortalProductServiceImpl implements PmsPortalProductService {
 
     @Override
     public List<PmsProduct> search(String keyword, Long brandId, Long productCategoryId, Integer pageNum, Integer pageSize, Integer sort) {
-        PageHelper.startPage(pageNum, pageSize);
+        // PageHelper 从 1 开始计数；pageNum=0 会让 offset 落到非法区间，导致 count 有值但 list 为空。
+        // 这里统一做防御性兜底：<=0 一律当第 1 页。
+        int safePageNum = (pageNum == null || pageNum < 1) ? 1 : pageNum;
+        int safePageSize = (pageSize == null || pageSize < 1) ? 10 : pageSize;
+        PageHelper.startPage(safePageNum, safePageSize);
         PmsProductExample example = new PmsProductExample();
         PmsProductExample.Criteria criteria = example.createCriteria();
         criteria.andDeleteStatusEqualTo(0);

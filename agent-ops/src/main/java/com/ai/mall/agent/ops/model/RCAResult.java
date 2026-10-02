@@ -17,4 +17,5 @@ public class RCAResult {
     private double confidence;
     private List<String> impactChain;
     private List<String> suggestedActions;
+    private String analysisSummary;
 }

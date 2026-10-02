@@ -16,6 +16,8 @@ public class Document {
     private String content;
     private String source;
     private String type;
+    private double score;
+    private String retrievalSource;
     private List<String> keywords;
     private double[] embedding;
 }

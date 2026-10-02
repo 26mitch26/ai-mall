@@ -148,7 +148,7 @@ public class EsProductServiceImpl implements EsProductService {
         //按相关度
         nativeQueryBuilder.withSort(Sort.by(Sort.Order.desc("_score")));
         NativeQuery nativeQuery = nativeQueryBuilder.build();
-        LOGGER.info("DSL:{}", nativeQuery.getQuery().toString());
+        LOGGER.debug("DSL:{}", nativeQuery.getQuery().toString());
         SearchHits<EsProduct> searchHits = elasticsearchTemplate.search(nativeQuery, EsProduct.class);
         if(searchHits.getTotalHits()<=0){
             return new PageImpl<>(ListUtil.empty(),pageable,0);
@@ -200,7 +200,7 @@ public class EsProductServiceImpl implements EsProductService {
                     .minScore(2.0);
             nativeQueryBuilder.withQuery(builder -> builder.functionScore(functionScoreQueryBuilder.build()));
             NativeQuery nativeQuery = nativeQueryBuilder.build();
-            LOGGER.info("DSL:{}", nativeQuery.getQuery().toString());
+            LOGGER.debug("DSL:{}", nativeQuery.getQuery().toString());
             SearchHits<EsProduct> searchHits = elasticsearchTemplate.search(nativeQuery, EsProduct.class);
             if(searchHits.getTotalHits()<=0){
                 return new PageImpl<>(ListUtil.empty(),pageable,0);
@@ -234,7 +234,7 @@ public class EsProductServiceImpl implements EsProductService {
                                 .build()).build()).build();
         nativeQueryBuilder.withAggregation("allAttrValues",aggregation);
         NativeQuery nativeQuery = nativeQueryBuilder.build();
-        LOGGER.info("DSL:{}", nativeQueryBuilder.getQuery().toString());
+        LOGGER.debug("DSL:{}", nativeQuery.getQuery().toString());
         SearchHits<EsProduct> searchHits = elasticsearchTemplate.search(nativeQuery, EsProduct.class);
         return convertProductRelatedInfo(searchHits);
     }

@@ -4,9 +4,13 @@ import com.ai.mall.agent.ops.model.AlertEvent;
 import com.ai.mall.agent.ops.model.RCAResult;
 import com.ai.mall.agent.ops.service.event.EventBus;
 import com.ai.mall.agent.ops.service.knowledge.KnowledgeGraphService;
+import com.ai.mall.agent.ops.service.knowledge.KnowledgeGraphService.CauseCandidate;
+import com.ai.mall.agent.ops.service.llm.OpsLlmAdvisor;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.*;
 
@@ -26,6 +30,21 @@ public class RCAAgent {
 
     private final EventBus eventBus;
     private final KnowledgeGraphService knowledgeGraphService;
+
+    @Autowired(required = false)
+    private OpsLlmAdvisor opsLlmAdvisor;
+
+    /** CPT 中未收录该故障模式时使用的默认似然，避免先验为 0 导致候选被完全排除 */
+    private static final double DEFAULT_LIKELIHOOD = 0.05;
+
+    /**
+     * 事件驱动入口：消费 aiops.alerts 上的告警事件，产出根因结果发布到 aiops.events。
+     * 与 MonitorAgent 之间不存在直接方法调用，完全经由事件总线解耦。
+     */
+    @PostConstruct
+    public void subscribeToAlerts() {
+        eventBus.subscribe(EventBus.AIOPS_ALERTS, AlertEvent.class, this::analyzeRootCause);
+    }
 
     /**
      * 条件概率表(CPT)：P(Alert | Cause)
@@ -58,8 +77,14 @@ public class RCAAgent {
             )
     );
 
-    /** 先验概率 P(Cause)：基于历史故障分布的先验知识 */
-    private static final Map<String, Double> PRIOR_PROBABILITY = new HashMap<>() {{
+    /**
+     * 兜底先验概率 P(Cause)：仅在知识图谱无数据（Neo4j 不可用且无降级数据）时使用。
+     *
+     * <p>正常路径下先验来自图谱关系 {@code (:Service)-[:HAS_FAILURE_MODE {prior}]->(:FailureMode)}
+     * 的属性，见 {@link KnowledgeGraphService#findCandidateCauses(String)}。
+     * 此表是全局故障分布的粗略兜底，不如按服务区分的图上先验精确。
+     */
+    private static final Map<String, Double> FALLBACK_PRIOR_PROBABILITY = new HashMap<>() {{
         put("deployment_regression", 0.25);
         put("memory_leak", 0.15);
         put("traffic_spike", 0.12);
@@ -81,10 +106,10 @@ public class RCAAgent {
         // Step1: 基于Neo4j知识图谱获取影响链路
         List<String> impactChain = findImpactChain(alert.getTargetService());
 
-        // Step2: 基于Neo4j知识图谱获取候选根因节点
-        List<String> candidateCauses = findCandidateCausesFromGraph(alert.getTargetService());
+        // Step2: 基于Neo4j知识图谱获取候选故障模式及其图上先验
+        List<CauseCandidate> candidateCauses = resolveCandidateCauses(alert.getTargetService());
 
-        // Step3: 贝叶斯推理——使用CPT先验 + 告警证据更新后验概率
+        // Step3: 贝叶斯推理——CPT似然 + 图谱先验，结合告警证据更新后验概率
         Map<String, Double> posteriorProbabilities = bayesianInference(alert, candidateCauses);
 
         // Step4: 选取后验概率最高的根因
@@ -93,6 +118,10 @@ public class RCAAgent {
 
         // Step5: 生成建议动作
         List<String> suggestedActions = suggestActions(confidence, impactChain);
+        String analysisSummary = opsLlmAdvisor == null
+                ? String.format("%s 的 %s 指标异常，定位根因为 %s（置信度 %.0f%%）。",
+                    alert.getTargetService(), alert.getMetricName(), rootCause, confidence * 100)
+                : opsLlmAdvisor.summarize(alert, rootCause, confidence, impactChain, suggestedActions);
 
         RCAResult result = RCAResult.builder()
                 .alertId(alert.getId())
@@ -100,10 +129,12 @@ public class RCAAgent {
                 .confidence(confidence)
                 .impactChain(impactChain)
                 .suggestedActions(suggestedActions)
+                .analysisSummary(analysisSummary)
                 .build();
 
         eventBus.publish("aiops.events", result);
-        log.info("RCA result: rootCause={}, confidence={:.2f}, impactChain={}", rootCause, confidence, impactChain);
+        log.info("RCA result: rootCause={}, confidence={}, impactChain={}",
+                rootCause, formatDouble(confidence), impactChain);
         return result;
     }
 
@@ -119,39 +150,51 @@ public class RCAAgent {
     }
 
     /**
-     * 基于Neo4j知识图谱获取候选根因节点
-     * 查询与服务关联的上游依赖和故障传播关系，获取候选根因列表
+     * 解析候选故障模式。
+     *
+     * <p>优先从知识图谱取「按服务区分的故障模式 + 图上先验」。若图谱无数据
+     * （Neo4j 不可用且降级存储也为空），则退回全局兜底先验表，保证链路可用。
+     *
+     * <p>注意：不能直接用 {@code findUpstreamCauses()} 的返回值做候选——它返回的是
+     * <b>服务名</b>，与 CPT 的故障模式 key 语义不同，两者相乘会使贝叶斯推理退化为
+     * 概率均分，根因定位失去意义。
      */
-    private List<String> findCandidateCausesFromGraph(String service) {
-        List<String> candidates = knowledgeGraphService.findUpstreamCauses(service);
+    private List<CauseCandidate> resolveCandidateCauses(String service) {
+        List<CauseCandidate> candidates = knowledgeGraphService.findCandidateCauses(service);
         if (candidates.isEmpty()) {
-            // 知识图谱无数据时回退到先验概率表中的所有候选根因
-            return new ArrayList<>(PRIOR_PROBABILITY.keySet());
+            log.warn("Knowledge graph returned no failure mode for service '{}', "
+                    + "falling back to global prior table", service);
+            return FALLBACK_PRIOR_PROBABILITY.entrySet().stream()
+                    .map(e -> new CauseCandidate(e.getKey(), e.getValue()))
+                    .toList();
         }
         return candidates;
     }
 
     /**
-     * 贝叶斯推理：基于条件概率表(CPT)和先验概率，结合告警证据计算后验概率
+     * 贝叶斯推理：基于条件概率表(CPT)提供的似然与知识图谱提供的先验，计算后验概率。
      *
      * 贝叶斯公式：P(Cause | Alert) = P(Alert | Cause) * P(Cause) / P(Alert)
-     * 其中 P(Alert) = Σ P(Alert | Cause_i) * P(Cause_i) 为归一化常数
+     * 其中：
+     * - P(Alert | Cause) 来自 CPT，按告警指标类型取似然
+     * - P(Cause)        来自知识图谱 HAS_FAILURE_MODE 关系的 prior 属性
+     * - P(Alert) = Σ P(Alert | Cause_i) * P(Cause_i) 为归一化常数
      */
-    private Map<String, Double> bayesianInference(AlertEvent alert, List<String> candidateCauses) {
+    private Map<String, Double> bayesianInference(AlertEvent alert, List<CauseCandidate> candidateCauses) {
         String metricType = extractMetricType(alert.getMetricName());
         Map<String, Double> likelihoods = CPT.getOrDefault(metricType, Collections.emptyMap());
 
         Map<String, Double> unnormalized = new LinkedHashMap<>();
         double evidence = 0.0;
 
-        for (String cause : candidateCauses) {
+        for (CauseCandidate candidate : candidateCauses) {
             // P(Alert | Cause) 从CPT获取，若无则使用默认低概率
-            double pAlertGivenCause = likelihoods.getOrDefault(cause, 0.05);
-            // P(Cause) 从先验概率表获取
-            double pCause = PRIOR_PROBABILITY.getOrDefault(cause, 0.01);
+            double pAlertGivenCause = likelihoods.getOrDefault(candidate.name(), DEFAULT_LIKELIHOOD);
+            // P(Cause) 来自知识图谱关系属性，而非硬编码常量
+            double pCause = candidate.prior();
 
             double joint = pAlertGivenCause * pCause;
-            unnormalized.put(cause, joint);
+            unnormalized.put(candidate.name(), joint);
             evidence += joint;
         }
 
@@ -161,7 +204,8 @@ public class RCAAgent {
             posterior.put(entry.getKey(), evidence > 0 ? entry.getValue() / evidence : 0.0);
         }
 
-        log.debug("Bayesian inference for metric '{}': posterior={}", metricType, posterior);
+        log.debug("Bayesian inference for metric '{}' over {} candidates: posterior={}",
+                metricType, candidateCauses.size(), posterior);
         return posterior;
     }
 
@@ -207,5 +251,13 @@ public class RCAAgent {
             actions.add("monitor");
         }
         return actions;
+    }
+
+    /**
+     * 格式化小数为固定两位小数字符串。
+     * SLF4J 只识别 {} 占位符，不支持 Python 风格的 {:.2f}，需先自行格式化。
+     */
+    private static String formatDouble(double value) {
+        return String.format("%.2f", value);
     }
 }

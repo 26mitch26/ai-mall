@@ -36,10 +36,27 @@
             <artifactId>spring-ai-starter-vector-store-milvus</artifactId>
         </dependency>
 
+        <!-- Milvus Java SDK：显式声明以使用自定义 ConnectParam（keepalive/idleTimeout），
+             修复 gRPC 通道空闲 30s 回收后复用已关闭通道导致的压测 500 -->
+        <dependency>
+            <groupId>io.milvus</groupId>
+            <artifactId>milvus-sdk-java</artifactId>
+        </dependency>
+
         <!-- Redis -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!-- MySQL 驱动：mall-common 传递引入 MyBatis Plus（含 JDBC 自动配置），
+             缺少驱动时 HikariDataSource 实例化失败，应用启动报
+             "Failed to load driver class com.mysql.cj.jdbc.Driver" -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>${mysql-connector.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- WebFlux for SSE -->

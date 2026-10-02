@@ -11,33 +11,101 @@ spring:
   profiles:
     active: dev
   cloud:
+    compatibility-verifier:
+      enabled: false  # Spring Cloud 2024.0.0 官方只声明兼容 Boot 3.4.x，但实测 3.5.0 可用
     gateway:
       routes:
+        # 统一约定：网关入口统一带业务前缀，经 StripPrefix=1 剥离后转发到下游真实路径
+        # （下游控制器不携带 /api、/search、/agent/customer 等前缀，本地与 K8s(StripPrefix=1) 行为对齐）
+        # 管理端订单/售后/退款原因/订单设置接口：走 /admin 前缀 + StripPrefix=1 剥离后转发 mall-admin
+        # （管理端 OmsOrderController 等业务控制器在 mall-admin 上仍是 /order/** 原生路径）。
+        # 必须放在 mall-admin 通配路由与 mall-portal-native 之前：既避免被 /admin/** 原样转发 404，
+        # 也把原生 /order/**、/returnApply/** 全部留给会员端——会员端订单列表曾因管理端路由
+        # 截走 /order/list 而 401（实测根因）。
+        - id: mall-admin-order-api
+          predicates:
+            - Path=/admin/order/**,/admin/orderSetting/**,/admin/returnApply/**,/admin/returnReason/**
+          uri: ${GATEWAY_ROUTE_ADMIN:http://localhost:8081}
+          filters:
+            - StripPrefix=1
+        # 管理端品牌详情：GET /brand/{id} 与会员端 /brand/**（recommendList/productList/detail）在网关
+        # 无法用单段模板区分（Path=/brand/{id} 会同时命中会员端单段路径），
+        # 故管理端品牌详情统一走 /admin/brand/** 前缀 + StripPrefix=1（与订单接口同一约定）。
+        # 此前 /brand/{id} 走会员端路由，管理端令牌在 portal 用户表查不到 → 品牌编辑弹窗 500（实测）。
+        - id: mall-admin-brand-api
+          predicates:
+            - Path=/admin/brand/**
+          uri: ${GATEWAY_ROUTE_ADMIN:http://localhost:8081}
+          filters:
+            - StripPrefix=1
         - id: mall-admin
           predicates:
             - Path=/admin/**
           # 项目未引入注册中心，路由使用直连地址；容器部署时可用环境变量覆盖
           uri: ${GATEWAY_ROUTE_ADMIN:http://localhost:8081}
-          filters:
-            - StripPrefix=0
         - id: mall-portal
           predicates:
             - Path=/api/**
           uri: ${GATEWAY_ROUTE_PORTAL:http://localhost:8087}
           filters:
-            - StripPrefix=0
+            - StripPrefix=1
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 10
+                redis-rate-limiter.burstCapacity: 20
+                key-resolver: "#{@ipKeyResolver}"
+        # 管理端 OSS 直传签名与回调（mall-admin 控制器在 /aliyun/**；此前无路由导致管理端上传 404）
+        - id: mall-admin-oss-api
+          predicates:
+            - Path=/aliyun/**
+          uri: ${GATEWAY_ROUTE_ADMIN:http://localhost:8081}
+        # 原生 /order/**、/returnApply/** 归会员端（mall-portal-native 路由覆盖）；
+        # 管理端同名接口已改为 /admin/order/**（见顶部 mall-admin-order-api 路由）。
+        # 管理端商品、营销与权限接口也使用原生路径；将它们明确送到 mall-admin，
+        # 避免被 portal 的同名公开接口或默认 404 捕获。
+        - id: mall-admin-business-api
+          predicates:
+            - Path=/product/list,/product/list/**,/product/create,/product/update/**,/product/updateInfo/**,/productCategory/**,/productAttribute/**,/brand/list,/brand/create,/brand/update/**,/brand/delete/**,/home/advertise/**,/home/brand/**,/home/newProduct/**,/home/recommendProduct/**,/home/recommendSubject/**,/coupon/**,/couponHistory/**,/flash/**,/flashSession/**,/flashProductRelation/**,/companyAddress/**,/memberLevel/**,/prefrenceArea/**,/subject/**,/sku/**,/menu/**,/role/**,/resource/**,/resourceCategory/**
+          uri: ${GATEWAY_ROUTE_ADMIN:http://localhost:8081}
+        # portal 其余原生端点（/product /brand /sso /member /order /returnApply /cart 等）不带 /api 前缀，直接透传
+        - id: mall-portal-native
+          predicates:
+            - Path=/product/**,/brand/**,/sso/**,/member/**,/order/**,/returnApply/**,/cart/**,/home/**
+          uri: ${GATEWAY_ROUTE_PORTAL:http://localhost:8087}
         - id: mall-search
           predicates:
             - Path=/search/**
           uri: ${GATEWAY_ROUTE_SEARCH:http://localhost:8082}
           filters:
-            - StripPrefix=0
+            - StripPrefix=1
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 20
+                redis-rate-limiter.burstCapacity: 50
+                key-resolver: "#{@ipKeyResolver}"
         - id: agent-customer
           predicates:
             - Path=/agent/customer/**
           uri: ${GATEWAY_ROUTE_CUSTOMER:http://localhost:8083}
           filters:
-            - StripPrefix=0
+            - StripPrefix=2
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 5
+                redis-rate-limiter.burstCapacity: 10
+                key-resolver: "#{@ipKeyResolver}"
+        - id: agent-ops
+          predicates:
+            - Path=/agent/ops/**
+          uri: ${GATEWAY_ROUTE_OPS:http://localhost:8084}
+          filters:
+            - StripPrefix=2
+        - id: agent-test
+          predicates:
+            - Path=/agent/test/**
+          uri: ${GATEWAY_ROUTE_TEST:http://localhost:8085}
+          filters:
+            - StripPrefix=2
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials, RETAIN_UNIQUE
       globalcors:
@@ -51,7 +119,8 @@ spring:
               - DELETE
               - OPTIONS
             allowedHeaders: '*'
-            allowCredentials: true
+            # Bearer Token 走 Authorization 头，不依赖跨域 Cookie；通配 Origin 时必须关闭凭据模式。
+            allowCredentials: false
             maxAge: 3600
   data:
     redis:

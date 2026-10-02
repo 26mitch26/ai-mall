@@ -37,7 +37,21 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
     private static final List<String> WHITELIST = List.of(
             "/admin/login",
             "/admin/register",
-            "/admin/info",
+            "/sso/login",
+            "/sso/register",
+            "/sso/getAuthCode",
+            "/sso/updatePassword",
+            "/home/**",
+            "/product/**",
+            "/brand/**",
+            "/search/**",
+            // 客服服务在线状态与公开政策知识库（帮助中心/来源溯源）：只读公开信息，会员端登录前后都需要展示。
+            // 注意：不要放行 /knowledge/ingest 写接口，白名单按只读端点逐一登记。
+            "/agent/customer/api/v1/knowledge/status",
+            "/agent/customer/api/v1/knowledge/source",
+            "/agent/customer/api/v1/knowledge/documents",
+            "/swagger-ui/**",
+            "/v3/api-docs/**",
             "/actuator/**"
     );
 

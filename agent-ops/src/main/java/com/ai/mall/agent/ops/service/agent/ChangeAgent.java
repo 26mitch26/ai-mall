@@ -4,6 +4,7 @@ import com.ai.mall.agent.ops.model.ChangeDecision;
 import com.ai.mall.agent.ops.model.HealAction;
 import com.ai.mall.agent.ops.model.HealLevel;
 import com.ai.mall.agent.ops.service.event.EventBus;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,15 @@ public class ChangeAgent {
 
     private final EventBus eventBus;
 
+    /**
+     * 事件驱动入口：消费 aiops.commands 上的处置动作，产出管控决策发布到 aiops.audit。
+     * 与 HealAgent 之间完全经由事件总线解耦。
+     */
+    @PostConstruct
+    public void subscribeToHealActions() {
+        eventBus.subscribe(EventBus.AIOPS_COMMANDS, HealAction.class, this::evaluateChange);
+    }
+
     /** 历史成功率记录：Playbook名称 → 历史执行成功率 */
     private final Map<String, Double> historicalSuccessRate = new HashMap<>();
 
@@ -41,7 +51,7 @@ public class ChangeAgent {
 
         // Step1: 计算综合风险评分
         double riskScore = calculateRiskScore(healAction);
-        log.info("Risk score calculated: {:.2f} for action {}", riskScore, healAction.getAction());
+        log.info("Risk score calculated: {} for action {}", formatDouble(riskScore), healAction.getAction());
 
         // Step2: 审批门控决策
         GateDecision gateDecision = applyApprovalGate(riskScore, healAction);
@@ -54,7 +64,8 @@ public class ChangeAgent {
                 gateDecision.reason, LocalDateTime.now()
         );
         decisionRecords.add(record);
-        log.info("Gate decision recorded: riskScore={:.2f}, approver={}, status={}", riskScore, approver, status);
+        log.info("Gate decision recorded: riskScore={}, approver={}, status={}",
+                formatDouble(riskScore), approver, status);
 
         ChangeDecision decision = ChangeDecision.builder()
                 .id(UUID.randomUUID().toString())
@@ -68,7 +79,8 @@ public class ChangeAgent {
                 .build();
 
         eventBus.publish("aiops.audit", decision);
-        log.info("Change decision: riskScore={:.2f}, approver={}, status={}", riskScore, approver, status);
+        log.info("Change decision: riskScore={}, approver={}, status={}",
+                formatDouble(riskScore), approver, status);
         return decision;
     }
 
@@ -142,7 +154,7 @@ public class ChangeAgent {
         // 指数移动平均更新成功率
         double newRate = 0.3 * (success ? 1.0 : 0.0) + 0.7 * currentRate;
         historicalSuccessRate.put(playbookName, newRate);
-        log.info("Updated success rate for {}: {:.2f}", playbookName, newRate);
+        log.info("Updated success rate for {}: {}", playbookName, formatDouble(newRate));
     }
 
     /**
@@ -170,4 +182,12 @@ public class ChangeAgent {
             String reason,
             LocalDateTime timestamp
     ) {}
+
+    /**
+     * 格式化小数为固定两位小数字符串。
+     * SLF4J 只识别 {} 占位符，不支持 Python 风格的 {:.2f}，需先自行格式化。
+     */
+    private static String formatDouble(double value) {
+        return String.format("%.2f", value);
+    }
 }

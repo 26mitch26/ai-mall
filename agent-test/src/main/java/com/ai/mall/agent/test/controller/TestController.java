@@ -4,6 +4,7 @@ import com.ai.mall.agent.test.model.TestReport;
 import com.ai.mall.agent.test.service.agent.TestAgent;
 import com.ai.mall.agent.test.service.report.TestReportGenerator;
 import com.ai.mall.agent.test.service.report.TestReportStore;
+import com.ai.mall.agent.test.config.AgentTestConfig;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -25,6 +27,19 @@ public class TestController {
     private final TestAgent testAgent;
     private final TestReportGenerator reportGenerator;
     private final TestReportStore reportStore;
+    private final AgentTestConfig config;
+
+    @GetMapping("/capabilities")
+    @Operation(summary = "测试 Agent 能力", description = "返回契约测试引擎与本地模型信息")
+    public Map<String, Object> capabilities() {
+        return Map.of(
+                "online", true,
+                "modules", config.getModules(),
+                "aiEnabled", config.getAi().isEnabled(),
+                "model", config.getAi().getModel(),
+                "pipeline", List.of("OpenAPI Discover", "Contract Cases", "HTTP Execute", "Assertions", "Report")
+        );
+    }
 
     @PostMapping("/generate")
     @Operation(summary = "生成并运行测试用例", description = "为指定模块自动发现API并生成/运行测试用例")

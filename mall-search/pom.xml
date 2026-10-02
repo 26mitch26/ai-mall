@@ -35,6 +35,12 @@
             <artifactId>spring-boot-starter-data-elasticsearch</artifactId>
         </dependency>
 
+        <!-- Redis（RedisService 依赖，缺失会导致 No qualifying bean 启动失败） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
         <!-- SpringDoc -->
         <dependency>
             <groupId>org.springdoc</groupId>

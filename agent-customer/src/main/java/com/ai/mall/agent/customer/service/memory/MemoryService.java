@@ -27,7 +27,12 @@ public class MemoryService {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
-    private final VectorStore vectorStore;
+    /**
+     * 长期记忆专用向量库（独立的 Milvus 集合）：与知识库向量库物理隔离，
+     * 避免历史对话被知识检索命中、混进回答的"来源"里。
+     * 字段名与 Bean 名一致，保证按类型注入时精确选中 memoryVectorStore。
+     */
+    private final VectorStore memoryVectorStore;
 
     private static final String SESSION_PREFIX = "chat:session:";
     private static final String MEMORY_PREFIX = "chat:memory:";
@@ -109,7 +114,7 @@ public class MemoryService {
         metadata.put("messageId", message.getId());
 
         Document document = new Document(message.getContent(), metadata);
-        vectorStore.add(List.of(document));
+        memoryVectorStore.add(List.of(document));
         log.debug("Stored long-term memory for session {}: {}", sessionId, message.getContent());
     }
 
@@ -124,7 +129,7 @@ public class MemoryService {
                 .filterExpression(filterBuilder.eq(LONG_TERM_METADATA_KEY, sessionId).build())
                 .build();
 
-        List<Document> results = vectorStore.similaritySearch(searchRequest);
+        List<Document> results = memoryVectorStore.similaritySearch(searchRequest);
         log.debug("Retrieved {} long-term memories for session {} with query: {}", results.size(), sessionId, query);
         return results;
     }
@@ -241,7 +246,7 @@ public class MemoryService {
                 "[会话摘要] " + conversationSummary,
                 metadata
         );
-        vectorStore.add(List.of(summaryDoc));
+        memoryVectorStore.add(List.of(summaryDoc));
 
         // 归档后清除短期记忆
         clearSession(sessionId);

@@ -81,7 +81,12 @@
     <logger name="org.springframework" level="INFO"/>
     <logger name="org.hibernate.validator" level="INFO"/>
 
-    <root level="DEBUG">
+    <!--
+        默认级别为 INFO（原为 DEBUG）。
+        压测教训：DEBUG 默认 + WebLogAspect 每请求写完整 JSON → 单轮压测 GB 级日志、磁盘 I/O 拖垮 QPS。
+        需要排查问题时再用 参数 logging.level.root=debug 或按包名临时开 DEBUG。
+    -->
+    <root level="INFO">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE_DEBUG"/>
         <appender-ref ref="FILE_ERROR"/>

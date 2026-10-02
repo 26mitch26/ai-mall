@@ -1,0 +1,82 @@
+{
+  "description": "客服 Agent 会话场景用例：验证\"对话意图 → 工具取数 → 事实约束 → 拒答/鉴权边界\"。与 OpenAPI 契约用例互补，全部为只读问答。新增场景只需追加本文件条目。",
+  "scenarios": [
+    {
+      "id": "conv-001",
+      "name": "订单清单：无订单编号直接列出名下订单",
+      "message": "我现在买了哪些东西",
+      "mustContainAll": ["笔订单"],
+      "mustContainAny": ["202610020100000002", "AM-DEMO-20261001-002", "202609300002", "202609300001"],
+      "mustNotContain": ["请提供订单编号"],
+      "maxLatencyMs": 5000
+    },
+    {
+      "id": "conv-002",
+      "name": "口语变体：\"我都买过什么\"同样命中订单清单",
+      "message": "我都买过什么",
+      "mustContainAll": ["笔订单"],
+      "mustNotContain": ["请提供订单编号"]
+    },
+    {
+      "id": "conv-003",
+      "name": "订单详情：按编号返回真实状态与物流",
+      "message": "帮我查订单 202609300001",
+      "expectedIntent": "order_task",
+      "mustContainAll": ["已发货", "物流"],
+      "maxLatencyMs": 5000
+    },
+    {
+      "id": "conv-004",
+      "name": "知识问答：退货流程回答需有知识库来源",
+      "message": "退货流程是什么",
+      "minSources": 1
+    },
+    {
+      "id": "conv-005",
+      "name": "证据不足：未知问题拒答转人工（快路径）",
+      "message": "你们有线下门店吗？",
+      "mustContainAny": ["人工客服", "没有找到"],
+      "maxLatencyMs": 8000
+    },
+    {
+      "id": "conv-006",
+      "name": "售后补槽：缺订单号时引导补充而非直接建单",
+      "message": "我要申请退货",
+      "mustContainAll": ["订单编号"]
+    },
+    {
+      "id": "conv-007",
+      "name": "售前商品：实时商品库返回价格与库存",
+      "message": "有哪些手机",
+      "mustContainAll": ["售价", "库存"],
+      "maxLatencyMs": 8000
+    },
+    {
+      "id": "conv-008",
+      "name": "鉴权边界：未登录不得访问会员订单",
+      "message": "我的订单",
+      "auth": "none",
+      "expectedHttpStatus": 401
+    },
+    {
+      "id": "conv-009",
+      "name": "帮我下单：先推荐商品并要求确认（不直接创建订单）",
+      "message": "帮我买华为Mate60 Pro",
+      "mustContainAny": ["确认", "售价"],
+      "mustNotContain": ["下单成功"]
+    },
+    {
+      "id": "conv-010",
+      "name": "取消订单（无编号）：列出待付款订单并引导补充编号",
+      "message": "我想取消订单",
+      "mustContainAny": ["待付款", "取消订单", "没有待付款订单"]
+    },
+    {
+      "id": "conv-011",
+      "name": "模糊意向推荐：给出候选并引导选择（不直接创建订单）",
+      "message": "我想买个耳机",
+      "mustContainAny": ["推荐", "售价", "确认"],
+      "mustNotContain": ["下单成功"]
+    }
+  ]
+}

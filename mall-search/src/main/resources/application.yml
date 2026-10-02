@@ -15,12 +15,30 @@ mybatis:
     - classpath:dao/*.xml
     - classpath*:com/**/mapper/*.xml
 
+# 实际生效的是 MyBatis-Plus 自动配置（mall-common 引入 mybatis-plus-spring-boot3-starter），
+# 自定义 XML（EsProductDao.xml 等）必须走 mybatis-plus.mapper-locations，
+# 否则运行时报 Invalid bound statement (not found)。此处分批用 classpath* 保证 jar 内可匹配。
+mybatis-plus:
+  mapper-locations:
+    - classpath*:dao/*.xml
+    - classpath*:com/**/mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+# mall-common 传递引入 spring-boot-starter-security（默认全接口需认证），
+# 压测匿名访问 ES 搜索链路需放行；集群部署时应接入统一 JWT 认证
+secure:
+  ignored:
+    urls:
+      - /esProduct/**
+
 springdoc:
   swagger-ui:
     # 修改Swagger UI路径
     path: /swagger-ui.html
-    # 开启Swagger UI界面
-    enabled: true
+    # Spring Boot 3.5 / Framework 6.2 下 springdoc 生成的 swagger-initializer.js
+    # 模式与 PathPatternParser 冲突，会导致启动失败，压测阶段先禁用（/v3/api-docs 不受影响）
+    enabled: false
     # 用于配置tag和operation的展开方式，这里配置为都不展开
     doc-expansion: 'none'
   api-docs:

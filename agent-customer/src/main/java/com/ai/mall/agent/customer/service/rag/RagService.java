@@ -1,20 +1,23 @@
 package com.ai.mall.agent.customer.service.rag;
 
 import com.ai.mall.agent.customer.model.Document;
+import com.ai.mall.agent.customer.service.llm.AgentLlmClient;
 import com.ai.mall.agent.customer.service.security.InputSanitizer;
+import jakarta.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -22,17 +25,21 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.nio.charset.StandardCharsets;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class RagService {
 
-    private final OpenAiChatModel mimoChatModel;
+    private final AgentLlmClient agentLlmClient;
     private final InputSanitizer inputSanitizer;
     private final VectorStore vectorStore;
     private final StringRedisTemplate redisTemplate;
     private final org.springframework.ai.embedding.EmbeddingModel embeddingModel;
+    private final QueryDecomposer queryDecomposer;
 
     /**
      * 知识库无命中时的拒答话术
@@ -45,12 +52,38 @@ public class RagService {
     public static final String NO_CONTEXT_ANSWER =
             "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复，已为您转接人工客服。";
 
+    /**
+     * 检索证据阈值：top-1 语义相似度低于该值、且没有任何 BM25 强命中时，
+     * 判定"知识库依据不足"，由调用方直接拒答（快路径），不再交给模型自由发挥。
+     * <p>
+     * 阈值来自本机实测标定（bge-m3，5 篇知识库）：
+     * 命中问题 top-1 相似度 0.59~0.71（退款/换货/运费/积分/重复扣款），
+     * 无关问题 0.35~0.44（门店/天气/上市），0.50 可干净分隔两类，可通过配置覆盖。
+     */
+    @Value("${ai.rag.evidence-threshold:0.50}")
+    private double evidenceThreshold;
+
+    /** BM25 强命中门槛：多词命中且得分较高时，即使语义相似度一般也视为有依据 */
+    private static final double BM25_STRONG_SCORE = 3.0;
+
     /** RRF融合常数，标准值k=60 */
     private static final int RRF_K = 60;
     /** BM25参数k1，控制词频饱和度 */
     private static final double BM25_K1 = 1.5;
     /** BM25参数b，控制文档长度归一化 */
     private static final double BM25_B = 0.75;
+
+    /**
+     * Spring AI Milvus 默认主键字段长度为 36；分块 ID 会在原文档 UUID 后追加序号，
+     * 因此统一映射为稳定 UUID，保证 Milvus 与 BM25 使用同一个可融合的文档 ID。
+     */
+    private static String toVectorId(String sourceId) {
+        if (sourceId != null && sourceId.length() <= 36) {
+            return sourceId;
+        }
+        String stableSource = sourceId == null ? "missing-document-id" : sourceId;
+        return UUID.nameUUIDFromBytes(stableSource.getBytes(StandardCharsets.UTF_8)).toString();
+    }
 
     // ==================== 内部数据结构 ====================
 
@@ -149,10 +182,17 @@ public class RagService {
             List<RetrievedDocument> results = new ArrayList<>();
             for (int i = 0; i < aiDocs.size(); i++) {
                 org.springframework.ai.document.Document aiDoc = aiDocs.get(i);
+                // 只保留带来源元数据的知识文档：长期记忆曾与知识库共用集合（现已隔离），
+                // 存量历史对话没有 source 元数据，若不过滤会以"来源 unknown"混进回答引用
+                Object sourceMeta = aiDoc.getMetadata() == null ? null : aiDoc.getMetadata().get("source");
+                if (sourceMeta == null || String.valueOf(sourceMeta).isBlank()) {
+                    log.debug("跳过无来源元数据的向量, id={}", aiDoc.getId());
+                    continue;
+                }
                 results.add(RetrievedDocument.builder()
                         .id(aiDoc.getId())
                         .content(aiDoc.getText())
-                        .source(String.valueOf(aiDoc.getMetadata().getOrDefault("source", "unknown")))
+                        .source(String.valueOf(sourceMeta))
                         .type(String.valueOf(aiDoc.getMetadata().getOrDefault("type", "unknown")))
                         .score(extractSimilarityScore(aiDoc, i))
                         .retrievalSource("milvus")
@@ -351,10 +391,23 @@ public class RagService {
      * 分块索引可以提升检索粒度，使向量检索和关键词检索都能更精确地匹配到相关片段。
      *
      * @param documents      原始文档列表
-     * @param chunkStrategy  分块策略：fixed_size / sentence / semantic，null表示不分块
+     * @param chunkStrategy  分块策略：fixed_size / sentence / semantic / table_aware / code / smart，null表示不分块
      */
     public void indexDocuments(List<Document> documents, String chunkStrategy) {
         log.info("开始索引{}篇文档, 分块策略={}", documents.size(), chunkStrategy);
+
+        // 分块前保存原始文档，来源弹窗可以回到全文，而不是只能展示命中的片段。
+        for (Document document : documents) {
+            if (document.getSource() == null || document.getSource().isBlank()
+                    || document.getContent() == null || document.getContent().isBlank()) {
+                continue;
+            }
+            redisTemplate.opsForHash().putAll("bm25:source:" + document.getSource(), Map.of(
+                    "source", document.getSource(),
+                    "type", document.getType() == null ? "general" : document.getType(),
+                    "content", document.getContent()
+            ));
+        }
 
         // 如果指定了分块策略，先对文档进行分块
         List<Document> docsToIndex;
@@ -367,7 +420,7 @@ public class RagService {
             log.info("文档分块完成, 原始文档{}篇, 分块后{}块", documents.size(), allChunks.size());
             docsToIndex = allChunks.stream()
                     .map(chunk -> Document.builder()
-                            .id(chunk.getChunkId())
+                            .id(toVectorId(chunk.getChunkId()))
                             .content(chunk.getContent())
                             .source(chunk.getSource())
                             .type(chunk.getType())
@@ -381,6 +434,10 @@ public class RagService {
         double totalLength = 0;
 
         for (Document doc : docsToIndex) {
+            // 幂等重建：同一文档（docId 由来源稳定派生）重复导入时先清理旧索引，
+            // 避免旧词项残留在倒排/词频表中，导致改版文档出现“新旧并存”的检索噪声。
+            purgeIndexForDocument(doc.getId());
+
             List<String> terms = tokenize(doc.getContent());
 
             // 存储文档元信息到Redis Hash
@@ -413,10 +470,9 @@ public class RagService {
             totalLength += terms.size();
         }
 
-        // 更新BM25统计信息
-        redisTemplate.opsForValue().set("bm25:stats:total_docs", String.valueOf(totalDocs));
-        redisTemplate.opsForValue().set("bm25:stats:avg_doc_length",
-                totalDocs > 0 ? String.valueOf(totalLength / totalDocs) : "0");
+        // 全量重算统计信息：增量导入单篇文档时不能只按本批文档覆盖 total_docs/avg_doc_length，
+        // 否则 IDF 失真（甚至为负）导致检索排序错乱，见 面试准备.md 失败案例。
+        refreshBm25Stats();
 
         // 同步文档到Milvus向量库
         try {
@@ -435,6 +491,167 @@ public class RagService {
 
         log.info("文档索引完成, 共索引{}篇文档, 平均文档长度{}", totalDocs,
                 totalDocs > 0 ? totalLength / totalDocs : 0);
+    }
+
+    /**
+     * 清理指定文档的旧 BM25 索引（文档元信息、词频表、倒排索引成员）。
+     * <p>
+     * 配合"docId 由来源稳定派生"实现幂等重建：改版知识文档重新导入时，
+     * 旧词项不会残留在倒排表中污染检索结果。
+     */
+    private void purgeIndexForDocument(String docId) {
+        try {
+            Map<Object, Object> oldTf = redisTemplate.opsForHash().entries("bm25:doc:" + docId + ":tf");
+            for (Object term : oldTf.keySet()) {
+                redisTemplate.opsForSet().remove("bm25:inverted:" + term, docId);
+            }
+            redisTemplate.delete("bm25:doc:" + docId + ":tf");
+            redisTemplate.delete("bm25:doc:" + docId);
+        } catch (Exception e) {
+            log.warn("清理旧 BM25 索引失败 docId={}: {}", docId, e.getMessage());
+        }
+    }
+
+    /** 已索引的知识来源数量（bm25:source:{source} 键数量） */
+    public long countIndexedSources() {
+        try {
+            Set<String> keys = redisTemplate.keys("bm25:source:*");
+            return keys == null ? 0 : keys.size();
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    /** 已索引的分块总数（BM25 统计值） */
+    public long countIndexedChunks() {
+        try {
+            Object value = redisTemplate.opsForValue().get("bm25:stats:total_docs");
+            return value == null ? 0 : Long.parseLong(value.toString());
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
+    /**
+     * 已入库文档清单（会员端"帮助中心 / 知识库"展示用）。
+     * <p>
+     * 数据来源与 findFullSource 同源：bm25:source:{source} 哈希保存了每篇原始文档的
+     * source/type/content，这里聚合为列表并抽取 Markdown 首个一级标题作为展示名。
+     */
+    public List<Map<String, String>> listIndexedSources() {
+        List<Map<String, String>> result = new ArrayList<>();
+        try {
+            Set<String> keys = redisTemplate.keys("bm25:source:*");
+            if (keys == null || keys.isEmpty()) {
+                return result;
+            }
+            for (String key : keys) {
+                Map<Object, Object> values = redisTemplate.opsForHash().entries(key);
+                if (values == null || values.isEmpty()) {
+                    continue;
+                }
+                String source = String.valueOf(values.getOrDefault("source",
+                        key.substring("bm25:source:".length())));
+                String type = String.valueOf(values.getOrDefault("type", "general"));
+                String content = String.valueOf(values.getOrDefault("content", ""));
+                Map<String, String> item = new HashMap<>();
+                item.put("source", source);
+                item.put("type", type);
+                item.put("title", extractTitle(content, source));
+                result.add(item);
+            }
+            result.sort(Comparator.comparing(item -> item.get("source")));
+        } catch (Exception e) {
+            log.warn("列出知识库文档失败: {}", e.getMessage());
+        }
+        return result;
+    }
+
+    /** 从 Markdown 正文抽取首个一级标题作为展示名，找不到时回退为来源文件名 */
+    private String extractTitle(String content, String source) {
+        if (content != null) {
+            for (String line : content.split("\n")) {
+                String trimmed = line.trim();
+                if (trimmed.isEmpty()) {
+                    continue;
+                }
+                if (trimmed.startsWith("# ")) {
+                    return trimmed.substring(2).trim();
+                }
+                break; // 首个非空行不是标题即可判定无标题，避免扫描全文
+            }
+        }
+        int slash = source.lastIndexOf('/');
+        return slash >= 0 ? source.substring(slash + 1) : source;
+    }
+
+    /**
+     * 启动时重算一次 BM25 统计信息，保证存量索引自愈（历史版本增量导入会写坏统计值）。
+     */
+    @PostConstruct
+    void initBm25Stats() {
+        try {
+            refreshBm25Stats();
+        } catch (Exception e) {
+            log.warn("启动时重算 BM25 统计信息失败: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 基于 Redis 中全部 bm25:doc:* 记录全量重算统计信息（文档总数、平均文档长度）。
+     * <p>
+     * 不能按"本批索引的文档"覆盖统计值：增量导入单篇文档会把 total_docs 写成 1，
+     * BM25 的 IDF = log((N-df+0.5)/(df+0.5)) 随之失真（df 接近 N 时甚至为负），
+     * 检索排序错乱。演示规模（百级分块）下 keys 扫描开销可忽略。
+     */
+    private void refreshBm25Stats() {
+        Set<String> docKeys = redisTemplate.keys("bm25:doc:*");
+        long totalDocs = 0;
+        double totalLength = 0;
+        if (docKeys != null) {
+            for (String key : docKeys) {
+                if (key.endsWith(":tf")) {
+                    continue;
+                }
+                Object length = redisTemplate.opsForHash().get(key, "length");
+                if (length == null) {
+                    continue;
+                }
+                totalDocs++;
+                totalLength += Double.parseDouble(length.toString());
+            }
+        }
+        redisTemplate.opsForValue().set("bm25:stats:total_docs", String.valueOf(totalDocs));
+        redisTemplate.opsForValue().set("bm25:stats:avg_doc_length",
+                totalDocs > 0 ? String.valueOf(totalLength / totalDocs) : "0");
+        log.info("BM25 统计信息已重算: totalDocs={}, avgDocLength={}", totalDocs,
+                totalDocs > 0 ? String.format("%.2f", totalLength / totalDocs) : "0");
+    }
+
+    /** 按来源读取索引时保存的原始文档全文。 */
+    public Map<String, String> findFullSource(String source) {
+        if (source == null || source.isBlank()) {
+            return Map.of();
+        }
+        String normalized = source.replace('\\', '/');
+        if (normalized.contains("..") || normalized.startsWith("/") || normalized.contains(":/")) {
+            return Map.of();
+        }
+        List<String> candidates = new ArrayList<>();
+        candidates.add(normalized);
+        if (normalized.startsWith("docs/knowledge/")) {
+            candidates.add(normalized.substring("docs/knowledge/".length()));
+        }
+        for (String candidate : candidates) {
+            Map<Object, Object> values = redisTemplate.opsForHash().entries("bm25:source:" + candidate);
+            if (values != null && !values.isEmpty()) {
+                Map<String, String> result = new HashMap<>();
+                values.forEach((key, value) -> result.put(String.valueOf(key), String.valueOf(value)));
+                result.putIfAbsent("source", normalized);
+                return result;
+            }
+        }
+        return Map.of();
     }
 
     // ==================== 中文分词 ====================
@@ -480,6 +697,9 @@ public class RagService {
      * 1. chunkByFixedSize —— 按固定字符数分块，带滑动窗口重叠，适合结构化文本
      * 2. chunkBySentence  —— 按句子边界分块，保留语义完整性，适合自然语言文本
      * 3. chunkBySemantic  —— 按段落/语义边界分块，适合长文档的粗粒度切分
+     * 4. chunkByTableAware —— 表格感知切分，整表不切，适合含表格的文档
+     * 5. chunkByCode      —— 代码感知切分，按函数/方法边界切分，适合代码文档
+     * 6. chunkSmart       —— 智能切分，自动检测内容类型选择最合适的策略
      * <p>
      * 所有分块策略均通过 chunkWithMetadata() 包装，保留来源、位置、前后文关系等元信息。
      * 支持中英文混合文本的分块。
@@ -728,6 +948,238 @@ public class RagService {
             return childBlocks(parentText, 180);
         }
 
+        // ==================== 表格感知切分 ====================
+
+        /** 表格行检测：包含 ｜ 或 | 分隔符，且至少有 2 个分隔符 */
+        private static boolean isTableRow(String line) {
+            if (line == null) return false;
+            long separators = line.chars().filter(c -> c == '|' || c == '｜' || c == '\t').count();
+            return separators >= 2;
+        }
+
+        /**
+         * 表格感知切分：检测到表格时整表不切，保持完整。
+         *
+         * <p>为什么不能按 512 字符切表格：
+         * 表格行之间有对齐关系（表头→数据行），切成两半后：
+         * - 后半截没有表头，不知道每列是什么
+         * - 同一行的数据可能被切到不同块
+         *
+         * <p>做法：
+         * 1. 逐行扫描，连续的表格行合并为一个"表格块"
+         * 2. 非表格行走正常切分（按句子/段落）
+         * 3. 表格前后各保留 1 行上下文（帮助理解表格）
+         *
+         * @param text      原始文本
+         * @param chunkSize 非表格部分的切分大小
+         * @return 分块列表
+         */
+        public static List<String> chunkByTableAware(String text, int chunkSize) {
+            if (text == null || text.isBlank()) {
+                return Collections.emptyList();
+            }
+
+            String[] lines = text.split("\\r?\\n");
+            List<String> chunks = new ArrayList<>();
+            List<String> tableBuffer = new ArrayList<>();
+            List<String> textBuffer = new ArrayList<>();
+            String prevLine = null;
+
+            for (String line : lines) {
+                if (isTableRow(line)) {
+                    // 表格行：先 flush 文本缓冲区
+                    if (!textBuffer.isEmpty()) {
+                        chunks.addAll(chunkBySentence(String.join("\n", textBuffer), chunkSize));
+                        textBuffer.clear();
+                    }
+                    tableBuffer.add(line);
+                } else {
+                    // 非表格行：flush 表格缓冲区（整表作为一个块）
+                    if (!tableBuffer.isEmpty()) {
+                        // 表格前后各保留 1 行上下文
+                        StringBuilder tableChunk = new StringBuilder();
+                        if (prevLine != null && !isTableRow(prevLine)) {
+                            tableChunk.append(prevLine).append("\n");
+                        }
+                        tableChunk.append(String.join("\n", tableBuffer));
+                        chunks.add(tableChunk.toString().trim());
+                        tableBuffer.clear();
+                    }
+                    textBuffer.add(line);
+                }
+                prevLine = line;
+            }
+
+            // flush 剩余内容
+            if (!tableBuffer.isEmpty()) {
+                chunks.add(String.join("\n", tableBuffer).trim());
+            }
+            if (!textBuffer.isEmpty()) {
+                chunks.addAll(chunkBySentence(String.join("\n", textBuffer), chunkSize));
+            }
+
+            return chunks.isEmpty() ? List.of(text.trim()) : chunks;
+        }
+
+        // ==================== 代码感知切分 ====================
+
+        /** 代码函数/方法边界检测（Java/TypeScript/Python/Go） */
+        private static final Pattern CODE_BLOCK_PATTERN = Pattern.compile(
+                "^\\s*(?:" +
+                "(?:public|private|protected|static|final|abstract|async|export)?\\s*" +  // 修饰符
+                "(?:function|def|func|class|interface|enum|struct|void|int|String|boolean|double|float|long)" +  // 关键字
+                "\\s+\\w+" +  // 函数/类名
+                "|" +
+                "^\\s*(?:@\\w+)" +  // 注解（如 @Test, @Override）
+                ")",
+                Pattern.MULTILINE
+        );
+
+        /**
+         * 代码感知切分：按函数/方法边界切分，不切断函数。
+         *
+         * <p>为什么不能按 512 字符切代码：
+         * - 函数可能被切成两半，前半截有签名没体，后半截有体没签名
+         * - 切断后 embedding 无法理解这段代码在做什么
+         *
+         * <p>做法：
+         * 1. 检测函数/方法的起始行（通过修饰符+函数名模式）
+         * 2. 从函数起始行开始，累积到下一个函数起始行前结束
+         * 3. 超长函数（>2*chunkSize）内部再按行号软切
+         *
+         * @param code     代码文本
+         * @param chunkSize 目标块大小
+         * @return 分块列表
+         */
+        public static List<String> chunkByCode(String code, int chunkSize) {
+            if (code == null || code.isBlank()) {
+                return Collections.emptyList();
+            }
+            int size = chunkSize > 0 ? chunkSize : DEFAULT_CHUNK_SIZE;
+
+            String[] lines = code.split("\\r?\\n");
+            List<String> chunks = new ArrayList<>();
+            StringBuilder currentBlock = new StringBuilder();
+            boolean inCodeBlock = false;
+
+            for (String line : lines) {
+                boolean isBlockStart = CODE_BLOCK_PATTERN.matcher(line).find();
+
+                if (isBlockStart && currentBlock.length() > 0) {
+                    // 新函数开始，flush 当前块
+                    String block = currentBlock.toString().trim();
+                    if (!block.isEmpty()) {
+                        // 超长块内部软切
+                        if (block.length() > size * 2) {
+                            chunks.addAll(chunkByFixedSize(block, size, 0));
+                        } else {
+                            chunks.add(block);
+                        }
+                    }
+                    currentBlock = new StringBuilder();
+                }
+
+                currentBlock.append(line).append('\n');
+                inCodeBlock = true;
+            }
+
+            // flush 最后一个块
+            if (currentBlock.length() > 0) {
+                String block = currentBlock.toString().trim();
+                if (!block.isEmpty()) {
+                    if (block.length() > size * 2) {
+                        chunks.addAll(chunkByFixedSize(block, size, 0));
+                    } else {
+                        chunks.add(block);
+                    }
+                }
+            }
+
+            return chunks.isEmpty() ? List.of(code.trim()) : chunks;
+        }
+
+        // ==================== 表格转自然语言 ====================
+
+        /**
+         * 表格转自然语言：把表格行转成描述性文字，提升检索命中率。
+         *
+         * <p>为什么需要：
+         * 用户问"iPhone 多少钱"，embedding 搜索"多少钱"可能匹配不到表格里的"8999"。
+         * 但转成"iPhone 16 的价格是 8999 元"后，语义就清晰了。
+         *
+         * <p>做法：
+         * 1. 第一行作为表头（列名）
+         * 2. 后续每行：列名 + 值 组合成自然语言句子
+         * 3. 同时保留原始表格（两份都入索引）
+         *
+         * @param tableText 表格文本（｜ 分隔）
+         * @return 自然语言描述列表（每行一个句子）
+         */
+        public static List<String> tableToNaturalLanguage(String tableText) {
+            if (tableText == null || tableText.isBlank()) {
+                return Collections.emptyList();
+            }
+
+            String[] lines = tableText.split("\\r?\\n");
+            if (lines.length < 2) {
+                return List.of(tableText.trim());
+            }
+
+            // 解析表头
+            String[] headers = lines[0].split("[｜|\\t]");
+            for (int i = 0; i < headers.length; i++) {
+                headers[i] = headers[i].trim();
+            }
+
+            List<String> sentences = new ArrayList<>();
+            for (int i = 1; i < lines.length; i++) {
+                String[] cells = lines[i].split("[｜|\\t]");
+                StringBuilder sb = new StringBuilder();
+                for (int j = 0; j < Math.min(headers.length, cells.length); j++) {
+                    if (j > 0) sb.append("，");
+                    String header = headers[j].isEmpty() ? "列" + (j + 1) : headers[j];
+                    sb.append(header).append("为").append(cells[j].trim());
+                }
+                if (sb.length() > 0) {
+                    sentences.add(sb.toString());
+                }
+            }
+
+            return sentences;
+        }
+
+        /**
+         * 智能切分：自动检测内容类型，选择最合适的切分策略。
+         *
+         * <p>优先级：
+         * 1. 包含表格行 → 表格感知切分
+         * 2. 包含代码特征 → 代码切分
+         * 3. 默认 → 句子切分
+         */
+        public static List<String> chunkSmart(String text, int chunkSize) {
+            if (text == null || text.isBlank()) {
+                return Collections.emptyList();
+            }
+
+            // 检测是否包含表格
+            String[] lines = text.split("\\r?\\n");
+            long tableLineCount = Arrays.stream(lines).filter(DocumentChunker::isTableRow).count();
+            if (tableLineCount >= 2 && tableLineCount > lines.length * 0.2) {
+                return chunkByTableAware(text, chunkSize);
+            }
+
+            // 检测是否包含代码
+            long codeLineCount = Arrays.stream(lines)
+                    .filter(l -> l.matches("^\\s*(public|private|protected|function|def|class|interface|import|export|const|let|var).*"))
+                    .count();
+            if (codeLineCount >= 3 && codeLineCount > lines.length * 0.3) {
+                return chunkByCode(text, chunkSize);
+            }
+
+            // 默认句子切分
+            return chunkBySentence(text, chunkSize);
+        }
+
         /**
          * 分块时保留元信息（来源、位置、前后文关系）
          * <p>
@@ -749,6 +1201,9 @@ public class RagService {
             List<String> rawChunks = switch (strategy) {
                 case "sentence" -> chunkBySentence(doc.getContent(), chunkSize);
                 case "semantic" -> chunkBySemantic(doc.getContent(), chunkSize);
+                case "table_aware" -> chunkByTableAware(doc.getContent(), chunkSize);
+                case "code" -> chunkByCode(doc.getContent(), chunkSize);
+                case "smart" -> chunkSmart(doc.getContent(), chunkSize);
                 default -> chunkByFixedSize(doc.getContent(), chunkSize, overlap);
             };
 
@@ -1192,33 +1647,137 @@ public class RagService {
      * 5. 重排序 —— 对RRF融合结果进行精排，提升topK相关性
      */
     public List<Document> retrieve(String query, int topK) {
-        log.info("混合检索开始, query={}, topK={}", query, topK);
+        return retrieveWithEvidence(query, topK).documents();
+    }
 
-        // 1. Milvus向量检索
-        List<RetrievedDocument> vectorResults = milvusVectorRetrieve(query, topK);
+    /** 检索结果 + 证据判定：回答前先判断"知识库能不能可靠回答这个问题" */
+    public record RetrievalOutcome(List<Document> documents, double topSimilarity,
+                                   double topBm25Score, double evidenceScore, boolean weakEvidence) {
+    }
 
-        // 2. BM25关键词检索
-        List<RetrievedDocument> keywordResults = bm25KeywordRetrieve(query, topK);
+    /**
+     * 带证据判定的混合检索（Adaptive RAG / CRAG 思路的本地实现）：
+     * 1. 召回池扩大为 2×topK（与离线评测链路一致）：先广召回、再精排截断，
+     *    避免"只召回 3 条就精排"把漏检固定在召回阶段；
+     * 2. 记录 top-1 的原始语义相似度（Milvus cosine）与 BM25 得分，形成"证据强度"；
+     * 3. 证据不足（相似度低且无 BM25 强命中）时调用方可直接拒答转人工——
+     *    实测小模型拿到弱相关上下文时会把无关资料"聊成"答案，这一步从机制上掐断。
+     */
+    public RetrievalOutcome retrieveWithEvidence(String query, int topK) {
+        int recallSize = Math.max(topK * 2, 6);
+        log.info("混合检索开始, query={}, topK={}, 召回池={}", query, topK, recallSize);
+
+        // 1. Milvus向量检索（扩大召回池）
+        List<RetrievedDocument> vectorResults = milvusVectorRetrieve(query, recallSize);
+
+        // 2. BM25关键词检索（同样扩大召回池）
+        List<RetrievedDocument> keywordResults = bm25KeywordRetrieve(query, recallSize);
+
+        Map<String, Double> similarityById = new HashMap<>();
+        for (RetrievedDocument doc : vectorResults) {
+            similarityById.put(doc.getId(), doc.getScore());
+        }
+        double topBm25Score = keywordResults.isEmpty() ? 0.0 : keywordResults.get(0).getScore();
 
         // 3. RRF融合排序
         List<FusedDocument> fusedResults = rrfFusion(vectorResults, keywordResults);
 
-        // 4. 重排序：基于特征工程的多维度重排序
-        CrossEncoderReranker reranker = new CrossEncoderReranker();
-        List<RerankedDocument> rerankedResults = reranker.rerank(query, fusedResults, topK);
+        // 4. 重排序：基于特征工程的多维度重排序，截断到 topK
+        List<RerankedDocument> rerankedResults = new CrossEncoderReranker().rerank(query, fusedResults, topK);
 
-        // 5. 转换为Document返回
+        // 5. 转换为Document
         List<Document> documents = rerankedResults.stream()
                 .map(reranked -> Document.builder()
                         .id(reranked.getId())
                         .content(reranked.getContent())
                         .source(reranked.getSource())
                         .type(reranked.getType())
+                        .score(reranked.getRerankScore())
+                        .retrievalSource("hybrid")
                         .build())
                 .toList();
 
-        log.info("混合检索完成, 返回{}条结果", documents.size());
-        return documents;
+        // 6. 证据判定：top-1 语义相似度为主信号，BM25 强命中作为补充（关键词类查询兜底）
+        double topSimilarity = rerankedResults.isEmpty() ? 0.0
+                : similarityById.getOrDefault(rerankedResults.get(0).getId(), 0.0);
+        boolean bm25Strong = topBm25Score >= BM25_STRONG_SCORE;
+        double evidenceScore = bm25Strong ? Math.max(topSimilarity, 0.60) : topSimilarity;
+        boolean weakEvidence = evidenceScore < evidenceThreshold;
+
+        log.info("混合检索完成, 返回{}条结果, top相似度={}, BM25最高分={}, 证据强度={}, 判定={}",
+                documents.size(), String.format("%.3f", topSimilarity), String.format("%.2f", topBm25Score),
+                String.format("%.3f", evidenceScore), weakEvidence ? "依据不足" : "依据充分");
+        return new RetrievalOutcome(documents, topSimilarity, topBm25Score, evidenceScore, weakEvidence);
+    }
+
+    /**
+     * 带问题分解的混合检索：识别多意图 → 拆分子问题 → 分别检索 → 合并去重。
+     *
+     * <p>为什么需要分解：
+     * 用户问"退货要多久能退款？运费谁出？"，如果不分解，混合检索只能
+     * 命中"退货"相关的文档，"运费"相关的可能排在后面甚至丢失。
+     * 分解后分别检索，每个子问题都能精准命中对应文档，合并后覆盖面更广。
+     *
+     * <p>合并策略：
+     * - 每个子问题检索 topK 个结果
+     * - 合并后按 RRF 分数重新排序，去重取前 topK
+     * - 保留子问题来源信息，便于溯源
+     *
+     * @param query 用户原始 query
+     * @param topK  最终返回的文档数量
+     * @return 合并去重后的 topK 个最相关文档
+     */
+    public List<Document> retrieveWithDecomposition(String query, int topK) {
+        List<String> subQueries = queryDecomposer.decompose(query);
+
+        // 单意图，直接走原有检索
+        if (subQueries.size() <= 1) {
+            return retrieve(query, topK);
+        }
+
+        log.info("多意图检索: 原始='{}', 子问题={}", query, subQueries);
+
+        // 分别检索，每个子问题取 topK
+        Map<String, Document> merged = new LinkedHashMap<>();
+        Map<String, Double> scoreMap = new HashMap<>();
+
+        for (int i = 0; i < subQueries.size(); i++) {
+            String subQuery = subQueries.get(i);
+            List<Document> subResults = retrieve(subQuery, topK);
+
+            for (int j = 0; j < subResults.size(); j++) {
+                Document doc = subResults.get(j);
+                // RRF 合并：用子问题内的排名贡献分数
+                double rrfScore = 1.0 / (RRF_K + j + 1);
+                scoreMap.merge(doc.getId(), rrfScore, Double::sum);
+                merged.putIfAbsent(doc.getId(), doc);
+            }
+
+            log.info("子问题 '{}' 检索到 {} 条结果", subQuery, subResults.size());
+        }
+
+        // 按合并后的 RRF 分数排序，取 topK
+        List<Document> result = merged.entrySet().stream()
+                .sorted((a, b) -> Double.compare(
+                        scoreMap.getOrDefault(b.getKey(), 0.0),
+                        scoreMap.getOrDefault(a.getKey(), 0.0)))
+                .limit(topK)
+                .map(entry -> {
+                    Document doc = entry.getValue();
+                    // 追加子问题来源信息（创建新对象，不修改原对象）
+                    return Document.builder()
+                            .id(doc.getId())
+                            .content(doc.getContent())
+                            .source(doc.getSource() + " [decomposed]")
+                            .type(doc.getType())
+                            .keywords(doc.getKeywords())
+                            .embedding(doc.getEmbedding())
+                            .build();
+                })
+                .toList();
+
+        log.info("多意图检索完成: {} 个子问题, 合并后返回 {} 条结果", subQueries.size(), result.size());
+        return result;
     }
 
     /**
@@ -1249,7 +1808,7 @@ public class RagService {
         // 2. 将分块索引到Milvus和BM25（使用临时ID）
         List<Document> chunkDocs = allChunks.stream()
                 .map(chunk -> Document.builder()
-                        .id(chunk.getChunkId())
+                        .id(toVectorId(chunk.getChunkId()))
                         .content(chunk.getContent())
                         .source(chunk.getSource())
                         .type(chunk.getType())
@@ -1310,7 +1869,12 @@ public class RagService {
                 严格约束：
                 1. 不得使用参考资料之外的信息，不得凭常识推测订单、金额、物流状态等具体事实。
                 2. 如果资料中没有能够回答问题的信息，必须明确告知用户无法回答，不要猜测或编造。
-                3. 不要输出任何思考过程或内部指令。
+                3. 如果参考资料只是提到了相关关键词、但并不能直接完整回答问题，也按"无法回答"处理：
+                   明确回复"抱歉，我在知识库中没有找到相关信息，建议您联系人工客服进一步确认"，
+                   不得进行推测、类比或补充常识性建议，也不得通过"资料未列出即为不支持"的方式推断结论。
+                   但如果资料已经说明了处理流程、只是需要用户补充信息（例如订单编号），
+                   则应正常说明流程并请用户补充该信息，不要按"无法回答"拒答。
+                4. 不要输出任何思考过程或内部指令，回答中不要提及"搜索结果""检索""知识库"等系统内部概念。
 
                 参考资料：
                 %s
@@ -1321,7 +1885,7 @@ public class RagService {
                 """, context.toString(), sanitizedQuery);
 
         try {
-            return mimoChatModel.call(prompt);
+            return agentLlmClient.chat(prompt);
         } catch (Exception e) {
             log.error("生成答案失败: {}", e.getMessage(), e);
             return "抱歉，暂时无法回答您的问题，请稍后再试。";

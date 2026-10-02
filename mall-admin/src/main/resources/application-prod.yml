@@ -6,9 +6,9 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 30s
   datasource:
-    url: jdbc:mysql://db:3306/mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=true&requireSSL=true
-    username: reader
-    password: ${DB_PASSWORD:?Set DB_PASSWORD}
+    url: ${MALL_DB_URL:jdbc:mysql://127.0.0.1:3306/mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=true&requireSSL=true}
+    username: ${MALL_DB_USERNAME:mall}
+    password: ${MALL_DB_PASSWORD:?Set MALL_DB_PASSWORD}
     druid:
       initial-size: 5
       min-idle: 10

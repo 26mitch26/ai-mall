@@ -23,7 +23,12 @@ public class AuthService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AuthService.class);
 
-    @Autowired
+    /**
+     * 各业务模块按需提供 UmsAdminService 的子类实现（例如 mall-admin 的 UmsAdminServiceImpl）。
+     * 未提供实现的模块（如 mall-portal，其用户体系是 UmsMemberService）不应因此阻断启动，
+     * 故改为可选注入，登录/注册前做空判断。
+     */
+    @Autowired(required = false)
     private UmsAdminService umsAdminService;
 
     @Autowired
@@ -42,6 +47,10 @@ public class AuthService {
     public Map<String, String> login(String username, String password) {
         Map<String, String> result = null;
         try {
+            if (umsAdminService == null) {
+                LOGGER.warn("当前模块未提供 UmsAdminService 实现，统一登录不可用（该模块应使用自身用户体系）");
+                return null;
+            }
             UserDetails userDetails = umsAdminService.loadUserByUsername(username);
             if (!umsAdminService.authenticate(password, userDetails.getPassword())) {
                 LOGGER.warn("用户登录密码不正确:{}", username);
@@ -97,6 +106,10 @@ public class AuthService {
      */
     public UserDetails register(String username, String password) {
         try {
+            if (umsAdminService == null) {
+                LOGGER.warn("当前模块未提供 UmsAdminService 实现，统一注册不可用");
+                return null;
+            }
             UserDetails userDetails = umsAdminService.loadUserByUsername(username);
             if (userDetails != null) {
                 LOGGER.warn("用户已存在:{}", username);

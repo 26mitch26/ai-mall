@@ -5,6 +5,8 @@ import com.ai.mall.common.api.CommonResult;
 import com.ai.mall.portal.domain.ConfirmOrderResult;
 import com.ai.mall.portal.domain.OmsOrderDetail;
 import com.ai.mall.portal.domain.OrderParam;
+import com.ai.mall.common.exception.Asserts;
+import com.ai.mall.common.service.RedisService;
 import com.ai.mall.portal.service.OmsPortalOrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * 订单管理Controller
@@ -28,6 +31,24 @@ import java.util.Map;
 public class OmsPortalOrderController {
     @Autowired
     private OmsPortalOrderService portalOrderService;
+    @Autowired
+    private RedisService redisService;
+
+    private static final String IDEMPOTENCY_TOKEN_PREFIX = "order:token:";
+    private static final long TOKEN_EXPIRE_SECONDS = 300; // 5 分钟有效
+
+    @Operation(summary = "获取下单幂等token，防重复提交")
+    @RequestMapping(value = "/token", method = RequestMethod.GET)
+    @ResponseBody
+    public CommonResult<String> getIdempotencyToken() {
+        String token = UUID.randomUUID().toString();
+        try {
+            redisService.set(IDEMPOTENCY_TOKEN_PREFIX + token, "1", TOKEN_EXPIRE_SECONDS);
+        } catch (Exception e) {
+            // Redis 不可用时仍然返回 token，下单时会跳过校验
+        }
+        return CommonResult.success(token);
+    }
 
     @Operation(summary = "根据购物车信息生成确认单")
     @RequestMapping(value = "/generateConfirmOrder", method = RequestMethod.POST)
@@ -41,6 +62,21 @@ public class OmsPortalOrderController {
     @RequestMapping(value = "/generateOrder", method = RequestMethod.POST)
     @ResponseBody
     public CommonResult generateOrder(@RequestBody OrderParam orderParam) {
+        // 幂等 token 校验：防止重复提交（Redis 不可用时跳过校验，降级放行）
+        String token = orderParam.getIdempotencyToken();
+        try {
+            if (token == null || token.isBlank()) {
+                Asserts.fail("缺少幂等token，请先调用 GET /order/token 获取");
+            }
+            String tokenKey = IDEMPOTENCY_TOKEN_PREFIX + token;
+            Boolean deleted = redisService.del(tokenKey);
+            if (!Boolean.TRUE.equals(deleted)) {
+                Asserts.fail("重复提交，请勿重复下单");
+            }
+        } catch (Exception e) {
+            // Redis 不可用时降级：跳过 token 校验，放行下单
+        }
+
         Map<String, Object> result = portalOrderService.generateOrder(orderParam);
         return CommonResult.success(result, "下单成功");
     }

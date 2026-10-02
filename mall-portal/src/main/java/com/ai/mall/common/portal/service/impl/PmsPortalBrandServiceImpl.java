@@ -29,8 +29,13 @@ public class PmsPortalBrandServiceImpl implements PmsPortalBrandService {
 
     @Override
     public List<PmsBrand> recommendList(Integer pageNum, Integer pageSize) {
-        int offset = (pageNum - 1) * pageSize;
-        return homeDao.getRecommendBrandList(offset, pageSize);
+        // 参数兜底：负数分页参数会让 offset/LIMIT 变成非法 SQL（实测 pageSize=-1 直接
+        // 触发 MySQL 语法错误并以"业务码 500 + HTTP 200"吞错，见自动化测试 Agent 的 knownDefects）；
+        // 这里统一收敛到合理区间，与 portal 其他接口（product/search 的默认值归一）行为一致。
+        int safePageNum = (pageNum == null || pageNum < 1) ? 1 : pageNum;
+        int safePageSize = (pageSize == null || pageSize < 0) ? 6 : pageSize;
+        int offset = (safePageNum - 1) * safePageSize;
+        return homeDao.getRecommendBrandList(offset, safePageSize);
     }
 
     @Override

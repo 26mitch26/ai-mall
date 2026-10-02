@@ -1,4 +1,6 @@
 spring:
+  main:
+    allow-bean-definition-overriding: true
   application:
     name: mall-portal
   profiles:
@@ -12,9 +14,20 @@ mybatis:
     - classpath:dao/*.xml
     - classpath*:com/**/mapper/*.xml
 
+# 压测修复（2026-09-05 第二轮）：实际生效的是 MyBatis-Plus 自动配置(mall-common 引入
+# mybatis-plus-spring-boot3-starter)，必须走 mybatis-plus.mapper-locations，否则 PortalProductDao.xml
+# 等自定义 XML 不被加载 → Invalid bound statement (not found)。曾误以为需重建 JAR，实为配置漏配。
+mybatis-plus:
+  mapper-locations:
+    - classpath*:dao/*.xml
+    - classpath*:com/**/mapper/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
 jwt:
   tokenHeader: Authorization #JWT存储的请求头
-  secret: mall-portal-secret #JWT加解密使用的密钥
+  # 与网关、后台统一；生产环境必须通过 JWT_SECRET 注入强随机值。
+  secret: ${JWT_SECRET:default-dev-secret-change-in-prod}
   expiration: 604800 #JWT的超期限时间(60*60*24*7)
   tokenHead: 'Bearer '  #JWT负载中拿到开头
 
@@ -23,6 +36,7 @@ secure:
     urls: #安全路径白名单
       - /swagger-ui/
       - /v3/api-docs/*
+      - /v3/api-docs
       - /*/*.html
       - /*/*.js
       - /*/*.css
@@ -40,8 +54,10 @@ springdoc:
   swagger-ui:
     # 修改Swagger UI路径
     path: /swagger-ui.html
-    # 开启Swagger UI界面
-    enabled: true
+    # Spring Boot 3.5 / Framework 6.2 下 springdoc 生成的 /swagger-ui/**/*swagger-initializer.js
+    # 模式与 PathPatternParser 冲突（Invalid mapping pattern detected），会导致应用启动失败。
+    # 压测/生产不需要 Swagger UI 页面，先禁用；API 文档走 /v3/api-docs（json）不受影响。
+    enabled: false
     # 用于配置tag和operation的展开方式，这里配置为都不展开
     doc-expansion: 'none'
   api-docs:
@@ -73,4 +89,3 @@ rabbitmq:
   queue:
     name:
       cancelOrder: cancelOrderQueue
-

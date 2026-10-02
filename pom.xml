@@ -59,7 +59,7 @@
         <kafka.version>3.8.0</kafka.version>
 
         <!-- Vector Database -->
-        <milvus.version>2.4.0</milvus.version>
+        <milvus.version>2.4.3</milvus.version>
 
         <!-- Knowledge Graph -->
         <neo4j.version>5.25.0</neo4j.version>
@@ -78,8 +78,9 @@
         <!-- Testing -->
         <testcontainers.version>1.20.4</testcontainers.version>
 
-        <!-- 默认排除的测试分组：benchmark(压测)/integration(容器集成)，可用 -Dexcluded.groups=none 显式开启 -->
-        <excluded.groups>benchmark,integration</excluded.groups>
+        <!-- 默认排除的测试分组：benchmark(压测)/integration(容器集成)/benchmark-manual(手动档基准，需本机 Redis:16379)，
+             可用 -Dexcluded.groups=none 显式开启 -->
+        <excluded.groups>benchmark,integration,benchmark-manual</excluded.groups>
     </properties>
 
     <dependencyManagement>

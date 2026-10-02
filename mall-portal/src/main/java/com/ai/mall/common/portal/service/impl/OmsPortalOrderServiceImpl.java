@@ -23,6 +23,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -44,6 +45,8 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
     @Autowired
     private PmsSkuStockMapper skuStockMapper;
     @Autowired
+    private PmsProductMapper productMapper;
+    @Autowired
     private SmsCouponHistoryDao couponHistoryDao;
     @Autowired
     private OmsOrderMapper orderMapper;
@@ -63,7 +66,7 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
     private OmsOrderSettingMapper orderSettingMapper;
     @Autowired
     private OmsOrderItemMapper orderItemMapper;
-    @Autowired
+    @Autowired(required = false)
     private CancelOrderSender cancelOrderSender;
 
     @Override
@@ -124,6 +127,8 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
         if (!hasStock(cartPromotionItemList)) {
             Asserts.fail("库存不足，无法下单");
         }
+        //单人限购检查
+        checkPurchaseLimit(currentMember.getId(), cartPromotionItemList);
         //判断使用使用了优惠券
         if (orderParam.getCouponId() == null) {
             //不用优惠券
@@ -282,6 +287,8 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
         for (OmsOrderDetail timeOutOrder : timeOutOrders) {
             //解除订单商品库存锁定
             portalOrderDao.releaseSkuStockLock(timeOutOrder.getOrderItemList());
+            //同步恢复 Redis 可用库存
+            releaseRedisStock(timeOutOrder.getOrderItemList());
             //修改优惠券使用状态
             updateCouponStatus(timeOutOrder.getCouponId(), timeOutOrder.getMemberId(), 0);
             //返还使用积分
@@ -313,6 +320,8 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
             //解除订单商品库存锁定
             if (!CollectionUtils.isEmpty(orderItemList)) {
                 portalOrderDao.releaseSkuStockLock(orderItemList);
+                //同步恢复 Redis 可用库存
+                releaseRedisStock(orderItemList);
             }
             //修改优惠券使用状态
             updateCouponStatus(cancelOrder.getCouponId(), cancelOrder.getMemberId(), 0);
@@ -329,8 +338,10 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
         //获取订单超时时间
         OmsOrderSetting orderSetting = orderSettingMapper.selectByPrimaryKey(1L);
         long delayTimes = orderSetting.getNormalOrderOvertime() * 60 * 1000;
-        //发送延迟消息
-        cancelOrderSender.sendMessage(orderId, delayTimes);
+        //发送延迟消息（无 RabbitMQ 时跳过）
+        if (cancelOrderSender != null) {
+            cancelOrderSender.sendMessage(orderId, delayTimes);
+        }
     }
 
     @Override
@@ -439,16 +450,27 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
     private String generateOrderSn(OmsOrder order) {
         StringBuilder sb = new StringBuilder();
         String date = new SimpleDateFormat("yyyyMMdd").format(new Date());
-        String key = REDIS_DATABASE+":"+ REDIS_KEY_ORDER_ID + date;
-        Long increment = redisService.incr(key, 1);
         sb.append(date);
-        sb.append(String.format("%02d", order.getSourceType()));
-        sb.append(String.format("%02d", order.getPayType()));
-        String incrementStr = increment.toString();
-        if (incrementStr.length() <= 6) {
-            sb.append(String.format("%06d", increment));
-        } else {
-            sb.append(incrementStr);
+        // sourceType / payType 可能为空（如客服助手代下单未指定支付方式），
+        // String.format("%02d", null) 会输出字面量 "null" 污染订单号
+        // （实测生成 2026100201null000001）；这里统一给默认值：PC 端来源=1、未指定支付=0。
+        sb.append(String.format("%02d", order.getSourceType() == null ? 1 : order.getSourceType()));
+        sb.append(String.format("%02d", order.getPayType() == null ? 0 : order.getPayType()));
+
+        // Redis 可用时用自增 ID，不可用时用 UUID 兜底
+        try {
+            String key = REDIS_DATABASE + ":" + REDIS_KEY_ORDER_ID + date;
+            Long increment = redisService.incr(key, 1);
+            String incrementStr = increment.toString();
+            if (incrementStr.length() <= 6) {
+                sb.append(String.format("%06d", increment));
+            } else {
+                sb.append(incrementStr);
+            }
+        } catch (Exception e) {
+            // Redis 不可用，用时间戳+随机数保证唯一性
+            String fallback = String.format("%012d", System.nanoTime() % 1_000_000_000_000L);
+            sb.append(fallback);
         }
         return sb.toString();
     }
@@ -722,13 +744,98 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
     }
 
     /**
-     * 锁定下单商品的所有库存
+     * Redis 库存 key 前缀：stock:available:{skuId} = 可用库存（stock - lockStock 的 Redis 镜像）
+     */
+    private static final String STOCK_KEY_PREFIX = "stock:available:";
+
+    /**
+     * Redis 单人限购 key 前缀：purchase:limit:{skuId}:{memberId} = 该用户已锁定/已购数量
+     */
+    private static final String PURCHASE_LIMIT_PREFIX = "purchase:limit:";
+
+    /**
+     * 锁定下单商品的所有库存（Redis 原子预扣 + DB 持久化）。
+     *
+     * 流程：
+     * 1. Redis DECRBY 原子扣减可用库存，扣成负数说明库存不足 → 回滚 Redis，拒绝下单
+     * 2. Redis 扣成功后，写 DB lockStock 持久化
+     * 3. DB 写失败时回滚 Redis（防御性，正常不会走到）
+     *
+     * 为什么用 Redis 而不是 DB 行锁：
+     * - DB 的 SELECT + UPDATE 不是原子的，两个并发请求都可能读到 lockStock=99 然后写 100
+     * - Redis DECRBY 是单线程原子操作，天然串行，不会超卖
      */
     private void lockStock(List<CartPromotionItem> cartPromotionItemList) {
-        for (CartPromotionItem cartPromotionItem : cartPromotionItemList) {
-            PmsSkuStock skuStock = skuStockMapper.selectByPrimaryKey(cartPromotionItem.getProductSkuId());
-            skuStock.setLockStock(skuStock.getLockStock() + cartPromotionItem.getQuantity());
-            skuStockMapper.updateByPrimaryKeySelective(skuStock);
+        boolean redisAvailable = true;
+
+        // 第一阶段：Lua 脚本原子预扣（检查+扣减一步完成，比 DECRBY 更安全）
+        try {
+            Map<String, Long> skuQuantities = new LinkedHashMap<>();
+            for (CartPromotionItem item : cartPromotionItemList) {
+                skuQuantities.put(STOCK_KEY_PREFIX + item.getProductSkuId(), (long) item.getQuantity());
+            }
+            boolean allDeducted = redisService.luaBatchDecrStock(skuQuantities);
+            if (!allDeducted) {
+                Asserts.fail("库存不足，无法下单");
+            }
+        } catch (Exception e) {
+            // Redis 不可用：标记降级，继续走 DB
+            redisAvailable = false;
+        }
+
+        // 第二阶段：DB 持久化（乐观锁：WHERE stock >= quantity 保证并发安全）
+        try {
+            for (CartPromotionItem cartPromotionItem : cartPromotionItemList) {
+                // 乐观锁扣库存：一条 SQL 完成检查+扣减，不需要先 SELECT 再 UPDATE
+                int affected = portalOrderDao.deductStockOptimistic(
+                        cartPromotionItem.getProductSkuId(), cartPromotionItem.getQuantity());
+                if (affected == 0) {
+                    // 乐观锁冲突：库存不足，回滚 Redis
+                    if (redisAvailable) {
+                        restoreRedisStock(null, cartPromotionItemList);
+                    }
+                    Asserts.fail("库存不足，无法下单");
+                }
+                // 同时更新 lockStock（锁定库存，支付后转为真实扣减）
+                PmsSkuStock skuStock = skuStockMapper.selectByPrimaryKey(cartPromotionItem.getProductSkuId());
+                skuStock.setLockStock(skuStock.getLockStock() + cartPromotionItem.getQuantity());
+                skuStockMapper.updateByPrimaryKeySelective(skuStock);
+            }
+        } catch (Exception e) {
+            // DB 写失败，回滚 Redis（Redis 可用时才有意义）
+            if (redisAvailable) {
+                restoreRedisStock(null, cartPromotionItemList);
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * 回滚 Redis 库存（预扣失败或 DB 写失败时调用）
+     */
+    private void restoreRedisStock(List<Long> skuIds, List<CartPromotionItem> items) {
+        for (CartPromotionItem item : items) {
+            if (skuIds != null && !skuIds.contains(item.getProductSkuId())) {
+                break; // 只回滚已扣的
+            }
+            try {
+                redisService.incr(STOCK_KEY_PREFIX + item.getProductSkuId(), item.getQuantity());
+            } catch (Exception ignored) {
+                // 回滚失败不抛异常，避免掩盖原始错误
+            }
+        }
+    }
+
+    /**
+     * 释放锁定库存时同步恢复 Redis（取消订单/超时释放）
+     */
+    private void releaseRedisStock(List<OmsOrderItem> orderItemList) {
+        for (OmsOrderItem item : orderItemList) {
+            try {
+                redisService.incr(STOCK_KEY_PREFIX + item.getProductSkuId(), item.getProductQuantity());
+            } catch (Exception ignored) {
+                // Redis 不可用时仅打日志，DB 已回滚，不影响主流程
+            }
         }
     }
 
@@ -745,6 +852,32 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
             }
         }
         return true;
+    }
+
+    /**
+     * 单人限购检查：查用户对该商品的已购数量，超限拒绝。
+     *
+     * 实现：
+     * - 限购数量从 pms_product.promotion_per_limit 读取（0 或 null 表示不限购）
+     * - 已购数量从 DB 查询（SELECT SUM(quantity) FROM oms_order_item WHERE product_id=? AND member_id=? AND status IN (0,1,2)）
+     * - 可选：用 Redis 缓存已购数量加速，DB 作为兜底
+     */
+    private void checkPurchaseLimit(Long memberId, List<CartPromotionItem> cartPromotionItemList) {
+        for (CartPromotionItem item : cartPromotionItemList) {
+            // 从商品表读取限购数量
+            PmsProduct product = productMapper.selectByPrimaryKey(item.getProductId());
+            if (product == null) continue;
+
+            Integer perLimit = product.getPromotionPerLimit();
+            if (perLimit == null || perLimit <= 0) continue;
+
+            // 查询用户已购数量（DB 兜底，保证准确）
+            long purchasedQty = portalOrderDao.countPurchasedQuantity(memberId, item.getProductId());
+
+            if (purchasedQty + item.getQuantity() > perLimit) {
+                Asserts.fail("商品限购" + perLimit + "件，您已购买" + purchasedQty + "件");
+            }
+        }
     }
 
     /**

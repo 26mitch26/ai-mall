@@ -4,14 +4,56 @@ server:
 spring:
   application:
     name: agent-customer
+  autoconfigure:
+    # agent-customer 不依赖数据库（RAG 走 Milvus + Redis，LLM 走 OpenAI 兼容端点）；
+    # mall-common 传递引入了 JDBC/MyBatis 自动配置，不加排除会因缺 datasource.url 启动失败
+    exclude:
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      - org.springframework.boot.autoconfigure.jdbc.DataSourceTransactionManagerAutoConfiguration
+      - org.springframework.ai.vectorstore.milvus.autoconfigure.MilvusVectorStoreAutoConfiguration
+  main:
+    # 允许覆盖 Spring AI 自动装配的 vectorStore bean（自定义 Milvus 连接参数见下方 milvus.client），
+    # 否则启动报 ConflictingBeanDefinitionException / bean 'vectorStore' could not be registered
+    allow-bean-definition-overriding: true
+  ai:
+    openai:
+      # embedding（bge-m3）走本机 Ollama OpenAI 兼容端点，零外网、零 Key；
+      # api-key 仅作占位（Ollama 不校验），生产接云服务时用环境变量 MIMO_API_KEY/OPENAI_API_KEY 覆盖。
+      # 注意：base-url 不要带 /v1——Spring AI 1.x 内部会再拼 /v1/embeddings，
+      # 配成 http://localhost:11434/v1 会变成 /v1/v1/embeddings 被 Ollama 以 404 拒绝（语义缓存写入失败的根因）。
+      api-key: ${MIMO_API_KEY:${OPENAI_API_KEY:ollama-local}}
+      base-url: ${AI_OPENAI_BASE_URL:http://localhost:11434}
+      embedding:
+        options:
+          model: ${SPRING_AI_OPENAI_EMBEDDING_OPTIONS_MODEL:bge-m3}
   data:
     redis:
       host: localhost
       port: 6379
+
+# Milvus 连接参数（压测修复：idle timeout 默认 30s 是 46.72% 失败根因，见 MilvusVectorStoreConfig）
+milvus:
+  client:
+    host: ${MILVUS_HOST:localhost}
+    port: 19530
+    idle-timeout-seconds: 180
+    keep-alive-time-seconds: 20
+    keep-alive-timeout-seconds: 5
+
+# 压测白名单：本模块无用户体系（未提供 UmsAdminService 实现），无法走 /auth/login 换 token，
+# 放行对话链路以便端到端压测。注意：涉及用户数据的工具仍有工具级鉴权（fail-closed），
+# 生产部署时应收紧此配置或接入统一认证。
+secure:
+  ignored:
+    urls:
+      - /api/v1/**
   ai:
     openai:
       api-key: ${MIMO_API_KEY:${OPENAI_API_KEY:}}
-      base-url: https://api.mimo.xiaomi.com/v1
+      # 生产接 MiMo/OpenAI 云服务；本地无 Key 时可用 Ollama OpenAI 兼容端点（免外网）：
+      #   AI_OPENAI_BASE_URL=http://localhost:11434/v1
+      #   SPRING_AI_OPENAI_EMBEDDING_OPTIONS_MODEL=bge-m3
+      base-url: ${AI_OPENAI_BASE_URL:https://api.mimo.xiaomi.com/v1}
       chat:
         options:
           model: MiMo-7B
@@ -22,15 +64,30 @@ ai:
   model:
     mimo:
       api-key: ${MIMO_API_KEY:}
-      base-url: https://api.mimo.xiaomi.com/v1
-      model: MiMo-7B
+      base-url: ${MIMO_BASE_URL:https://api.mimo.xiaomi.com/v1}
+      model: ${MIMO_MODEL:MiMo-7B}
     openai:
       api-key: ${OPENAI_API_KEY:}
       model: gpt-4
     router:
       primary: mimo
       fallback: openai
+    # 压测性能修复：客服链路 LLM 生成统一走本机 Ollama /api/chat（think=false 关闭思维链，
+    # 避免 qwen3.5-4b 每轮输出数千 token 推理过程导致 100s+ 延迟），见 AgentLlmClient。
+    # max-tokens 从 300 提到 512：ReAct 单轮回复含 Thought/Action/Final Answer，
+    # 300 会把最终答案截断（实测 eval_count 顶格 300、回答断句）。
+    llm:
+      base-url: ${AGENT_LLM_BASE_URL:http://localhost:11434/api/chat}
+      model: ${AGENT_LLM_MODEL:qwen3.5-noVL:latest}
+      max-tokens: 512
+      temperature: 0.5
+    # LLM 回答语义缓存（前沿优化）：开 → 相同/同义问句复用已生成答案，跳过整条 LLM 推理；
+    # 关 → 每轮都走全链路 RAG+生成。保留开关即能做 A/B 实测（结果见面试准备.md §十）。
+    customer:
+      semantic-cache:
+        enabled: ${SEMANTIC_CACHE_ENABLED:true}
 
 logging:
   level:
-    com.ai.mall.agent.customer: DEBUG
+    # 压测调优：DEBUG→INFO。客服链路每轮 RAG 检索日志量大，INFO 足以观测，DEBUG 留给排障
+    com.ai.mall.agent.customer: INFO

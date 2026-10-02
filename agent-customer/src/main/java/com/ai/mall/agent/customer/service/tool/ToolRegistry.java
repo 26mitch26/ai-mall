@@ -21,11 +21,8 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -34,8 +31,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * 安全约束（本次加固）：
  * 1. 调用前鉴权：由 {@link ToolAccessGuard} 判定工具等级与用户身份，
  *    敏感工具未登录即拒绝（fail-closed），未登记的工具名一律拒绝。
- * 2. 数据隔离：订单查询/售后工单均绑定当前登录用户，
- *    把 memberId 作为查询条件透传给后端，并在本地对响应做一次归属校验。
+ * 2. 数据隔离：订单查询/售后工单都先通过带用户 JWT 的会员订单接口解析订单，
+ *    本地再校验订单归属（memberId 一致），越权订单按"未找到"处理。
  * 3. 服务间鉴权：调用后端接口时携带内部服务令牌与用户 JWT，
  *    令牌只从配置/环境变量读取，禁止硬编码。
  * 4. 返回净化：工具返回属于外部数据，进入提示词前必须过一遍 {@link InputSanitizer}，
@@ -57,7 +54,7 @@ public class ToolRegistry {
     @Value("${service.mall-search.url:http://localhost:8081}")
     private String mallSearchUrl;
 
-    @Value("${service.mall-portal.url:http://localhost:8085}")
+    @Value("${service.mall-portal.url:http://localhost:8087}")
     private String mallPortalUrl;
 
     /**
@@ -67,10 +64,6 @@ public class ToolRegistry {
     private String internalServiceToken;
 
     private static final String INTERNAL_TOKEN_HEADER = "X-Internal-Token";
-
-    /** 响应中用于归属校验的字段名（统一小写比较） */
-    private static final Set<String> OWNER_FIELD_NAMES =
-            Set.of("memberid", "member_id", "userid", "user_id");
 
     @PostConstruct
     public void init() {
@@ -93,6 +86,33 @@ public class ToolRegistry {
                 .description("创建售后工单")
                 .parameters("{\"order_sn\": \"订单编号\", \"reason\": \"原因\", \"description\": \"描述\"}")
                 .executor((params, context) -> createAfterSale(params, context))
+                .build());
+
+        // "我买了什么/我的订单/购买记录"类问题直接列订单：此前只有按订单号查详情的工具，
+        // 这类问题只能引导用户提供编号，用户反馈"我账号下买了什么他查不出来"（实测缺口）。
+        registerTool(Tool.builder()
+                .name("list_my_orders")
+                .description("查询当前登录会员的订单列表（用于\"我买了什么/我的订单/购买记录\"类问题），返回最近订单及商品明细")
+                .parameters("{\"status\": \"订单状态(可选：-1全部 0待付款 1待发货 2已发货 3已完成 4已关闭)\", \"pageSize\": \"返回条数(默认5)\"}")
+                .executor((params, context) -> listMyOrders(params, context))
+                .build());
+
+        // 会员明确要求购买时创建真实订单（加入购物车 → 取默认地址 → 幂等 token → 生成订单）。
+        // 写操作：鉴权等级 USER_WRITE（必须登录且携带用户令牌）。
+        registerTool(Tool.builder()
+                .name("place_order")
+                .description("为当前登录会员创建订单（用户明确要求购买某商品时使用），返回订单号与应付金额")
+                .parameters("{\"product_id\": \"商品ID(必填)\", \"quantity\": \"购买数量(默认1)\"}")
+                .executor((params, context) -> placeOrder(params, context))
+                .build());
+
+        // 取消待付款订单（mall-portal 仅允许状态=待付款的订单取消，取消后状态=已关闭并释放库存锁）。
+        // 写操作：鉴权等级 USER_WRITE（必须登录且携带用户令牌）。
+        registerTool(Tool.builder()
+                .name("cancel_order")
+                .description("取消当前登录会员的待付款订单（仅待付款状态可取消），取消后订单进入已关闭")
+                .parameters("{\"order_sn\": \"订单编号(必填)\"}")
+                .executor((params, context) -> cancelOrder(params, context))
                 .build());
     }
 
@@ -147,6 +167,26 @@ public class ToolRegistry {
         }
     }
 
+    /**
+     * 执行需要继续按 JSON 解析的公开工具。普通 ReAct 链路仍使用 executeTool 的
+     * 长度限制与注入净化；商品售前链路先解析本地 API 返回，再只把商品字段交给回答层，
+     * 因此不能把被截断的 JSON 当作完整文档再次解析。
+     */
+    public String executeStructuredTool(String name, String parameters, ToolInvocationContext context) {
+        ToolAccessGuard.Decision decision = toolAccessGuard.authorize(name, context);
+        if (!decision.isAllowed()) {
+            return "{\"error\": \"" + decision.getReason() + "\", \"blocked\": true}";
+        }
+        Tool tool = tools.get(name);
+        if (tool == null) return "{\"error\": \"工具不存在\"}";
+        try {
+            return tool.getExecutor().execute(parameters, context);
+        } catch (Exception e) {
+            log.error("Error executing structured tool {}: {}", name, e.getMessage());
+            return "{\"error\": \"工具执行失败，请稍后重试\"}";
+        }
+    }
+
     // ==================== 具体工具实现 ====================
 
     private String searchProducts(String params, ToolInvocationContext context) {
@@ -156,13 +196,17 @@ public class ToolRegistry {
             Integer pageNum = paramMap.containsKey("page") ? Integer.parseInt(paramMap.get("page").toString()) : 1;
             Integer pageSize = paramMap.containsKey("pageSize") ? Integer.parseInt(paramMap.get("pageSize").toString()) : 5;
 
-            String url = mallSearchUrl + "/esProduct/search/simple?keyword={keyword}&pageNum={pageNum}&pageSize={pageSize}";
+            // 商品搜索走商城前台公开 API，任务型对话可以在未登录时完成售前咨询；
+            // 订单与售后仍走 mall-portal 的用户鉴权接口。
+            String url = mallPortalUrl + "/product/search?keyword={keyword}&pageNum={pageNum}&pageSize={pageSize}";
             Map<String, Object> uriVariables = new HashMap<>();
             uriVariables.put("keyword", keyword);
             uriVariables.put("pageNum", pageNum - 1);
             uriVariables.put("pageSize", pageSize);
 
-            return getWithAuth(url, uriVariables, context);
+            // 这是商城公开的售前商品搜索，不能把后台管理员 JWT 转发给 portal；
+            // 管理员令牌会被会员端判定为无效而返回 401。
+            return getWithAuth(url, uriVariables, null);
         } catch (Exception e) {
             log.error("搜索商品失败: {}", e.getMessage());
             return "{\"error\": \"搜索商品失败\"}";
@@ -172,58 +216,336 @@ public class ToolRegistry {
     private String getOrderInfo(String params, ToolInvocationContext context) {
         try {
             Map<String, Object> paramMap = objectMapper.readValue(params, new TypeReference<>() {});
-            String orderSn = (String) paramMap.get("order_sn");
+            String orderSn = paramMap.get("order_sn") == null ? null : paramMap.get("order_sn").toString().trim();
 
             if (orderSn == null || orderSn.isEmpty()) {
                 return "{\"error\": \"订单编号不能为空\"}";
             }
 
-            // 数据隔离：将当前用户作为查询条件透传，由后端做归属过滤
-            String url = mallPortalUrl + "/order/detail/{orderId}?memberId={memberId}";
-            Map<String, Object> uriVariables = new HashMap<>();
-            uriVariables.put("orderId", orderSn);
-            uriVariables.put("memberId", context.getMemberId());
-
-            String response = getWithAuth(url, uriVariables, context);
-
-            // 纵深防御：响应中若携带归属字段，本地再校验一次，防止后端接口漏鉴权造成越权
-            if (!isOwnedByCurrentUser(response, context.getMemberId())) {
-                log.warn("订单归属校验失败，疑似越权访问, orderSn={}, memberId={}", orderSn, context.getMemberId());
-                return "{\"error\": \"无权访问该订单\", \"blocked\": true}";
+            JsonNode order = resolveOrder(orderSn, context);
+            if (order == null) {
+                return "{\"error\": \"未找到订单 " + orderSn + "，请确认订单编号是否正确\"}";
             }
-            return response;
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("code", 200);
+            result.put("message", "操作成功");
+            result.put("data", order);
+            log.info("Query order completed for memberId={}, orderSn={}", context.getMemberId(), orderSn);
+            return objectMapper.writeValueAsString(result);
         } catch (Exception e) {
             log.error("查询订单信息失败: {}", e.getMessage());
             return "{\"error\": \"查询订单信息失败\"}";
         }
     }
 
+    /**
+     * 查询当前登录会员的订单列表（含商品明细）。
+     * <p>
+     * mall-portal 的 /order/list 按登录会员过滤（memberId 来自用户令牌），
+     * 返回的 CommonPage 已含 orderItemList，可直接回答"我买了哪些东西"。
+     */
+    private String listMyOrders(String params, ToolInvocationContext context) {
+        try {
+            Map<String, Object> paramMap = objectMapper.readValue(params, new TypeReference<>() {});
+            int status = paramMap.get("status") == null ? -1 : Integer.parseInt(paramMap.get("status").toString());
+            int pageSize = paramMap.get("pageSize") == null ? 5 : Integer.parseInt(paramMap.get("pageSize").toString());
+            if (pageSize < 1 || pageSize > 50) {
+                pageSize = 5;
+            }
+
+            String url = mallPortalUrl + "/order/list?status={status}&pageNum=1&pageSize={pageSize}";
+            Map<String, Object> uriVariables = new HashMap<>();
+            uriVariables.put("status", status);
+            uriVariables.put("pageSize", pageSize);
+            String response = getWithAuth(url, uriVariables, context);
+            log.info("List orders completed for memberId={}", context.getMemberId());
+            return response;
+        } catch (Exception e) {
+            log.error("查询订单列表失败: {}", e.getMessage());
+            return "{\"error\": \"查询订单列表失败\"}";
+        }
+    }
+
+    /**
+     * 为当前登录会员创建订单：商品快照 → 加入购物车 → 默认收货地址 → 幂等 token → 生成订单。
+     * <p>
+     * 写操作全程使用登录会员的令牌（mall-portal 按令牌解析会员身份），
+     * 订单创建后处于"待付款"状态，用户在会员端"我的订单"中完成支付。
+     */
+    private String placeOrder(String params, ToolInvocationContext context) {
+        try {
+            Map<String, Object> paramMap = objectMapper.readValue(params, new TypeReference<>() {});
+            Long productId = paramMap.get("product_id") == null ? null : Long.parseLong(paramMap.get("product_id").toString());
+            int quantity = paramMap.get("quantity") == null ? 1 : Integer.parseInt(paramMap.get("quantity").toString());
+            if (productId == null || productId <= 0) {
+                return "{\"error\": \"商品ID不能为空\"}";
+            }
+            if (quantity < 1 || quantity > 10) {
+                quantity = 1;
+            }
+
+            // 1. 商品快照与 SKU：购物车条目与订单明细需要商品名/图/价，库存不足直接拒绝
+            String detailResponse = getWithAuth(mallPortalUrl + "/product/detail/{productId}",
+                    Map.of("productId", productId), null);
+            JsonNode data = objectMapper.readTree(detailResponse).path("data");
+            JsonNode product = data.path("product");
+            if (product.isMissingNode() || product.isNull()) {
+                return "{\"error\": \"商品不存在\"}";
+            }
+            JsonNode skus = data.path("skuStockList");
+            Long skuId = null;
+            int stock = 0;
+            if (skus.isArray() && !skus.isEmpty()) {
+                skuId = skus.get(0).path("id").asLong(0);
+                stock = skus.get(0).path("stock").asInt(0);
+            }
+            if (stock < quantity) {
+                return "{\"error\": \"库存不足，当前库存 " + stock + " 件\"}";
+            }
+
+            // 2. 加入购物车（mall-portal 按登录会员写入，重复商品自动累加）
+            Map<String, Object> cartItem = new HashMap<>();
+            cartItem.put("productId", productId);
+            cartItem.put("productSkuId", skuId);
+            cartItem.put("quantity", quantity);
+            cartItem.put("productName", product.path("name").asText(""));
+            cartItem.put("productPic", product.path("pic").asText(""));
+            cartItem.put("price", product.path("price").asDouble(0));
+            JsonNode cartResult = objectMapper.readTree(postWithAuth(mallPortalUrl + "/cart/add", cartItem, context));
+            if (cartResult.path("code").asInt(500) != 200) {
+                return "{\"error\": \"加入购物车失败\"}";
+            }
+
+            // 3. 定位购物车条目 ID（generateOrder 按 cartIds 下单）
+            long cartId = 0;
+            JsonNode cartList = objectMapper.readTree(getWithAuth(mallPortalUrl + "/cart/list", Map.of(), context));
+            if (cartList.path("data").isArray()) {
+                for (JsonNode item : cartList.path("data")) {
+                    if (item.path("productId").asLong(0) == productId) {
+                        cartId = item.path("id").asLong(0);
+                        break;
+                    }
+                }
+            }
+            if (cartId == 0) {
+                return "{\"error\": \"加入购物车失败（未找到购物车条目）\"}";
+            }
+
+            // 4. 收货地址：默认地址优先，无地址时引导用户先添加
+            long addressId = 0;
+            String receiver = "";
+            JsonNode addresses = objectMapper.readTree(getWithAuth(mallPortalUrl + "/member/address/list", Map.of(), context)).path("data");
+            if (addresses.isArray()) {
+                JsonNode chosen = null;
+                for (JsonNode address : addresses) {
+                    if (address.path("defaultStatus").asInt(0) == 1) {
+                        chosen = address;
+                        break;
+                    }
+                }
+                if (chosen == null && !addresses.isEmpty()) {
+                    chosen = addresses.get(0);
+                }
+                if (chosen != null) {
+                    addressId = chosen.path("id").asLong(0);
+                    receiver = chosen.path("name").asText("");
+                }
+            }
+            if (addressId == 0) {
+                return "{\"error\": \"未找到收货地址，请先在'我的-地址管理'中添加收货地址\"}";
+            }
+
+            // 5. 幂等 token（防重复提交）+ 生成订单
+            String idempotencyToken = objectMapper.readTree(
+                    getWithAuth(mallPortalUrl + "/order/token", Map.of(), context)).path("data").asText("");
+            Map<String, Object> orderBody = new HashMap<>();
+            orderBody.put("memberReceiveAddressId", addressId);
+            orderBody.put("cartIds", List.of(cartId));
+            orderBody.put("idempotencyToken", idempotencyToken);
+            JsonNode orderRoot = objectMapper.readTree(postWithAuth(mallPortalUrl + "/order/generateOrder", orderBody, context));
+            if (orderRoot.path("code").asInt(500) != 200) {
+                String message = orderRoot.path("message").asText("下单失败");
+                return "{\"error\": \"" + message + "\"}";
+            }
+            JsonNode order = orderRoot.path("data").path("order");
+
+            Map<String, Object> info = new HashMap<>();
+            info.put("orderSn", order.path("orderSn").asText(""));
+            info.put("orderId", order.path("id").asLong(0));
+            info.put("payAmount", order.path("payAmount").asDouble(0));
+            info.put("productName", product.path("name").asText(""));
+            info.put("quantity", quantity);
+            info.put("receiverName", receiver);
+            Map<String, Object> result = new HashMap<>();
+            result.put("code", 200);
+            result.put("message", "操作成功");
+            result.put("data", info);
+            log.info("Place order completed for memberId={}, orderSn={}", context.getMemberId(), info.get("orderSn"));
+            return objectMapper.writeValueAsString(result);
+        } catch (Exception e) {
+            log.error("下单失败: {}", e.getMessage());
+            return "{\"error\": \"下单失败，请稍后重试\"}";
+        }
+    }
+
+    /**
+     * 取消当前登录会员的待付款订单。
+     * <p>
+     * mall-portal 的取消接口只对"待付款"状态生效（取消后状态=已关闭并释放库存锁），
+     * 因此这里先解析订单（含归属校验）并检查状态，非待付款直接给出原因而不是静默失败。
+     */
+    private String cancelOrder(String params, ToolInvocationContext context) {
+        try {
+            Map<String, Object> paramMap = objectMapper.readValue(params, new TypeReference<>() {});
+            String orderSn = paramMap.get("order_sn") == null ? null : paramMap.get("order_sn").toString().trim();
+            if (orderSn == null || orderSn.isEmpty()) {
+                return "{\"error\": \"订单编号不能为空\"}";
+            }
+
+            JsonNode order = resolveOrder(orderSn, context);
+            if (order == null) {
+                return "{\"error\": \"未找到订单 " + orderSn + "，请确认订单编号是否正确\"}";
+            }
+            int status = order.path("status").asInt(-1);
+            if (status != 0) {
+                return "{\"error\": \"订单当前状态为" + orderStatusText(status) + "，仅待付款订单可取消\"}";
+            }
+
+            String response = postWithAuth(
+                    mallPortalUrl + "/order/cancelUserOrder?orderId=" + order.path("id").asLong(0), null, context);
+            JsonNode root = objectMapper.readTree(response);
+            if (root.path("code").asInt(500) != 200) {
+                return "{\"error\": \"" + root.path("message").asText("取消失败") + "\"}";
+            }
+
+            Map<String, Object> info = new HashMap<>();
+            info.put("orderSn", orderSn);
+            info.put("status", 4);
+            info.put("statusText", "已关闭");
+            Map<String, Object> result = new HashMap<>();
+            result.put("code", 200);
+            result.put("message", "操作成功");
+            result.put("data", info);
+            log.info("Cancel order completed for memberId={}, orderSn={}", context.getMemberId(), orderSn);
+            return objectMapper.writeValueAsString(result);
+        } catch (Exception e) {
+            log.error("取消订单失败: {}", e.getMessage());
+            return "{\"error\": \"取消订单失败，请稍后重试\"}";
+        }
+    }
+
+    /** 订单状态码 → 中文文案（工具返回值中的状态解释） */
+    private String orderStatusText(int status) {
+        return switch (status) {
+            case 0 -> "待付款";
+            case 1 -> "待发货";
+            case 2 -> "已发货";
+            case 3 -> "已完成";
+            case 4 -> "已关闭";
+            default -> "未知";
+        };
+    }
+
     private String createAfterSale(String params, ToolInvocationContext context) {
         try {
             Map<String, Object> paramMap = objectMapper.readValue(params, new TypeReference<>() {});
-            String orderSn = (String) paramMap.get("order_sn");
+            String orderSn = paramMap.get("order_sn") == null ? null : paramMap.get("order_sn").toString().trim();
 
             if (orderSn == null || orderSn.isEmpty()) {
                 return "{\"error\": \"订单编号不能为空\"}";
             }
 
-            String url = mallPortalUrl + "/returnApply/create";
+            // 先解析订单，确认归属并获取订单明细，避免为他人或虚构订单创建工单
+            JsonNode order = resolveOrder(orderSn, context);
+            if (order == null) {
+                return "{\"error\": \"未找到订单 " + orderSn + "，请确认订单编号是否正确\"}";
+            }
 
             Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("orderId", orderSn);
+            requestBody.put("orderId", order.path("id").asLong());
+            requestBody.put("orderSn", order.path("orderSn").asText(orderSn));
+            requestBody.put("memberUsername", order.path("memberUsername").asText(""));
+            requestBody.put("returnName", order.path("receiverName").asText(""));
+            requestBody.put("returnPhone", order.path("receiverPhone").asText(""));
+            requestBody.put("returnAmount", order.path("payAmount").asDouble(0));
             requestBody.put("reason", paramMap.get("reason"));
             requestBody.put("description", paramMap.get("description"));
-            // 数据隔离：写操作强制绑定当前用户，防止为他人创建工单
-            requestBody.put("memberId", context.getMemberId());
-            requestBody.put("status", 0);
 
+            // 用订单明细补全退货商品信息，后台退货申请页才能直接审核处理
+            JsonNode items = order.path("orderItemList");
+            if (items.isArray() && !items.isEmpty()) {
+                JsonNode first = items.get(0);
+                requestBody.put("productId", first.path("productId").asLong());
+                requestBody.put("productName", first.path("productName").asText(""));
+                requestBody.put("productPic", first.path("productPic").asText(""));
+                requestBody.put("productCount", first.path("productQuantity").asInt(1));
+                requestBody.put("productPrice", first.path("productPrice").asDouble(0));
+                requestBody.put("productRealPrice", first.path("productPrice").asDouble(0));
+                requestBody.put("productBrand", first.path("productBrand").asText(""));
+                requestBody.put("productAttr", first.path("productAttr").asText(""));
+            }
+
+            String url = mallPortalUrl + "/returnApply/create";
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, buildHeaders(context));
             String response = restTemplate.postForObject(url, entity, String.class);
-            log.info("Create after sale completed for memberId={}", context.getMemberId());
+            log.info("Create after sale completed for memberId={}, orderSn={}", context.getMemberId(), orderSn);
             return response;
         } catch (Exception e) {
             log.error("创建售后工单失败: {}", e.getMessage());
             return "{\"error\": \"创建售后工单失败\"}";
+        }
+    }
+
+    /**
+     * 按订单编号解析订单详情，并完成归属校验。
+     * <p>
+     * mall-portal 的订单详情接口按数字主键查询，而用户在对话中提供的是订单编号（orderSn），
+     * 因此先通过 /order/list 定位订单（服务端本身按登录会员过滤），拿到主键后再查详情；
+     * 纯数字输入直接按主键兜底查询。详情返回后本地再次校验归属，越权或找不到均返回 null。
+     */
+    private JsonNode resolveOrder(String orderSn, ToolInvocationContext context) {
+        try {
+            Long orderId = null;
+
+            String listUrl = mallPortalUrl + "/order/list?status=-1&pageNum=1&pageSize=50";
+            String listResponse = getWithAuth(listUrl, new HashMap<>(), context);
+            JsonNode list = objectMapper.readTree(listResponse).path("data").path("list");
+            if (list.isArray()) {
+                for (JsonNode item : list) {
+                    if (orderSn.equalsIgnoreCase(item.path("orderSn").asText(""))) {
+                        orderId = item.path("id").asLong(0);
+                        break;
+                    }
+                }
+            }
+
+            if (orderId == null && orderSn.matches("\\d+")) {
+                orderId = Long.parseLong(orderSn);
+            }
+            if (orderId == null || orderId <= 0) {
+                return null;
+            }
+
+            String detailUrl = mallPortalUrl + "/order/detail/{orderId}";
+            Map<String, Object> uriVariables = new HashMap<>();
+            uriVariables.put("orderId", orderId);
+            String detailResponse = getWithAuth(detailUrl, uriVariables, context);
+            JsonNode data = objectMapper.readTree(detailResponse).path("data");
+            if (data.isMissingNode() || data.isNull()) {
+                return null;
+            }
+
+            // 纵深防御：detail 接口本身不校验归属，本地必须校验，防止后端漏鉴权造成越权
+            String owner = data.path("memberId").isMissingNode() ? null : data.path("memberId").asText();
+            if (owner == null || !owner.equals(context.getMemberId())) {
+                log.warn("订单归属校验失败，疑似越权访问, orderSn={}, memberId={}", orderSn, context.getMemberId());
+                return null;
+            }
+            return data;
+        } catch (Exception e) {
+            log.error("解析订单失败: {}", e.getMessage());
+            return null;
         }
     }
 
@@ -236,6 +558,15 @@ public class ToolRegistry {
         HttpEntity<Void> entity = new HttpEntity<>(buildHeaders(context));
         ResponseEntity<String> response =
                 restTemplate.exchange(url, HttpMethod.GET, entity, String.class, uriVariables);
+        return response.getBody();
+    }
+
+    /**
+     * 带鉴权头的 POST 请求（JSON 体）
+     */
+    private String postWithAuth(String url, Object body, ToolInvocationContext context) {
+        HttpEntity<Object> entity = new HttpEntity<>(body, buildHeaders(context));
+        ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
         return response.getBody();
     }
 
@@ -253,64 +584,5 @@ public class ToolRegistry {
             headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + context.getUserToken());
         }
         return headers;
-    }
-
-    /**
-     * 归属校验：判断后端返回的数据是否属于当前用户。
-     * <p>
-     * 响应未携带归属字段时视为后端已按 memberId 过滤，放行；
-     * 响应无法解析时按 fail-closed 拒绝，避免把未知内容当作合法数据返回给模型。
-     */
-    private boolean isOwnedByCurrentUser(String responseJson, String memberId) {
-        if (responseJson == null || responseJson.isBlank()) {
-            return false;
-        }
-        try {
-            JsonNode root = objectMapper.readTree(responseJson);
-            String owner = findOwnerId(root);
-            if (owner == null) {
-                log.debug("响应未包含归属字段，视为后端已完成过滤");
-                return true;
-            }
-            return memberId.equals(owner);
-        } catch (Exception e) {
-            log.warn("订单响应解析失败，按拒绝处理");
-            return false;
-        }
-    }
-
-    /**
-     * 在 JSON 中递归查找归属用户字段
-     */
-    private String findOwnerId(JsonNode node) {
-        if (node == null || node.isNull()) {
-            return null;
-        }
-        if (node.isObject()) {
-            Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
-            while (fields.hasNext()) {
-                Map.Entry<String, JsonNode> entry = fields.next();
-                String key = entry.getKey().toLowerCase(Locale.ROOT);
-                JsonNode value = entry.getValue();
-                if (OWNER_FIELD_NAMES.contains(key) && value.isTextual()) {
-                    return value.asText();
-                }
-            }
-            Iterator<JsonNode> children = node.iterator();
-            while (children.hasNext()) {
-                String found = findOwnerId(children.next());
-                if (found != null) {
-                    return found;
-                }
-            }
-        } else if (node.isArray()) {
-            for (JsonNode child : node) {
-                String found = findOwnerId(child);
-                if (found != null) {
-                    return found;
-                }
-            }
-        }
-        return null;
     }
 }

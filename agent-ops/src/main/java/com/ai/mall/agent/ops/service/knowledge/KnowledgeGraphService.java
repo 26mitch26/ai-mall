@@ -31,8 +31,78 @@ public class KnowledgeGraphService {
     private final Map<String, Set<String>> dependencies = new HashMap<>();
     private final Map<String, Map<String, Object>> serviceInfo = new HashMap<>();
 
+    /** 内存降级：服务 -> (故障模式 -> 先验概率) */
+    private final Map<String, Map<String, Double>> serviceFailureModes = new HashMap<>();
+
+    /**
+     * 服务易感的故障模式及其先验概率 P(FailureMode | Service)。
+     *
+     * <p>这是图谱中连接"服务拓扑"与"故障根因"的关键一层：没有它，根因分析只能拿到
+     * 服务名（如 mysql-primary），而无法与故障类型（如 connection_pool_exhaustion）
+     * 的条件概率表对齐，贝叶斯推理会退化成概率均分。
+     *
+     * <p>每个服务的先验之和为 1.0，构成该服务上的完整故障分布。
+     */
+    private static final Map<String, Map<String, Double>> FAILURE_MODE_PRIORS = Map.of(
+            "api-gateway", Map.of(
+                    "traffic_spike", 0.25,
+                    "dns_failure", 0.20,
+                    "connection_pool_exhaustion", 0.20,
+                    "bandwidth_saturation", 0.20,
+                    "firewall_misconfig", 0.15),
+            "order-service", Map.of(
+                    "deployment_regression", 0.30,
+                    "resource_contention", 0.25,
+                    "traffic_spike", 0.20,
+                    "gc_overhead", 0.15,
+                    "connection_pool_exhaustion", 0.10),
+            "payment-service", Map.of(
+                    "deployment_regression", 0.30,
+                    "connection_pool_exhaustion", 0.25,
+                    "resource_contention", 0.20,
+                    "gc_overhead", 0.15,
+                    "data_growth", 0.10),
+            "inventory-service", Map.of(
+                    "deployment_regression", 0.25,
+                    "resource_contention", 0.25,
+                    "data_growth", 0.20,
+                    "gc_overhead", 0.20,
+                    "log_bloat", 0.10),
+            "user-service", Map.of(
+                    "cache_bloat", 0.35,
+                    "memory_leak", 0.25,
+                    "deployment_regression", 0.20,
+                    "connection_pool_exhaustion", 0.20),
+            "mysql-primary", Map.of(
+                    "data_growth", 0.30,
+                    "connection_pool_exhaustion", 0.25,
+                    "disk_failure", 0.20,
+                    "resource_contention", 0.15,
+                    "log_bloat", 0.10),
+            "redis-cluster", Map.of(
+                    "cache_bloat", 0.40,
+                    "memory_leak", 0.30,
+                    "connection_pool_exhaustion", 0.20,
+                    "resource_contention", 0.10),
+            "elasticsearch", Map.of(
+                    "disk_failure", 0.25,
+                    "data_growth", 0.25,
+                    "memory_leak", 0.25,
+                    "log_bloat", 0.15,
+                    "gc_overhead", 0.10)
+    );
+
     public KnowledgeGraphService(Neo4jClient neo4jClient) {
         this.neo4jClient = neo4jClient;
+    }
+
+    /**
+     * 根因候选：故障模式名称 + 来自知识图谱的先验概率。
+     *
+     * @param name  故障模式名称，与 RCAAgent 条件概率表(CPT)的 key 对齐
+     * @param prior 先验概率 P(FailureMode | Service)，由图谱关系属性携带
+     */
+    public record CauseCandidate(String name, double prior) {
     }
 
     /**
@@ -68,12 +138,30 @@ public class KnowledgeGraphService {
             addDependency("user-service", "redis-cluster");
             addDependency("api-gateway", "order-service");
 
+            initFailureModes();
+
             log.info("Service topology initialized in Neo4j successfully");
         } catch (Exception e) {
             fallbackToInMemory = true;
             log.warn("Neo4j unavailable, falling back to in-memory storage: {}", e.getMessage());
             initInMemoryTopology();
         }
+    }
+
+    /**
+     * 初始化故障模式节点与「服务 -[HAS_FAILURE_MODE]-> 故障模式」关系。
+     *
+     * <p>先验概率作为关系属性存入图谱，使根因分析的贝叶斯先验来自真实图数据，
+     * 而非代码内硬编码的常量表。
+     */
+    private void initFailureModes() {
+        for (Map.Entry<String, Map<String, Double>> entry : FAILURE_MODE_PRIORS.entrySet()) {
+            String service = entry.getKey();
+            for (Map.Entry<String, Double> mode : entry.getValue().entrySet()) {
+                addFailureMode(service, mode.getKey(), mode.getValue());
+            }
+        }
+        log.info("Failure modes initialized in Neo4j: {} services", FAILURE_MODE_PRIORS.size());
     }
 
     /** 内存降级初始化 */
@@ -94,6 +182,10 @@ public class KnowledgeGraphService {
         addDependencyInMemory("inventory-service", "mysql-primary");
         addDependencyInMemory("user-service", "redis-cluster");
         addDependencyInMemory("api-gateway", "order-service");
+
+        for (Map.Entry<String, Map<String, Double>> entry : FAILURE_MODE_PRIORS.entrySet()) {
+            serviceFailureModes.put(entry.getKey(), new HashMap<>(entry.getValue()));
+        }
     }
 
     // ==================== 公共API（方法签名不变） ====================
@@ -151,6 +243,116 @@ public class KnowledgeGraphService {
             fallbackToInMemory = true;
             addDependencyInMemory(from, to);
         }
+    }
+
+    /**
+     * 建立「服务 -[HAS_FAILURE_MODE {prior}]-> 故障模式」关系
+     * Cypher: MATCH (s:Service {name:$svc}), (f:FailureMode {name:$mode})
+     *         MERGE (s)-[r:HAS_FAILURE_MODE]->(f) SET r.prior = $prior
+     */
+    public void addFailureMode(String service, String failureMode, double prior) {
+        if (fallbackToInMemory) {
+            serviceFailureModes
+                    .computeIfAbsent(service, k -> new HashMap<>())
+                    .put(failureMode, prior);
+            return;
+        }
+        try {
+            neo4jClient.query("""
+                    MERGE (f:FailureMode {name: $mode})
+                    WITH f
+                    MATCH (s:Service {name: $svc})
+                    MERGE (s)-[r:HAS_FAILURE_MODE]->(f)
+                    SET r.prior = $prior
+                    """)
+                    .bind(service).to("svc")
+                    .bind(failureMode).to("mode")
+                    .bind(prior).to("prior")
+                    .run();
+            log.debug("Linked failure mode '{}' to service '{}' with prior {}", failureMode, service, prior);
+        } catch (Exception e) {
+            log.warn("Failed to link failure mode '{}' to '{}', falling back in-memory: {}",
+                    failureMode, service, e.getMessage());
+            fallbackToInMemory = true;
+            serviceFailureModes
+                    .computeIfAbsent(service, k -> new HashMap<>())
+                    .put(failureMode, prior);
+        }
+    }
+
+    /**
+     * 查询根因候选：沿服务依赖链回溯上游服务，收集其易感的故障模式及先验概率。
+     *
+     * <p>返回的是<b>故障模式</b>而非服务名，与 RCAAgent 条件概率表(CPT)的 key 对齐，
+     * 贝叶斯推理的似然与先验才能真正相乘。
+     *
+     * Cypher: MATCH (up:Service)-[:DEPENDS_ON*0..3]->(s:Service {name: $name})
+     *         MATCH (up)-[r:HAS_FAILURE_MODE]->(f:FailureMode)
+     *         RETURN DISTINCT f.name AS name, r.prior AS prior ORDER BY prior DESC
+     *
+     * @param service 告警所在服务
+     * @return 候选故障模式（含图上先验），图谱无数据时返回空列表
+     */
+    public List<CauseCandidate> findCandidateCauses(String service) {
+        if (fallbackToInMemory) {
+            return findCandidateCausesInMemory(service);
+        }
+        try {
+            return neo4jClient.query("""
+                    MATCH (up:Service)-[:DEPENDS_ON*0..3]->(s:Service {name: $name})
+                    MATCH (up)-[r:HAS_FAILURE_MODE]->(f:FailureMode)
+                    RETURN DISTINCT f.name AS name, r.prior AS prior
+                    ORDER BY prior DESC
+                    """)
+                    .bind(service).to("name")
+                    .fetchAs(CauseCandidate.class)
+                    .mappedBy((type, record) -> new CauseCandidate(
+                            record.get("name").asString(),
+                            record.get("prior").asDouble()))
+                    .all()
+                    .stream()
+                    .toList();
+        } catch (Exception e) {
+            log.warn("Neo4j query failed for findCandidateCauses('{}'), falling back: {}",
+                    service, e.getMessage());
+            fallbackToInMemory = true;
+            return findCandidateCausesInMemory(service);
+        }
+    }
+
+    /** 内存降级的根因候选查询：BFS 回溯上游服务，汇总其故障模式先验 */
+    private List<CauseCandidate> findCandidateCausesInMemory(String service) {
+        Set<String> visited = new LinkedHashSet<>();
+        Queue<String> queue = new LinkedList<>();
+        queue.add(service);
+        visited.add(service);
+
+        // 沿 DEPENDS_ON 反向回溯最多 3 跳
+        for (int depth = 0; depth < 3 && !queue.isEmpty(); depth++) {
+            int levelSize = queue.size();
+            for (int i = 0; i < levelSize; i++) {
+                String current = queue.poll();
+                for (Map.Entry<String, Set<String>> entry : dependencies.entrySet()) {
+                    if (entry.getValue().contains(current) && visited.add(entry.getKey())) {
+                        queue.add(entry.getKey());
+                    }
+                }
+            }
+        }
+
+        Map<String, Double> merged = new LinkedHashMap<>();
+        for (String svc : visited) {
+            for (Map.Entry<String, Double> mode : serviceFailureModes
+                    .getOrDefault(svc, Collections.emptyMap()).entrySet()) {
+                // 同名故障模式取最大先验，避免重复累加扭曲分布
+                merged.merge(mode.getKey(), mode.getValue(), Double::max);
+            }
+        }
+
+        return merged.entrySet().stream()
+                .map(e -> new CauseCandidate(e.getKey(), e.getValue()))
+                .sorted(Comparator.comparingDouble(CauseCandidate::prior).reversed())
+                .toList();
     }
 
     /**

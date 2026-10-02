@@ -1,32 +1,8 @@
-version: '3.8'
-
 services:
   # ==================== 基础设施 ====================
 
-  # MySQL 8.0
-  mysql:
-    image: mysql:8.0
-    container_name: ai-mall-mysql
-    environment:
-      # 默认 root/root 与各模块 application-dev.yml 的 datasource 配置保持一致
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-mall}
-      MYSQL_USER: ${MYSQL_USER:-mall}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-mall123}
-      TZ: Asia/Shanghai
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql-data:/var/lib/mysql
-      - ./infra/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
-    command: --default-authentication-plugin=caching_sha2_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
-    networks:
-      - ai-mall-network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  # MySQL 使用 Windows 本机服务（默认 127.0.0.1:3306），不再由 Compose 创建。
+  # 数据库初始化请运行 scripts/init-local-db.ps1。
 
   # Redis 7
   redis:
@@ -265,7 +241,6 @@ services:
       retries: 5
 
 volumes:
-  mysql-data:
   redis-data:
   elasticsearch-data:
   elasticsearch-plugins:

@@ -4,31 +4,51 @@ server:
 spring:
   application:
     name: agent-test
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
 
   # Spring AI OpenAI configuration
   ai:
     openai:
-      api-key: ${OPENAI_API_KEY:}
+      api-key: ${OPENAI_API_KEY:ollama-local}
+      base-url: ${AI_OPENAI_BASE_URL:http://localhost:11434}
       chat:
         options:
-          model: ${test.agent.ai.model:gpt-4o-mini}
+          model: ${TEST_AGENT_MODEL:qwen3.5-noVL:latest}
           temperature: ${test.agent.ai.temperature:0.3}
 
 test:
   agent:
     base-url: http://localhost:8080
-    offline-mode: false
     connect-timeout: 5000
     read-timeout: 10000
     max-connections: 50
     max-connections-per-route: 25
     response-time-threshold-ms: 5000
+    safe-demo-mode: true
+    max-apis-per-run: 8
     modules:
       - mall-admin
       - mall-portal
+      - agent-customer-scenarios
+    module-base-urls:
+      mall-admin: http://localhost:8081
+      mall-portal: http://localhost:8087
+    # 客服会话场景套件：意图路由/工具取数/知识来源/拒答与鉴权边界（与 OpenAPI 契约用例互补；
+    # 契约层绿 ≠ 会话层可用，见实验报告 Failure Case 09）
+    scenario:
+      enabled: true
+      gateway-url: http://localhost:8080
+      login-username: demo
+      login-password: Demo@123
+      user-id: "1"
+      chat-timeout-ms: 120000
     ai:
-      enabled: false
-      model: gpt-4o-mini
+      # 默认使用快速、确定性的 OpenAPI 契约生成；设置 TEST_AGENT_AI_ENABLED=true
+      # 可让本机 Ollama 为每个接口扩写探索性用例。
+      enabled: ${TEST_AGENT_AI_ENABLED:false}
+      model: ${TEST_AGENT_MODEL:qwen3.5-noVL:latest}
       temperature: 0.3
 
 # SpringDoc OpenAPI
@@ -37,6 +57,7 @@ springdoc:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
+    enabled: false
 
 logging:
   level:

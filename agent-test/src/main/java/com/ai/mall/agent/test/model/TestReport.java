@@ -25,6 +25,7 @@ public class TestReport {
     private int assertionsPassed;
     private int assertionsFailed;
     private List<TestResult> results;
+    private List<KnownDefect> knownDefects;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
 }

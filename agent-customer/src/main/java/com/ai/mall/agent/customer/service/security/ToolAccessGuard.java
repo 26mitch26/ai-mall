@@ -39,7 +39,10 @@ public class ToolAccessGuard {
     private static final Map<String, Sensitivity> TOOL_SENSITIVITY = Map.of(
             "search_products", Sensitivity.PUBLIC,
             "get_order_info", Sensitivity.USER_DATA,
-            "create_after_sale", Sensitivity.USER_WRITE
+            "list_my_orders", Sensitivity.USER_DATA,
+            "create_after_sale", Sensitivity.USER_WRITE,
+            "place_order", Sensitivity.USER_WRITE,
+            "cancel_order", Sensitivity.USER_WRITE
     );
 
     @Getter

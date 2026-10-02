@@ -37,4 +37,24 @@ public interface PortalOrderDao {
      */
     int releaseSkuStockLock(@Param("itemList") List<OmsOrderItem> orderItemList);
 
+    /**
+     * 查询用户对某商品的已购数量（待付款+待发货+已发货均算已购）
+     */
+    long countPurchasedQuantity(@Param("memberId") Long memberId, @Param("productId") Long productId);
+
+    /**
+     * 乐观锁扣库存：stock = stock - quantity WHERE id = skuId AND stock >= quantity。
+     * 返回影响行数：1=扣成功，0=库存不足（乐观锁冲突）。
+     *
+     * 为什么比 SELECT + UPDATE 安全：
+     * SELECT + UPDATE 两个请求并发时，都读到 stock=1，都写 stock=0，超卖。
+     * 乐观锁用 WHERE stock >= quantity 保证：如果扣减前库存已经不够了，SQL 影响 0 行，不扣。
+     */
+    int deductStockOptimistic(@Param("skuId") Long skuId, @Param("quantity") int quantity);
+
+    /**
+     * 预热 Redis 库存：从 DB 加载所有 SKU 的可用库存（stock - lockStock）到 Redis。
+     */
+    List<com.ai.mall.model.PmsSkuStock> getAllSkuStocks();
+
 }

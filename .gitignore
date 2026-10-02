@@ -17,6 +17,9 @@
 target/
 build/
 out/
+.run/
+.codebuddy/
+**/.qoder/
 
 # IDE
 .idea/
@@ -34,6 +37,14 @@ out/
 *.env
 .env.local
 .env.production
+
+# 两套前端的公开构建配置属于项目本身，不包含密钥，需随仓库分发。
+!frontend/.env
+!frontend/.env.development
+!frontend/.env.production
+!frontend-app/.env
+!frontend-app/.env.development
+!frontend-app/.env.production
 
 # OS
 .DS_Store

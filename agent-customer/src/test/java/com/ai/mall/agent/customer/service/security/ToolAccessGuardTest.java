@@ -51,6 +51,49 @@ class ToolAccessGuardTest {
     }
 
     @Test
+    @DisplayName("订单列表工具同样按用户数据分级：未登录拒绝、已登录放行")
+    void shouldGuardMyOrdersListToolByLogin() {
+        assertFalse(guard.authorize("list_my_orders", ToolInvocationContext.anonymous("s1")).isAllowed(),
+                "未登录不得列出会员订单");
+
+        ToolInvocationContext context = ToolInvocationContext.builder()
+                .sessionId("s1").memberId("member-1").build();
+        assertTrue(guard.authorize("list_my_orders", context).isAllowed());
+    }
+
+    @Test
+    @DisplayName("下单工具为写操作：未登录拒绝、仅有 memberId 拒绝、带令牌放行")
+    void shouldRequireTokenForPlaceOrder() {
+        assertFalse(guard.authorize("place_order", ToolInvocationContext.anonymous("s1")).isAllowed(),
+                "未登录不得代用户下单");
+
+        ToolInvocationContext noToken = ToolInvocationContext.builder()
+                .sessionId("s1").memberId("member-1").build();
+        assertFalse(guard.authorize("place_order", noToken).isAllowed(),
+                "仅知道 memberId 不足以代用户下单");
+
+        ToolInvocationContext withToken = ToolInvocationContext.builder()
+                .sessionId("s1").memberId("member-1").userToken("jwt-xxx").build();
+        assertTrue(guard.authorize("place_order", withToken).isAllowed());
+    }
+
+    @Test
+    @DisplayName("取消订单同样为写操作：未登录/无令牌拒绝、带令牌放行")
+    void shouldRequireTokenForCancelOrder() {
+        assertFalse(guard.authorize("cancel_order", ToolInvocationContext.anonymous("s1")).isAllowed(),
+                "未登录不得代用户取消订单");
+
+        ToolInvocationContext noToken = ToolInvocationContext.builder()
+                .sessionId("s1").memberId("member-1").build();
+        assertFalse(guard.authorize("cancel_order", noToken).isAllowed(),
+                "仅知道 memberId 不足以取消订单");
+
+        ToolInvocationContext withToken = ToolInvocationContext.builder()
+                .sessionId("s1").memberId("member-1").userToken("jwt-xxx").build();
+        assertTrue(guard.authorize("cancel_order", withToken).isAllowed());
+    }
+
+    @Test
     @DisplayName("写操作缺少用户令牌时被拒绝")
     void shouldDenyWriteToolWithoutToken() {
         ToolInvocationContext context = ToolInvocationContext.builder()

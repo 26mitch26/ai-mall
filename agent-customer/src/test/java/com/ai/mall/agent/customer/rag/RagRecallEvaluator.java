@@ -103,12 +103,20 @@ public final class RagRecallEvaluator {
 
     public RagRecallEvaluator(List<Document> documents,
                               org.springframework.ai.embedding.EmbeddingModel embeddingModel) {
+        this(documents, embeddingModel, 512, "sentence");
+    }
+
+    /** 指定分块尺寸/策略的评测器：用于 Chunk 尺寸对比实验 */
+    public RagRecallEvaluator(List<Document> documents,
+                              org.springframework.ai.embedding.EmbeddingModel embeddingModel,
+                              int chunkSize, String chunkStrategy) {
         this.embeddingModel = embeddingModel;
         parentVectorStore = SimpleVectorStore.builder(embeddingModel).build();
         fullVectorStore = SimpleVectorStore.builder(embeddingModel).build();
 
         for (Document doc : documents) {
-            List<RagService.DocumentChunk> splits = RagService.DocumentChunker.chunkWithMetadata(doc, "sentence");
+            List<RagService.DocumentChunk> splits =
+                    RagService.DocumentChunker.chunkWithMetadata(doc, chunkStrategy, chunkSize, 0);
             for (RagService.DocumentChunk c : splits) {
                 Chunk parent = new Chunk(c.getChunkId(), c.getDocId(), c.getContent());
                 parentChunks.add(parent);
@@ -194,7 +202,7 @@ public final class RagRecallEvaluator {
         }
         keywordResults.addAll(bm25Map.values());
 
-        RagService ragService = new RagService(null, null, store, null, embeddingModel);
+        RagService ragService = new RagService(null, null, store, null, embeddingModel, null);
         List<RagService.FusedDocument> fused = ragService.rrfFusion(vectorResults, keywordResults);
 
         RagService.CrossEncoderReranker reranker = weights == null
@@ -270,7 +278,7 @@ public final class RagRecallEvaluator {
         }
         List<RagService.RetrievedDocument> keywordResults = new ArrayList<>(bm25Map.values());
 
-        RagService ragService = new RagService(null, null, parentVectorStore, null, embeddingModel);
+        RagService ragService = new RagService(null, null, parentVectorStore, null, embeddingModel, null);
         List<RagService.FusedDocument> fused = ragService.rrfFusion(vectorResults, keywordResults);
         List<RagService.RerankedDocument> base = ragService.new CrossEncoderReranker(
                 TUNED_WEIGHTS[0], TUNED_WEIGHTS[1], TUNED_WEIGHTS[2], TUNED_WEIGHTS[3], TUNED_WEIGHTS[4], TUNED_WEIGHTS[5])
@@ -331,6 +339,11 @@ public final class RagRecallEvaluator {
             m.put(q.query() + " ⇢ " + q.goldDocId(), positionOf(optimizedV4(q.query()), q.goldDocId()));
         }
         return m;
+    }
+
+    /** 当前配置下的分块总数（Chunk 尺寸对比实验用） */
+    public int chunkCount() {
+        return parentChunks.size();
     }
 
     /** 离线复现全部分层指标，返回报告文本 */

@@ -1,0 +1,183 @@
+{
+    "metrics": {
+        "http_req_blocked": {
+            "avg": 0.03114299666177039,
+            "min": 0,
+            "med": 0.004259,
+            "max": 17.815067,
+            "p(90)": 0.006422,
+            "p(95)": 0.007766799999999996
+        },
+        "vus": {
+            "min": 1,
+            "max": 200,
+            "value": 1
+        },
+        "app_errors": {
+            "count": 6,
+            "rate": 0.027624767687542687
+        },
+        "data_received": {
+            "count": 42442600,
+            "rate": 195411.16084254987
+        },
+        "http_req_duration": {
+            "min": 0,
+            "med": 116.06357,
+            "max": 4020.93375,
+            "p(90)": 900.4621439999995,
+            "p(95)": 1438.2809097999946,
+            "avg": 317.0345049219652,
+            "thresholds": {
+                "p(95)<500": true
+            }
+        },
+        "http_req_sending": {
+            "p(90)": 0.0322366,
+            "p(95)": 0.04776079999999997,
+            "avg": 0.018511059286954346,
+            "min": 0,
+            "med": 0.013154,
+            "max": 1.502929
+        },
+        "iteration_duration": {
+            "avg": 1164.2154091678533,
+            "min": 215.370994,
+            "med": 946.003263,
+            "max": 31376.70557,
+            "p(90)": 2379.171932,
+            "p(95)": 2809.525201
+        },
+        "http_req_tls_handshaking": {
+            "avg": 0,
+            "min": 0,
+            "med": 0,
+            "max": 0,
+            "p(90)": 0,
+            "p(95)": 0
+        },
+        "http_req_duration{expected_response:true}": {
+            "avg": 317.0853130907072,
+            "min": 2.937603,
+            "med": 116.16613,
+            "max": 4020.93375,
+            "p(90)": 900.6349818000008,
+            "p(95)": 1438.5664275999993
+        },
+        "http_req_failed": {
+            "passes": 6,
+            "fails": 37439,
+            "thresholds": {
+                "rate<0.02": false
+            },
+            "value": 0.00016023501134997998
+        },
+        "http_req_receiving": {
+            "min": 0,
+            "med": 0.114381,
+            "max": 7.664754,
+            "p(90)": 0.2936892,
+            "p(95)": 0.3652027999999998,
+            "avg": 0.15608876103618627
+        },
+        "http_reqs": {
+            "count": 37445,
+            "rate": 172.401571010006
+        },
+        "http_req_connecting": {
+            "med": 0,
+            "max": 17.721387,
+            "p(90)": 0,
+            "p(95)": 0,
+            "avg": 0.025109087595139575,
+            "min": 0
+        },
+        "data_sent": {
+            "count": 5764334,
+            "rate": 26539.73127056728
+        },
+        "http_req_waiting": {
+            "avg": 316.8599051016437,
+            "min": 0,
+            "med": 115.915389,
+            "max": 4020.853324,
+            "p(90)": 900.3506851999995,
+            "p(95)": 1438.040014999994
+        },
+        "vus_max": {
+            "max": 200,
+            "value": 200,
+            "min": 200
+        },
+        "iterations": {
+            "count": 12481,
+            "rate": 57.46412091803671
+        },
+        "group_duration": {
+            "avg": 322.0079739518483,
+            "min": 3.042537,
+            "med": 116.329631,
+            "max": 30002.245492,
+            "p(90)": 901.4860137999998,
+            "p(95)": 1440.8867989999994
+        },
+        "checks": {
+            "passes": 37439,
+            "fails": 6,
+            "value": 0.99983976498865
+        }
+    },
+    "root_group": {
+        "id": "d41d8cd98f00b204e9800998ecf8427e",
+        "groups": {
+            "portal_product_search": {
+                "name": "portal_product_search",
+                "path": "::portal_product_search",
+                "id": "a902cdc567c9b4a5aa9d14fd2fcba189",
+                "groups": {},
+                "checks": {
+                        "product search 200": {
+                            "name": "product search 200",
+                            "path": "::portal_product_search::product search 200",
+                            "id": "d2e6d33ccbbd9058687394ffcd2f8cd7",
+                            "passes": 12476,
+                            "fails": 6
+                        }
+                    }
+            },
+            "portal_product_detail": {
+                "name": "portal_product_detail",
+                "path": "::portal_product_detail",
+                "id": "452931cb533daf145dfe9bb3c13b789e",
+                "groups": {},
+                "checks": {
+                        "product detail 200": {
+                            "name": "product detail 200",
+                            "path": "::portal_product_detail::product detail 200",
+                            "id": "f2a19ed0a37fa079113dda0ab42ee48e",
+                            "passes": 12482,
+                            "fails": 0
+                        }
+                    }
+            },
+            "search_es_product": {
+                "name": "search_es_product",
+                "path": "::search_es_product",
+                "id": "f96915c078d7842cacb6dfd542878d20",
+                "groups": {},
+                "checks": {
+                        "es search 200": {
+                            "name": "es search 200",
+                            "path": "::search_es_product::es search 200",
+                            "id": "731f5e590c33b7982b0aeb5ca94de0f6",
+                            "passes": 12481,
+                            "fails": 0
+                        }
+                    }
+            }
+        },
+        "checks": {},
+        "name": "",
+        "path": ""
+    }
+}

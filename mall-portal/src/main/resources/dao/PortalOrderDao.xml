@@ -88,4 +88,27 @@
             #{item.productSkuId}
         </foreach>
     </update>
+
+    <!-- 查询用户对某商品的已购数量（状态 0=待付款 + 1=待发货 + 2=已发货 均算已购） -->
+    <select id="countPurchasedQuantity" resultType="long">
+        SELECT COALESCE(SUM(ot.product_quantity), 0)
+        FROM oms_order o
+        JOIN oms_order_item ot ON o.id = ot.order_id
+        WHERE o.member_id = #{memberId}
+          AND ot.product_id = #{productId}
+          AND o.status IN (0, 1, 2)
+          AND o.delete_status = 0
+    </select>
+
+    <!-- 乐观锁扣库存：WHERE stock >= quantity 保证并发安全 -->
+    <update id="deductStockOptimistic">
+        UPDATE pms_sku_stock
+        SET stock = stock - #{quantity}
+        WHERE id = #{skuId} AND stock >= #{quantity}
+    </update>
+
+    <!-- 预热：查询所有 SKU 库存 -->
+    <select id="getAllSkuStocks" resultMap="com.ai.mall.mapper.PmsSkuStockMapper.BaseResultMap">
+        SELECT * FROM pms_sku_stock
+    </select>
 </mapper>

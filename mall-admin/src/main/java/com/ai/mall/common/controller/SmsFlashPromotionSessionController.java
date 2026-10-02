@@ -86,7 +86,7 @@ public class SmsFlashPromotionSessionController {
     @Operation(summary = "获取全部可选场次及其数量")
     @RequestMapping(value = "/selectList", method = RequestMethod.GET)
     @ResponseBody
-    public CommonResult<List<SmsFlashPromotionSessionDetail>> selectList(Long flashPromotionId) {
+    public CommonResult<List<SmsFlashPromotionSessionDetail>> selectList(@RequestParam("flashPromotionId") Long flashPromotionId) {
         List<SmsFlashPromotionSessionDetail> promotionSessionList = flashPromotionSessionService.selectList(flashPromotionId);
         return CommonResult.success(promotionSessionList);
     }

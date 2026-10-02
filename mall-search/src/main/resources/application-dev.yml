@@ -1,12 +1,18 @@
 spring:
+  threads:
+    virtual:
+      # Java 21 + Spring Boot 3.5 虚拟线程（预研开启，见面试准备.md §十 A/B 论证）。
+      # ◀ 默认关闭：k6 200VU 长压触发 JVM 原生崩溃 0xC0000005（见 mall-portal 同款注释），
+      #   平台线程（默认 Tomcat 200）实测更稳定，生产默认使用平台线程。
+      enabled: false
   datasource:
-    url: jdbc:mysql://localhost:3306/mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false
-    username: root
-    password: root
+    url: ${MALL_DB_URL:jdbc:mysql://127.0.0.1:3306/mall?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${MALL_DB_USERNAME:root}
+    password: ${MALL_DB_PASSWORD:}
     druid:
       initial-size: 5 #连接池初始化大小
       min-idle: 10 #最小空闲连接数
-      max-active: 20 #最大连接数
+      max-active: 50 #最大连接数（压测调优：20→50，见面试准备.md §九 连接池A/B）
       web-stat-filter:
         exclusions: "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*" #不统计这些请求数据
       stat-view-servlet: #访问监控网页的登录用户名和密码
@@ -22,7 +28,7 @@ spring:
 logging:
   level:
     root: info
-    com.ai.mall: debug
+    com.ai.mall: info # 压测调优：debug→info，避免 WebLogAspect 每请求写完整 JSON 日志（GB级磁盘I/O）
 
 logstash:
   host: localhost

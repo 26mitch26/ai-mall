@@ -30,8 +30,12 @@ public class OpenApiConfig {
      *
      * @return list of API definitions parsed from the OpenAPI spec
      */
-    public List<ApiDefinition> fetchApiDefinitions() {
-        String openApiUrl = config.getBaseUrl() + "/v3/api-docs";
+    public List<ApiDefinition> fetchApiDefinitions(String moduleName) {
+        String moduleBaseUrl = config.getModuleBaseUrls() == null
+                ? null
+                : config.getModuleBaseUrls().get(moduleName);
+        String targetBaseUrl = moduleBaseUrl == null ? config.getBaseUrl() : moduleBaseUrl;
+        String openApiUrl = targetBaseUrl + "/v3/api-docs";
         log.info("Fetching OpenAPI specification from: {}", openApiUrl);
 
         try {
@@ -245,44 +249,51 @@ public class OpenApiConfig {
         List<ApiDefinition> apis = new ArrayList<>();
 
         apis.add(ApiDefinition.builder()
-                .path("/api/v1/products")
+                .path("/home/content")
                 .method("GET")
-                .summary("获取商品列表")
+                .summary("获取商城首页聚合数据")
+                .parameters(List.of())
+                .responses(okResponse())
+                .build());
+
+        apis.add(ApiDefinition.builder()
+                .path("/product/search")
+                .method("GET")
+                .summary("搜索商品")
                 .parameters(List.of(
                         Parameter.builder().name("keyword").in("query").type("string").required(false).build(),
-                        Parameter.builder().name("page").in("query").type("integer").required(false).build(),
-                        Parameter.builder().name("size").in("query").type("integer").required(false).build()
+                        Parameter.builder().name("pageNum").in("query").type("integer").required(false).build(),
+                        Parameter.builder().name("pageSize").in("query").type("integer").required(false).build()
                 ))
+                .responses(okResponse())
                 .build());
 
         apis.add(ApiDefinition.builder()
-                .path("/api/v1/products/{id}")
+                .path("/product/categoryTreeList")
                 .method("GET")
-                .summary("获取商品详情")
-                .parameters(List.of(
-                        Parameter.builder().name("id").in("path").type("integer").required(true).build()
-                ))
+                .summary("获取商品分类树")
+                .parameters(List.of())
+                .responses(okResponse())
                 .build());
 
         apis.add(ApiDefinition.builder()
-                .path("/api/v1/orders")
+                .path("/brand/recommendList")
                 .method("GET")
-                .summary("获取订单列表")
+                .summary("获取推荐品牌")
                 .parameters(List.of(
-                        Parameter.builder().name("status").in("query").type("string").required(false).build(),
-                        Parameter.builder().name("page").in("query").type("integer").required(false).build()
+                        Parameter.builder().name("pageNum").in("query").type("integer").required(false).build(),
+                        Parameter.builder().name("pageSize").in("query").type("integer").required(false).build()
                 ))
-                .build());
-
-        apis.add(ApiDefinition.builder()
-                .path("/api/v1/orders")
-                .method("POST")
-                .summary("创建订单")
-                .parameters(List.of(
-                        Parameter.builder().name("requestBody").in("body").type("application/json").required(true).description("Order creation payload").build()
-                ))
+                .responses(okResponse())
                 .build());
 
         return apis;
+    }
+
+    private Map<String, Response> okResponse() {
+        return Map.of("200", Response.builder()
+                .description("请求成功")
+                .schema("{\"type\":\"object\"}")
+                .build());
     }
 }

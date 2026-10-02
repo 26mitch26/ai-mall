@@ -178,6 +178,22 @@ public class TestReportGenerator {
 
         html.append("</tbody></table>");
 
+        // Known defects section：失败回流沉淀的历史经验
+        List<com.ai.mall.agent.test.model.KnownDefect> known = report.getKnownDefects();
+        if (known != null && !known.isEmpty()) {
+            html.append("<h2>Known Defects（失败沉淀的历史经验）</h2>");
+            html.append("<table><thead><tr><th>API</th><th>Defect</th><th>Occurrences</th><th>Hit This Run</th></tr></thead><tbody>");
+            for (com.ai.mall.agent.test.model.KnownDefect d : known) {
+                html.append("<tr>");
+                html.append("<td>").append(escapeHtml(d.getApiKey())).append("</td>");
+                html.append("<td>").append(escapeHtml(d.getSummary())).append("</td>");
+                html.append("<td>").append(d.getOccurrences()).append("</td>");
+                html.append("<td>").append(d.isHitThisRun() ? "<span class=\"badge-fail\">YES</span>" : "no").append("</td>");
+                html.append("</tr>");
+            }
+            html.append("</tbody></table>");
+        }
+
         html.append("<div class=\"timestamp\">");
         html.append("Start: ").append(report.getStartTime() != null ? report.getStartTime().format(DATE_FORMAT) : "N/A").append("<br>");
         html.append("End: ").append(report.getEndTime() != null ? report.getEndTime().format(DATE_FORMAT) : "N/A").append("<br>");
@@ -253,11 +269,35 @@ public class TestReportGenerator {
                     .toList();
             jsonReport.put("results", allResults);
 
+            // 已知缺陷（失败回流沉淀的历史经验）
+            jsonReport.put("knownDefects", buildKnownDefects(report));
+
             return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonReport);
         } catch (Exception e) {
             log.error("生成JSON报告失败: {}", e.getMessage(), e);
             return "{\"error\": \"Failed to generate JSON report: " + e.getMessage() + "\"}";
         }
+    }
+
+    /** 序列化历史已知缺陷：接口 + 摘要 + 累计复现次数 + 本轮是否再次命中 */
+    private List<Map<String, Object>> buildKnownDefects(TestReport report) {
+        if (report.getKnownDefects() == null || report.getKnownDefects().isEmpty()) {
+            return List.of();
+        }
+        return report.getKnownDefects().stream()
+                .map(d -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("api", d.getApiKey());
+                    m.put("summary", d.getSummary());
+                    m.put("occurrences", d.getOccurrences());
+                    m.put("hitThisRun", d.isHitThisRun());
+                    m.put("firstSeen", d.getFirstSeen() != null
+                            ? d.getFirstSeen().format(DATE_FORMAT) : null);
+                    m.put("lastSeen", d.getLastSeen() != null
+                            ? d.getLastSeen().format(DATE_FORMAT) : null);
+                    return m;
+                })
+                .toList();
     }
 
     private int calculateSkippedTests(TestReport report) {
