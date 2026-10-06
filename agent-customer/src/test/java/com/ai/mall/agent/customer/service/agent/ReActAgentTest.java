@@ -822,6 +822,22 @@ class ReActAgentTest {
     }
 
     @Test
+    void longTailRefundGuidanceIncludesNextStepWithoutPerformingAWrite() {
+        ReflectionTestUtils.setField(agent, "policyDirectEnabled", true);
+        String query = "我不知道如何才能拿到退款";
+        when(memoryService.getShortTermMemory(anyString())).thenReturn(List.of());
+        Document policy = Document.builder().source("refund.md")
+                .content("退款资格：七日内支持退货。\n退货操作路径：进入会员中心选择订单，提交原因。").evidenceVerified(true).build();
+        when(ragService.retrieveWithEvidence(query, 3))
+                .thenReturn(new RagService.RetrievalOutcome(List.of(policy), .9, 5, .9, false));
+        String answer = agent.think("refund-guidance", query);
+        assertTrue(answer.contains("选择订单"));
+        assertFalse(answer.contains("已退款"));
+        verify(modelRouterService, never()).callWithFallback(anyString());
+        verifyNoInteractions(toolRegistry, afterSaleWorkflowService);
+    }
+
+    @Test
     void publicPaymentPolicyCannotBeMisroutedToPrivateOrderTools() {
         ReflectionTestUtils.setField(agent, "policyDirectEnabled", true);
         when(memoryService.getShortTermMemory(anyString())).thenReturn(List.of());
@@ -831,7 +847,8 @@ class ReActAgentTest {
                 .thenReturn(new RagService.RetrievalOutcome(List.of(policy), .9, 5, .9, false));
         String answer = agent.think("public-policy", "支持哪些支付方式");
         assertTrue(answer.contains("微信"));
-        assertEquals(List.of(policy), agent.getLastRetrieval("public-policy"));
+        assertEquals(policy.getContent(), agent.getLastRetrieval("public-policy").get(0).getContent());
+        assertNotNull(agent.getLastRetrieval("public-policy").get(0).getEvidenceExcerpt());
         assertNotNull(agent.getLastEvidence("public-policy"));
         verify(semanticAnswerCache, never()).lookup(anyString(), anyString());
         verify(modelRouterService, never()).callWithFallback(anyString());

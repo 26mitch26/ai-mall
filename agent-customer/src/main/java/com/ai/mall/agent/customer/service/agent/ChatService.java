@@ -81,11 +81,17 @@ public class ChatService {
 
         RagService.RetrievalOutcome evidence = reactAgent.getLastEvidence(sessionId);
         EvidenceVerifier.Report evidenceReport = new EvidenceVerifier().verify(answer, reactAgent.getLastRetrieval(sessionId));
+        if (evidence != null) {
+            var conflicts = new EvidenceVerifier().verify(answer, evidence.documents()).conflicts();
+            evidenceReport = new EvidenceVerifier.Report(evidenceReport.method(), evidenceReport.checkedClaims(),
+                    evidenceReport.unsupportedNumericClaims(), evidenceReport.claims(), conflicts);
+        }
         if(!evidenceReport.conflicts().isEmpty()) {
             answer="检索到的积分抵扣规则存在冲突，暂时无法确认适用上限，请联系人工客服核对。下方列出本次检索的政策依据。";
             AgentTelemetry.recordStage("evidence",0,"refusal");
         }
-        List<SourceReference> sources = isRefusal(answer) ? List.of() : toSources(reactAgent.getLastRetrieval(sessionId));
+        List<SourceReference> sources = !evidenceReport.conflicts().isEmpty() && evidence != null
+                ? toSources(evidence.documents()) : isRefusal(answer) ? List.of() : toSources(reactAgent.getLastRetrieval(sessionId));
         AgentTelemetry.recordStage("chat", responseTime, isRefusal(answer) ? "refusal" : "success");
 
         return ChatResponse.builder()
@@ -132,7 +138,7 @@ public class ChatService {
                     : "检索判定 · 依据不足，建议联系人工客服（依据来自历史复答或模型自判）";
         }
         if (sources == null || sources.isEmpty()) {
-            return "检索判定 · 实时业务数据（工具直查）";
+            return "已提供回复；未展示政策引用，请按具体业务页面核对";
         }
         String routeLabel = evidence == null ? "知识检索" : switch (String.valueOf(evidence.route())) {
             case "semantic" -> "语义检索";
@@ -140,14 +146,12 @@ public class ChatService {
             case "hybrid" -> "混合检索";
             default -> "知识检索";
         };
-        return evidence != null && evidence.topSimilarity() > 0
-                ? "检索判定 · 依据充分（" + routeLabel + "，语义相似度 "
-                        + String.format("%.2f", evidence.topSimilarity()) + "）"
-                : "检索判定 · 依据充分（知识库命中）";
+        return "已找到政策依据（" + routeLabel + "），请核对适用条件";
     }
 
     /**
-     * 拒答/转人工话术不展示来源卡片：检索内容与问题无关时给出来源会造成误导，
+     * 普通拒答不展示来源卡片；冲突拒答保留检索依据供人工核对。
+     * 检索内容与问题无关时给出来源会造成误导，
      * "未找到相关信息"与"这是回答依据"本身也是矛盾的。
      */
     private boolean isRefusal(String answer) {
@@ -168,7 +172,8 @@ public class ChatService {
                     .id(document.getId())
                     .source(source)
                     .type(document.getType())
-                    .content(shorten(document.getContent(), 280))
+                    .content(shorten(document.getEvidenceExcerpt() == null ? document.getContent() : document.getEvidenceExcerpt(), 280))
+                    .contentKind(document.getEvidenceExcerpt() == null ? "source-preview" : "selected-excerpt")
                     .score(document.getScore())
                     .retrievalSource(document.getRetrievalSource() == null ? "hybrid" : document.getRetrievalSource())
                     .version(document.getVersion())

@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 @Data
-@Builder
+@Builder(toBuilder = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class Document {
@@ -32,4 +32,6 @@ public class Document {
     private String knowledgeVersion;
     /** Set only when retrieval has validated the currently published revision. */
     private boolean evidenceVerified;
+    /** Query-specific quotation; content and contentHash still describe the original source. */
+    private String evidenceExcerpt;
 }

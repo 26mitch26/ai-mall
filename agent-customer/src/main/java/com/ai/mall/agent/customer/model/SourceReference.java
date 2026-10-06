@@ -15,6 +15,7 @@ public class SourceReference {
     private String source;
     private String type;
     private String content;
+    private String contentKind;
     private double score;
     private String retrievalSource;
     private String version;

@@ -217,6 +217,7 @@
                   <el-icon><DocumentIcon /></el-icon>
                   <span><strong>{{ source.source }}</strong><small :title="source.version">{{ source.type }} · {{ source.retrievalSource }} · 排序 {{ source.score.toFixed(2) }} · v{{ source.version?.slice(0, 12) || '未知' }} · {{ source.scope || '范围未知' }}</small></span>
                   <el-tag size="small" :type="source.evidenceVerified ? 'success' : 'info'" effect="plain">{{ source.evidenceVerified ? '引用版本已验证' : '版本未验证' }}</el-tag>
+                  <small>{{ source.contentKind === 'selected-excerpt' ? '本次引用片段' : '来源预览' }}</small>
                   <el-icon class="source-arrow"><ArrowRight /></el-icon>
                 </button>
               </div>
@@ -250,7 +251,7 @@
       </main>
     </section>
 
-    <el-dialog v-model="sourceVisible" title="回答依据 · 原文全文" width="720px">
+    <el-dialog v-model="sourceVisible" title="回答依据" width="720px">
       <div v-if="selectedSource" class="source-dialog">
         <div class="source-dialog-head">
           <el-icon><DocumentIcon /></el-icon>
@@ -262,7 +263,7 @@
         </div>
         </div>
         <div class="source-dialog-toolbar">
-          <span>知识库原文</span>
+          <span>{{ sourceFullContent ? '知识库原文全文' : selectedSource.contentKind === 'selected-excerpt' ? '本次引用片段' : '来源预览' }}</span>
           <el-button link type="primary" :loading="sourceLoading" @click="loadFullSource(selectedSource)">重新加载全文</el-button>
         </div>
         <el-scrollbar max-height="430px" class="source-fulltext">
@@ -456,7 +457,7 @@ const sendMessage = async () => {
 
 const openSource = (source: SourceReference) => {
   selectedSource.value = source
-  sourceFullContent.value = source.content
+  sourceFullContent.value = ''
   sourceNotFound.value = false
   sourceVisible.value = true
   loadFullSource(source)

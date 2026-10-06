@@ -18,10 +18,12 @@
               <view class="message-content">
                 <text class="message-bubble">{{ message.content }}</text>
                 <text v-if="message.meta" class="message-meta">{{ message.meta }}</text>
+                <text v-if="message.evidenceReport && message.evidenceReport.unsupportedNumericClaims > 0" class="debug-line warn">部分金额或时效表述尚未通过原文核对，请查看政策与适用条件。</text>
                 <view v-if="message.sources?.length" class="source-list">
                   <view v-for="source in message.sources" :key="`${source.id}:${source.version || ''}`" class="source-item">
                     <view class="source-head"><text class="source-name">{{ source.source }}</text><text class="source-action" @click="toggleSourceFull(source)">{{ expandedSources[sourceKey(source)] ? '收起原文' : '查看原文' }}</text></view>
                     <text class="source-meta">{{ source.version ? `政策版本 ${source.version}` : '参考资料' }}<template v-if="source.effectiveAt"> · 生效于 {{ formatDate(source.effectiveAt) }}</template><template v-if="source.score != null"> · 相关度 {{ formatScore(source.score) }}</template></text>
+                    <text class="source-meta">{{ source.contentKind === 'selected-excerpt' ? '本次引用片段' : '来源预览' }}</text>
                     <text class="source-excerpt">{{ source.content }}</text>
                     <text v-if="expandedSources[sourceKey(source)]" class="source-full">{{ expandedSources[sourceKey(source)] }}</text>
                   </view>

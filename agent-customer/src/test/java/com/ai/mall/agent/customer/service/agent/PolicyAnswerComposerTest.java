@@ -26,7 +26,11 @@ class PolicyAnswerComposerTest {
         assertNotNull(result);
         assertTrue(result.answer().contains("支付方式：支持微信支付和支付宝。"));
         assertFalse(result.answer().contains("24小时"));
-        assertEquals(List.of(payment), result.sources());
+        assertEquals(1, result.sources().size());
+        assertEquals(payment.getSource(), result.sources().get(0).getSource());
+        assertEquals(payment.getContent(), result.sources().get(0).getContent());
+        assertNull(payment.getEvidenceExcerpt());
+        assertTrue(result.sources().get(0).getEvidenceExcerpt().contains("微信"));
     }
 
     @Test void doesNotCreateAnInvoiceOrInventRulesFromUnverifiedText() {

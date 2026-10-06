@@ -1,0 +1,42 @@
+{
+  "total" : 12,
+  "passed" : 12,
+  "cases" : [ {
+    "id" : "shipping-no-payment-noise",
+    "passed" : true
+  }, {
+    "id" : "payment-no-refund-noise",
+    "passed" : true
+  }, {
+    "id" : "two-topics-covered",
+    "passed" : true
+  }, {
+    "id" : "procedure-not-buried",
+    "passed" : true
+  }, {
+    "id" : "long-tail-refund-routed",
+    "passed" : true
+  }, {
+    "id" : "source-preview-matches-quote",
+    "passed" : true
+  }, {
+    "id" : "numeric-threshold-not-fee",
+    "passed" : true
+  }, {
+    "id" : "region-not-crossed",
+    "passed" : true
+  }, {
+    "id" : "negation-not-inverted",
+    "passed" : true
+  }, {
+    "id" : "exact-numeric-quote-supported",
+    "passed" : true
+  }, {
+    "id" : "personal-refund-not-public",
+    "passed" : true
+  }, {
+    "id" : "unverified-source-refused",
+    "passed" : true
+  } ],
+  "scope" : "12 synthetic component regressions; no model calls or full-RAG accuracy claims"
+}

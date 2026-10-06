@@ -5,7 +5,7 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 import java.util.regex.Pattern;
 
-/** Deterministic quotation/numeric checks, not an entailment model or a hallucination guarantee. */
+/** Complete-sentence quotation checks; equal numbers alone never establish entailment. */
 @Component
 public class EvidenceVerifier {
     private static final Pattern NUMBER = Pattern.compile("\\d+(?:\\.\\d+)?(?:个工作日|工作日|天|小时|元|%|％)");
@@ -22,11 +22,14 @@ public class EvidenceVerifier {
             if (text.length() < 4) continue;
             List<String> numericFacts = NUMBER.matcher(text).results().map(m -> m.group()).toList();
             List<String> ids = evidence.stream().filter(d -> d.getContent() != null)
-                    .filter(d -> normalize(d.getContent()).contains(normalize(text))
-                            || (!numericFacts.isEmpty() && numericFacts.stream().allMatch(n -> normalize(d.getContent()).contains(normalize(n)))))
+                    .filter(d -> Arrays.stream(d.getContent().split("(?<=[。！？!?；;])|\\n"))
+                            .anyMatch(s -> normalize(s.trim()).equals(normalize(text))))
                     .map(Document::getId).filter(Objects::nonNull).distinct().toList();
             if (!numericFacts.isEmpty() && ids.isEmpty()) unsupported++;
-            if (claims.size() < 30) claims.add(new Claim(text, ids, ids.isEmpty() ? "unverified" : "lexical-match"));
+            boolean overlap = !numericFacts.isEmpty() && evidence.stream().anyMatch(d -> d.getContent()!=null
+                    && numericFacts.stream().allMatch(n -> normalize(d.getContent()).contains(normalize(n))));
+            if (claims.size() < 30) claims.add(new Claim(text, ids, ids.isEmpty()
+                    ? (overlap ? "numeric-overlap-unverified" : "unverified") : "lexical-match"));
         }
         Set<String> limits=new HashSet<>();
         if(answer.contains("积分") || answer.contains("抵扣")) {

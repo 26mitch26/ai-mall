@@ -1,6 +1,7 @@
 import { http } from '@/utils/http'
 
 export interface AgentSource {
+  contentKind?: 'selected-excerpt' | 'source-preview'
   id: string
   source: string
   type: string

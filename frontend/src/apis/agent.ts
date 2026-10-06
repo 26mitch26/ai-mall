@@ -118,6 +118,7 @@ export interface VisionInspectionResult {
 }
 
 export interface SourceReference {
+  contentKind?: 'selected-excerpt' | 'source-preview'
   id: string
   source: string
   type: string
