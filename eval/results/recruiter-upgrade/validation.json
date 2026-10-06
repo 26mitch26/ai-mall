@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-06",
+  "baselineCommit": "484a10a",
+  "scope": "Context character budget and project resume review; not a new semantic or online business evaluation",
+  "command": "mvn -o -B -pl agent-customer -am package -Dtest=!RagRecallSemanticTest -Dsurefire.failIfNoSpecifiedTests=false -DargLine=-Xmx256m",
+  "modules": [
+    {
+      "module": "mall-common",
+      "tests": 62,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    {
+      "module": "agent-customer",
+      "tests": 125,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  ],
+  "totalTests": 187,
+  "newTests": 10,
+  "actualInferenceCalls": 0,
+  "liveSemanticTestRun": false,
+  "frontendChanged": false,
+  "resume": {
+    "format": "docx",
+    "pages": 1,
+    "renderer": "Native Word-compatible export plus bundled pypdfium2",
+    "visualInspection": "passed"
+  }
+}

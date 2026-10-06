@@ -16,7 +16,7 @@ public class AgentTelemetry {
     private static volatile MeterRegistry meters;
     private static volatile ObservationRegistry observations = ObservationRegistry.NOOP;
     private static volatile io.micrometer.tracing.Tracer tracer;
-    private static final Set<String> STAGES = Set.of("chat", "rewrite", "retrieve", "rerank", "generate", "llm", "tool", "evidence", "workflow", "graph", "vision", "cache");
+    private static final Set<String> STAGES = Set.of("chat", "context", "rewrite", "retrieve", "rerank", "generate", "llm", "tool", "evidence", "workflow", "graph", "vision", "cache");
 
     public AgentTelemetry(MeterRegistry registry, ObservationRegistry observationRegistry,
                           org.springframework.beans.factory.ObjectProvider<io.micrometer.tracing.Tracer> tracerProvider) {

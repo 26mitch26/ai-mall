@@ -11,6 +11,17 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 class AgentLlmResourceSettingsTest {
+    @Test void oversizedPromptDoesNotSendHttpOrConsumeModelCallBudget() {
+        AgentLlmClient client = new AgentLlmClient(new ObjectMapper(), "http://localhost:11434/api/chat", "test-model", 64, .2);
+        ReflectionTestUtils.setField(client, "maxPromptCharacters", 100);
+        MockRestServiceServer server = MockRestServiceServer.bindTo((RestTemplate)ReflectionTestUtils.getField(client,"restTemplate")).build();
+        try (var trace = com.ai.mall.agent.customer.service.telemetry.AgentTelemetry.open(1)) {
+            assertThrows(IllegalArgumentException.class, () -> client.chat("x".repeat(101)));
+            assertEquals(0, trace.summary().modelCalls());
+            assertTrue(com.ai.mall.agent.customer.service.telemetry.AgentTelemetry.reserveModelCall());
+        }
+        server.verify();
+    }
     @Test void lowMemorySettingsReachTheActualOllamaRequest() {
         AgentLlmClient client = new AgentLlmClient(new ObjectMapper(), "http://localhost:11434/api/chat", "test-model", 64, .2);
         ReflectionTestUtils.setField(client, "contextTokens", 2048);

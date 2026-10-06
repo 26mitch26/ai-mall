@@ -822,6 +822,50 @@ class ReActAgentTest {
     }
 
     @Test
+    void degradedRouteDoesNotFetchUnseenEvidenceToJustifyAnAnswer() {
+        ModelCircuitBreaker breaker = mock(ModelCircuitBreaker.class);
+        when(breaker.getState()).thenReturn(ModelCircuitBreaker.CircuitState.OPEN);
+        when(modelRouterService.getMimoCircuitBreaker()).thenReturn(breaker);
+        when(modelRouterService.callWithFallback(anyString())).thenReturn("Final Answer: 无法确认余额。");
+        agent.think("degraded-evidence", "我的账户余额是多少");
+        verify(outputGuardrail).check(eq("无法确认余额。"), eq(false));
+        verify(ragService, never()).retrieve(anyString(), anyInt());
+    }
+
+    @Test
+    void oversizedRequiredContextStopsBeforeAnyModelCall() {
+        ReflectionTestUtils.setField(agent, "contextMaxCharacters", 100);
+        String answer = agent.think("context-overflow", "你好");
+        assertTrue(answer.contains("缩小问题范围"));
+        verify(modelRouterService, never()).callWithFallback(anyString());
+        verify(ragService, never()).generateAnswer(anyString(), anyList());
+    }
+
+    @Test
+    void oversizedToolResultStopsBeforeNextCallAndIsNeverPartiallyFedToModel() {
+        String observation = "{\"code\":200,\"data\":\"" + "长结果".repeat(5000) + "\"}";
+        when(modelRouterService.callWithFallback(anyString())).thenReturn("Action: read_context\nAction Input: {}");
+        when(toolRegistry.executeTool(eq("read_context"), eq("{}"), any())).thenReturn(observation);
+        String answer = agent.think("context-tool-overflow", "你好");
+        assertTrue(answer.contains("业务页面核对结果"));
+        verify(modelRouterService, times(1)).callWithFallback(anyString());
+        verify(toolRegistry, times(1)).executeTool(eq("read_context"), eq("{}"), any());
+        verify(ragService, never()).generateAnswer(anyString(), anyList());
+    }
+
+    @Test
+    void omittedKnowledgeDoesNotProvideGroundingOrSourceCards() {
+        Document oversized = Document.builder().source("huge.md").content("很长的政策".repeat(5000)).build();
+        when(ragService.retrieveWithEvidence("我的账户余额是多少", 3))
+                .thenReturn(new RagService.RetrievalOutcome(List.of(oversized), .9, 5, .9, false));
+        when(modelRouterService.callWithFallback(anyString())).thenReturn("Final Answer: 无法确认余额。");
+        agent.think("context-omitted-evidence", "我的账户余额是多少");
+        assertTrue(agent.getLastRetrieval("context-omitted-evidence").isEmpty());
+        verify(outputGuardrail).check(eq("无法确认余额。"), eq(false));
+        verify(semanticAnswerCache, never()).store(anyString(), anyString(), anyString(), anyList(), anyString());
+    }
+
+    @Test
     void longTailRefundGuidanceIncludesNextStepWithoutPerformingAWrite() {
         ReflectionTestUtils.setField(agent, "policyDirectEnabled", true);
         String query = "我不知道如何才能拿到退款";

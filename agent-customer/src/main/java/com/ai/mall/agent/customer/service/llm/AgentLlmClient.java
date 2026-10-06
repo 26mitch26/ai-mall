@@ -46,6 +46,9 @@ public class AgentLlmClient {
 
     @org.springframework.beans.factory.annotation.Value("${ai.model.llm.context-tokens:4096}")
     private int contextTokens = 4096;
+    /** Independent input-size guard; character counts are not exact token counts. */
+    @Value("${ai.agent.context.max-characters:12000}")
+    private int maxPromptCharacters = 12000;
 
     @org.springframework.beans.factory.annotation.Value("${ai.model.llm.threads:4}")
     private int threads = 4;
@@ -89,6 +92,9 @@ public class AgentLlmClient {
      * @throws RuntimeException 模型/网络异常时抛出，交由上层熔断器降级
      */
     public String chat(String prompt) {
+        if (prompt == null || prompt.length() > Math.max(1, maxPromptCharacters)) {
+            throw new IllegalArgumentException("Prompt exceeds configured character budget");
+        }
         if (!com.ai.mall.agent.customer.service.telemetry.AgentTelemetry.reserveModelCall()) {
             throw new IllegalStateException("Request model-call budget exhausted");
         }
