@@ -56,6 +56,13 @@
             <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
 
+        <!-- Actuator：/actuator/health 是 docker-compose 与 K8s 探针的实际目标；
+             此前 ops 模块没有该依赖，探针必然失败、Prometheus 也无 /actuator/prometheus 可抓 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

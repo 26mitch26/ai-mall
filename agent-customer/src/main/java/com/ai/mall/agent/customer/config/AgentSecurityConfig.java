@@ -32,6 +32,8 @@ public class AgentSecurityConfig {
         httpSecurity.authorizeHttpRequests(registry -> {
             // 纯 URL 前缀匹配（AntPath），对 GET/POST 一视同仁，不依赖 HandlerMappingIntrospector
             registry.requestMatchers(AntPathRequestMatcher.antMatcher("/api/v1/**")).permitAll();
+            // JSON-RPC endpoint: each tool enforces its own verified member identity.
+            registry.requestMatchers(AntPathRequestMatcher.antMatcher("/mcp")).permitAll();
             registry.requestMatchers(AntPathRequestMatcher.antMatcher("/actuator/**")).permitAll();
             registry.requestMatchers(AntPathRequestMatcher.antMatcher("/error")).permitAll();
             registry.requestMatchers(HttpMethod.OPTIONS).permitAll();

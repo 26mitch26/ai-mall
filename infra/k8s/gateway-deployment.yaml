@@ -36,7 +36,7 @@ data:
               filters:
                 - StripPrefix=2
             - id: agent-ops
-              uri: http://agent-ops:8083
+              uri: http://agent-ops:8084
               predicates:
                 - Path=/agent/ops/**
               filters:

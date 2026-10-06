@@ -31,8 +31,11 @@ jobs:
       - name: Compile all modules
         run: mvn compile -DskipTests=true --no-transfer-progress
 
-      - name: Run tests (core modules)
-        run: mvn test -pl mall-core/mall-common,mall-core/mall-security,mall-admin,mall-portal,ai-gateway,agent-test -am --no-transfer-progress
+      - name: Run Agent evaluation harness regression tests
+        run: python3 -m unittest discover -s scripts -p 'test_eval*.py'
+
+      - name: Run tests (all modules)
+        run: mvn test --no-transfer-progress
 
       - name: Upload test results
         if: always()

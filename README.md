@@ -1,8 +1,19 @@
 # AI-Mall：AI 增强电商系统
 
+AI 产品经理作品主线：**电商客服从政策咨询到确认办理的任务闭环**。
+需求假设、MVP 取舍、业务指标与灰度计划见 [产品方案](docs/product/ai-pm-product-brief.md)；
+公开数据来源、评测方法与实际运行记录见 [Agent 产品评测](eval/README.md)。
+本项目为研发原型，离线召回与程序检查成绩不代表线上用户解决率。
+
+知识库写入需要 `KNOWLEDGE_ADMIN_TOKEN` 和 `X-Knowledge-Admin-Token` 请求头，未配置时默认禁止写入。
+
 基于 **Spring Boot 3.5 + JDK 21** 的 AI 增强电商系统，集成智能客服、智能运维、自动化测试三大 AI Agent 能力。大模型**默认运行在本地 Ollama**（生成用 `qwen3.5-noVL`、向量化用 `bge-m3`，零外网、零 API Key），亦可切换到小米 MiMo / OpenAI 兼容云服务。
 
 ## 项目亮点
+
+智能客服新增自适应检索、可选真实神经重排、政策版本与历史引用、Redis 可恢复确认工作流、
+数据库业务幂等、MCP 工具入口、照片辅助售后和 Micrometer/OpenTelemetry 追踪。
+会员端启动和页面入口见下文。面试讲稿在 [会员客服面试与答辩笔记](docs/member-agent-interview.md)，Agent 架构与追问见 [升级手册](docs/agent-upgrade-guide.md)，实验方法、实测范围及后续验收见 [验收记录](docs/agent-upgrade-validation.md)。神经重排默认关闭，启用收益由本机评测决定。
 
 - **完整电商系统**：基于 mall 项目改造，包含商品、订单、用户等核心领域模块
 - **三大 AI Agent**：
@@ -10,7 +21,7 @@
   - 智能运维 Agent（多 Agent 协作 + 事件驱动 + 3-Sigma/EWMA 双算法异常检测）
   - 自动化测试 Agent（OpenAPI 发现 + Spring AI 生成用例）
 - **本地优先、可上云**：默认本地 Ollama（qwen3.5-noVL 生成 + bge-m3 向量化，免外网免 Key），可选接入小米 MiMo / OpenAI 兼容云模型；向量库 Milvus + 知识图谱 Neo4j
-- **RAG 全链路**：文档解析 → 分块 → 向量化（Milvus）→ 关键词检索（BM25）→ RRF 融合 → 特征重排 → 生成
+- **会员客服 RAG**：根据问题选择语义检索、精确词项检索或混合召回；需要双路召回时以 RRF 融合，使用版本化来源约束引用。神经重排为可选，默认关闭。
 - **CI/CD**：GitHub Actions + Docker 多阶段构建 + Kubernetes 部署（见 `.github/workflows/` 与 `infra/`）
 
 ## 技术栈
@@ -66,24 +77,33 @@ ai-mall/
 - Windows 本机 MySQL 9.7（默认 `127.0.0.1:3306`）
 - Docker 24+（含 Docker Compose v2）
 
-### 启动步骤
+### 启动步骤（Windows / PowerShell）
 
 ```powershell
-# 1. 初始化本机 MySQL（密码会安全提示输入，不写入仓库）
+# 在仓库根目录打开 PowerShell。首次新建可覆盖的演示库时才运行初始化：
 .\scripts\init-local-db.ps1
 
-# 2. 一键启动课设演示闭环：核心商城 + 三个 Agent + Milvus/Neo4j + 后台前端
+# 首次启动或已存在 mall 数据库时，启动程序会安全提示输入本机 MySQL 密码；
+# 它会启动业务服务、会员 H5、后台前端以及课设客服所需的 Docker 中间件。
 .\scripts\start-demo.ps1
 
-# 3. 演示结束后停止由脚本启动的进程
+# 演示结束后停止本地 Java 和前端进程；Docker 中间件继续运行并保留原数据卷。
 .\scripts\stop-demo.ps1
 ```
 
-初始化脚本检测到已有 `mall` 数据库时会默认停止，避免误覆盖数据。确认已备份且需要重置
-演示数据时，显式运行 `.\scripts\init-local-db.ps1 -ResetDemoData`。
+初始化脚本只用于准备新的演示数据库。检测到已有 `mall` 数据库时会默认停止，避免覆写数据；已有数据库直接运行启动脚本即可，不要将 `-ResetDemoData` 当作日常启动步骤。
 
-启动后访问 `http://localhost:5173`。后台账号为 `admin / Admin@123`；商城账号为
-`demo / Demo@123`。这两个账号只用于本地演示，部署环境必须替换。
+启动后，后台运营端访问 `http://localhost:5173`，会员商城端访问
+`http://localhost:5174/#/pages/public/login`。会员首页是主要演示入口；宽屏可从顶部导航进入智能客服，手机使用商城首页/原生 tabBar。演示账号为 `admin / Admin@123` 和 `demo / Demo@123`，只用于本地课设环境，部署环境必须替换。
+
+首次运行前端如尚未安装依赖，在仓库根目录运行：
+
+```powershell
+npm --prefix frontend ci
+npm --prefix frontend-app ci
+```
+
+客服使用本地 Ollama 的 `qwen3.5-noVL:latest` 和 `bge-m3`；确保 Ollama 已启动并已下载这两个模型。默认 Docker 基础设施为 Redis、MongoDB、Milvus（含 etcd/MinIO）和 Neo4j；RabbitMQ、Kafka、Elasticsearch 与监控栈按需开启。通过 `start-demo.ps1 -EnableRabbitMq`、`-EnableKafka`、`-EnableSearch` 或 `-EnableMonitoring` 开启对应可选服务。各服务依赖依据和已有 Docker 数据处置见 [Docker 资源说明](docs/docker-footprint.md)。
 
 如果不使用脚本，可通过 `MALL_DB_URL`、`MALL_DB_USERNAME`、`MALL_DB_PASSWORD`
 覆盖所有服务的数据库连接。默认 URL 指向本机 `mall` 库的 3306 端口。
@@ -131,13 +151,101 @@ ai-mall/
 
 ## Agent 课设演示
 
+会员端客服是主要演示入口。宽屏采用商城顶部导航与聊天/业务侧栏布局，手机保留单栏；支持政策版本原文、个人订单、售后草稿确认与恢复。面试准备文档入口见 [docs 导航](docs/README.md)：[项目讲述脚本](docs/interview-story.md)、[Agent 理解与选型](docs/interview-agent-understanding.md)、[传统后端专项](docs/interview-backend.md)、[客服](docs/interview-customer-agent.md) / [测试](docs/interview-test-agent.md) / [运维](docs/interview-ops-agent.md) 三个专项、[综合问答与"不能说的话"](docs/interview-qa.md)，客服质量评测口径见 [质量评测](docs/agent-quality-evaluation.md)，基础设施取舍与清理记录见 [Docker 资源说明](docs/docker-footprint.md)。
+
 启动前确保本机 Ollama 已运行，并具备 `qwen3.5-noVL:latest` 与 `bge-m3` 模型。
 
-- **智能客服**：`bge-m3 → Milvus ANN` 与 Redis BM25 双路召回，RRF 融合、特征重排后交给本地 Ollama 生成；首次启动自动写入退货、运费和支付知识。
-- **智能运维**：自动建立指标基线后注入异常，展示 Monitor → Bayesian/Neo4j RCA → Playbook → Change Gate 全链路，并由 Ollama 生成根因摘要。
+- **智能客服**：`bge-m3 → Milvus ANN` 与 Redis BM25 按问题路由召回；混合检索时以 RRF 融合、特征重排后交给本地 Ollama 生成。启动脚本按源文件内容哈希导入或更新演示政策，不会清空共享 Redis 索引。
+- **智能运维**：Monitor（3-Sigma + EWMA 双算法投票）→ RCA（Neo4j 图遍历 + 朴素贝叶斯）→ Playbook 匹配 → Change Gate 风险门控，全链路事件驱动（本地同步总线，可切 Kafka），Ollama 只生成根因摘要。
+  - 指标采集面：`POST /api/v1/incidents/metrics` 上报端点 + 按配置定时拉取目标服务的 `/actuator/metrics`（targets 只来自配置文件，不接受请求传入 URL，避免 SSRF）；
+  - 门控闭环：需要审批的门控生成可落盘的审批单（`aiops-gate-decisions.json`），支持批准/驳回，批准后回写历史成功率；
+  - 执行环节是**模拟推演**（`simulated`），不会触碰任何真实设施——本环境无真实执行器，详见 `/agent/ops/api/v1/incidents/playbooks`。
 - **自动化测试**：从 OpenAPI 优先发现真实接口，异常时使用项目内置契约；安全演示模式最多执行 8 个只读 GET API，输出状态码、响应耗时、JSON/Schema 与业务语义断言。
 
 需要展示 Ollama 扩写测试用例时，可在启动前设置 `TEST_AGENT_AI_ENABLED=true`；默认关闭是为了保证课堂现场速度与可复现性。
+
+## 自动化测试 Agent 的四层能力
+
+| 模块名 | 层 | 测什么 | 判定依据 |
+|---|---|---|---|
+| `mall-portal` / `mall-admin` | 契约层 | OpenAPI 发现 → 用例生成 → 真实 HTTP | OpenAPI 声明（唯一 oracle）+ 状态码/Schema/业务码/分页不变式/时延 |
+| `agent-customer-scenarios` | 会话层 | 11 条关键路径：意图路由、工具取数、知识来源、拒答与鉴权边界 | 关键词断言 + 来源数 + 401 边界 |
+| `agent-customer-quality` | **质量评测层** | 149 条 gold 评测集（类别轮询取样） | 来源命中 / 拒答正确 / 注入阻断 / 动作一致性；开启本地模型后追加答案正确性、忠实性打分 |
+| 全部 | 洞察层 | 失败回流为"已知缺陷"，报告中标注第 N 次复现 | 语义断言失败与 5xx 属高价值信号，连接噪音不沉淀 |
+
+配套的三项工程能力：
+
+- **环境探针**：开跑前先探 `/actuator/health`，报告头部显式标注"环境可达/不可达"，把"服务没起来"与"代码坏了"分开（实测被测未启动时 14 条全红，现在报告会自证是环境问题）。
+- **被测令牌注入**：`test.agent.target-auth.token` 让契约用例带上真实登录态，此前需要鉴权的接口只会得到 401/403 的假红灯；写路径用例现在也会真正下发 `requestBody`，query 参数统一 URL 编码。
+- **可被 Agent 调用**：提供 MCP 端点（见下节），CodeBuddy 等外部 Agent 可把回归当工具调用。
+
+质量评测的方法论与诚实声明见 [客服 Agent 质量评测](docs/agent-quality-evaluation.md)。
+
+## 自动化测试 Agent 的接入方式（MCP）
+
+自动化测试 Agent（`agent-test`，8085）同时提供三种触发方式：
+
+| 方式 | 端点 | 用途 |
+|---|---|---|
+| 前端页面 | `POST /agent/test/api/v1/test/generate?module=` | 运营后台手工发起回归 |
+| REST 直调 | `POST http://localhost:8085/api/v1/test/generate?module=` | CI / 脚本 |
+| **MCP** | `POST http://localhost:8085/mcp`（Streamable HTTP JSON-only，协议版本 `2025-06-18`） | 让 CodeBuddy 等外部 Agent 把回归当成工具调用 |
+
+MCP 暴露 5 个工具，全部返回 JSON 文本，且默认"先给摘要、按需再展开"以控制上下文体积：
+
+| 工具 | 参数 | 说明 |
+|---|---|---|
+| `list_test_modules` | — | 可测模块、base URL、契约/场景两类、safe-demo 与 AI 扩写开关 |
+| `run_tests` | `module`、`waitSeconds`(0~300) | 提交一轮回归，**立即返回 `runId`**（一轮可能跑几十秒到几分钟，不适合同步阻塞 Agent） |
+| `get_run_status` | `runId` | 运行状态与完成后的 `reportId` |
+| `get_test_report` | `reportId`、`includeResults`、`maxResults` | 默认返回统计 + 失败用例 + 失败断言，`includeResults=true` 才给全部明细 |
+| `list_test_reports` | `limit` | 发现历史 `reportId`，不必先跑一次 |
+
+典型调用节奏：`list_test_modules` → `run_tests`（拿 `runId`）→ 轮询 `get_run_status` → `get_test_report` 读失败原因。**跑出红灯是正常结果，不是工具错误**（`isError=false`，用 `failedTests` 判断）。
+
+### 报告留存
+
+`test-reports.json`（相对工作目录，默认保留 20 份，超出淘汰最旧）保存**精简视图**：每条用例的响应体截断到 2000 字符，完整响应只留在内存。这样 `reportId` 在重启后仍可查询——MCP 侧拿到 ID 再取报告、前端历史报告列表都依赖它；文件损坏时只丢历史、不阻断启动。
+
+### 鉴权（fail-closed）
+
+`/api/v1/test/**` 与 `/mcp` 共用同一套入口校验，由 `TestAccessInterceptor` + `TestAccessGuard` 实施：
+
+- **用户 JWT**：`Authorization: Bearer <token>`，与网关 `jwt.secret` 同密钥本地验签。直连 8085 时网关被绕过，由本服务兜底校验；经网关时前端/CI 走这条。
+- **内部静态令牌**：启动前设置 `TEST_AGENT_TOKEN=...`，请求带 `X-Test-Agent-Token: <token>`（也支持 `Authorization: Bearer <token>`）。供 CodeBuddy 等无用户身份的客户端与 CI 使用。
+- 校验失败一律 401，**没有匿名放行分支**；`test.agent.auth.enabled=false` 仅供本地调试，启动日志会打 WARN。
+- `module` 走白名单（`test.agent.modules`），任意字符串会被 400 拒绝——否则本服务会变成"对内网系统的自动化扫描器"。
+
+MCP 端点**不进网关白名单**（与客服侧 `/agent/customer/mcp` 相反）：客服侧最坏是读到他人订单，测试侧最坏是以服务身份对内网发任意请求，因此协议入口即要求凭证。并发默认 1、队列 8，队列满直接返回 `isError`，避免被当作压测入口。
+
+```bash
+# 1) 设置内部令牌并启动
+$env:TEST_AGENT_TOKEN = "change-me-in-prod"
+# 2) 握手
+curl -X POST http://localhost:8085/mcp -H "Content-Type: application/json" `
+  -H "Accept: application/json, text/event-stream" -H "MCP-Protocol-Version: 2025-06-18" `
+  -H "X-Test-Agent-Token: change-me-in-prod" `
+  -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"curl","version":"1"}}}'
+# 3) 发起回归（后续调用都要带 MCP-Protocol-Version 头）
+curl -X POST http://localhost:8085/mcp -H "Content-Type: application/json" `
+  -H "Accept: application/json, text/event-stream" -H "MCP-Protocol-Version: 2025-06-18" `
+  -H "X-Test-Agent-Token: change-me-in-prod" `
+  -d '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"run_tests","arguments":{"module":"mall-portal"}}}'
+```
+
+在 CodeBuddy / Claude Code 等 MCP 客户端中登记（`<项目根>/.mcp.json`）：
+
+```json
+{
+  "mcpServers": {
+    "ai-mall-test-agent": {
+      "type": "http",
+      "url": "http://localhost:8085/mcp",
+      "headers": { "X-Test-Agent-Token": "change-me-in-prod" }
+    }
+  }
+}
+```
 
 ## API 文档
 

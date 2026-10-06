@@ -1,6 +1,11 @@
 server:
   port: 8087 # 避免与 agent-test(8085) 冲突
 
+# Safe local bootstrap: CREATE TABLE IF NOT EXISTS only. Production uses the reviewed migration.
+agent:
+  operations:
+    initialize-schema: ${AGENT_OPERATIONS_SCHEMA_INIT:true}
+
 spring:
   autoconfigure:
     exclude:
@@ -68,4 +73,3 @@ alipay:
   appPrivateKey: your appPrivateKey
   returnUrl: http://localhost:8060/#/pages/money/paySuccess
   notifyUrl:
-

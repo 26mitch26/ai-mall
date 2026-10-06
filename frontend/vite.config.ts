@@ -10,7 +10,7 @@ import ElementPlus from 'unplugin-element-plus/vite'
 import { createSvgIconsPlugin } from 'vite-plugin-svg-icons'
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   base: './',
   plugins: [
     vue(),
@@ -18,10 +18,12 @@ export default defineConfig({
     // 配置element-plus组件自动导入
     AutoImport({
       resolvers: [ElementPlusResolver()],
+      dts: command === 'serve' ? 'auto-imports.d.ts' : false,
     }),
     Components({
       // 配置element-plus采用sass样式配色系统
       resolvers: [ElementPlusResolver({ importStyle: 'sass' })],
+      dts: command === 'serve' ? 'components.d.ts' : false,
     }),
     // 覆盖element-plus默认主题色
     ElementPlus({
@@ -53,4 +55,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))

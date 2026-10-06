@@ -38,8 +38,11 @@ public class TestInsightStore {
         this(objectMapper, DEFAULT_INSIGHT_FILE);
     }
 
-    /** 测试用：指定持久化路径 */
-    TestInsightStore(ObjectMapper objectMapper, String filePath) {
+    /**
+     * 指定持久化路径。默认路径会写在进程工作目录上，
+     * 单元测试与其他包内复用（如编排层时序测试）需要传入临时路径，故公开。
+     */
+    public TestInsightStore(ObjectMapper objectMapper, String filePath) {
         this.objectMapper = objectMapper.registerModule(new JavaTimeModule());
         this.filePath = filePath;
     }
@@ -91,11 +94,31 @@ public class TestInsightStore {
         defects.values().forEach(d -> d.setHitThisRun(false));
     }
 
-    /** 全部已知缺陷快照（按命中次数降序） */
+    /**
+     * 全部已知缺陷快照（按命中次数降序）。
+     *
+     * <p>返回<b>深拷贝</b>而不是库内对象引用：调用方通常把快照挂到报告上再落盘，
+     * 若共享引用，随后执行的 {@link #markRoundCompleted()} 会把已生成报告里的
+     * {@code hitThisRun} 一并抹成 false——表现为"报告永远不显示本轮命中"。
+     */
     public List<KnownDefect> snapshot() {
-        List<KnownDefect> list = new ArrayList<>(defects.values());
+        List<KnownDefect> list = new ArrayList<>(defects.size());
+        for (KnownDefect defect : defects.values()) {
+            list.add(copyOf(defect));
+        }
         list.sort(Comparator.comparingInt(KnownDefect::getOccurrences).reversed());
         return list;
+    }
+
+    private KnownDefect copyOf(KnownDefect defect) {
+        return KnownDefect.builder()
+                .apiKey(defect.getApiKey())
+                .summary(defect.getSummary())
+                .occurrences(defect.getOccurrences())
+                .hitThisRun(defect.isHitThisRun())
+                .firstSeen(defect.getFirstSeen())
+                .lastSeen(defect.getLastSeen())
+                .build();
     }
 
     /** 查询某接口的历史已知缺陷 */

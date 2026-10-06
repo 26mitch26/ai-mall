@@ -46,7 +46,6 @@ public class QueryDecomposer {
 
     /** 多意图检测：中英文问号、顿号、逗号+连接词 */
     private static final Pattern MULTI_INTENT_PATTERN = Pattern.compile(
-            "[？?]|" +                          // 问号分隔
             "[、]|" +                           // 顿号列举
             "(?:而且|并且|还有|另外|同时|以及)"   // 连接词
     );
@@ -62,7 +61,7 @@ public class QueryDecomposer {
      */
     public boolean hasMultipleIntents(String query) {
         if (query == null || query.isBlank()) return false;
-        // 包含多个问号 → 大概率多意图
+        // Only multiple question boundaries indicate multiple intents; a single question mark is ordinary punctuation.
         long questionMarks = query.chars().filter(c -> c == '?' || c == '？').count();
         if (questionMarks >= 2) return true;
         // 包含顿号或连接词 → 可能多意图

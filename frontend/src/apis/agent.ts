@@ -3,10 +3,11 @@ import http from '@/utils/http'
 export interface ChatRequest {
   message: string
   sessionId?: string
-  userId?: string
 }
 
 export interface ChatResponse {
+  resolutionStatus?: 'HANDOFF_RECOMMENDED' | 'RESPONSE_PROVIDED'
+  handoffStatus?: 'NOT_CONNECTED'
   sessionId: string
   message: string
   answer: string
@@ -14,6 +15,43 @@ export interface ChatResponse {
   responseTime: number
   sources: SourceReference[]
   collaboration?: CollaborationPlan
+  retrievalDecision?: string
+  evidenceScore?: number
+  retrievalRoute?: string
+  reranker?: string
+  correctionCount?: number
+  knowledgeVersion?: string
+  trace?: AgentTraceSummary
+  evidenceReport?: EvidenceReport
+  graph?: PolicyGraphResult
+}
+
+export interface AgentTraceSummary {
+  traceId: string
+  stages: Array<{ name: string; durationMs: number; outcome: string }>
+  modelCalls: number
+  inputTokens: number
+  outputTokens: number
+}
+
+export interface EvidenceReport {
+  method: string
+  checkedClaims: number
+  unsupportedNumericClaims: number
+  claims: Array<{ text: string; evidenceIds: string[]; support: string }>
+  conflicts?: string[]
+}
+
+export interface PolicyGraphResult {
+  status: string
+  paths: Array<{
+    from: string
+    to: string
+    sharedTopic: string
+    fromVersion: string
+    toVersion: string
+  }>
+  retrievalHints: string[]
 }
 
 export interface AgentCollaboration {
@@ -49,6 +87,36 @@ export interface TaskResponse {
   result?: string
 }
 
+export interface AfterSaleWorkflowState {
+  taskId: string
+  ownerId?: string
+  sessionId?: string
+  orderSn: string
+  reason: string
+  description?: string
+  orderSummary: string
+  policyAnswer: string
+  draft: string
+  status: 'WAITING_CONFIRMATION' | 'EXECUTING' | 'COMPLETED' | 'REJECTED' | 'UNKNOWN' | string
+  version: number
+  result?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface MemberLoginResult {
+  token: string
+  tokenHead: string
+}
+
+export interface VisionInspectionResult {
+  model: string
+  observations: string[]
+  draftReason: string
+  requiresReview: boolean
+  elapsedMs: number
+}
+
 export interface SourceReference {
   id: string
   source: string
@@ -56,6 +124,11 @@ export interface SourceReference {
   content: string
   score: number
   retrievalSource: string
+  version?: string
+  contentHash?: string
+  effectiveAt?: string
+  scope?: string
+  evidenceVerified?: boolean
 }
 
 export interface RagStatus {
@@ -151,6 +224,16 @@ export interface TestReport {
   assertionsFailed: number
   results: TestResult[]
   knownDefects?: Array<{ id?: string; summary?: string; occurrenceCount?: number }>
+  /** 开跑前的环境可达性结论：用于区分"环境挂了"与"代码坏了" */
+  environment?: {
+    module?: string
+    target?: string
+    reachable: boolean
+    skipped: boolean
+    statusCode?: number | null
+    latencyMs?: number
+    detail?: string
+  }
   startTime: string
   endTime: string
 }
@@ -160,16 +243,31 @@ export interface TestCapabilities {
   modules: string[]
   aiEnabled: boolean
   model: string
+  /** 入口是否要求凭证（fail-closed） */
+  authRequired?: boolean
+  /** MCP 端点是否启用 */
+  mcpEnabled?: boolean
   pipeline: string[]
 }
 
 // 客服 Agent
-export function sendChatMessageAPI(data: ChatRequest) {
+export function sendChatMessageAPI(data: ChatRequest, authorization = '') {
   return http<ChatResponse>({
     url: '/agent/customer/api/v1/chat',
     method: 'post',
     data,
-    timeout: 60000,
+    headers: { Authorization: authorization },
+    timeout: 120000,
+  })
+}
+
+export function loginMemberAPI(username: string, password: string) {
+  return http<MemberLoginResult>({
+    url: '/api/sso/login',
+    method: 'post',
+    data: new URLSearchParams({ username, password }),
+    headers: { Authorization: '', 'Content-Type': 'application/x-www-form-urlencoded' },
+    timeout: 15000,
   })
 }
 
@@ -177,6 +275,7 @@ export function getRagStatusAPI() {
   return http<RagStatus>({
     url: '/agent/customer/api/v1/knowledge/status',
     method: 'get',
+    headers: { Authorization: '' },
   })
 }
 
@@ -184,6 +283,7 @@ export function getRagCacheStatsAPI() {
   return http<Record<string, number>>({
     url: '/agent/customer/api/v1/knowledge/cache/stats',
     method: 'get',
+    headers: { Authorization: '' },
   })
 }
 
@@ -201,21 +301,70 @@ export function ingestKnowledgeAPI(data: {
   })
 }
 
-export function getKnowledgeSourceAPI(source: string) {
+export function getKnowledgeSourceAPI(source: string, version?: string) {
   return http<{ found: boolean; source: string; type: string; content: string }>({
     url: '/agent/customer/api/v1/knowledge/source',
     method: 'get',
-    params: { source },
+    params: { source, version },
+    headers: { Authorization: '' },
     timeout: 10000,
   })
 }
 
-export function executeTaskAPI(data: { sessionId?: string; message: string; userId?: string; userToken?: string }) {
+export function executeTaskAPI(data: { sessionId?: string; message: string }, authorization = '') {
   return http<TaskResponse>({
     url: '/agent/customer/api/v1/task/execute',
     method: 'post',
     data,
+    headers: { Authorization: authorization },
+    timeout: 120000,
+  })
+}
+
+export function prepareAfterSaleAPI(data: {
+  sessionId: string
+  orderSn: string
+  reason: string
+  description: string
+}, authorization: string) {
+  return http<AfterSaleWorkflowState>({
+    url: '/agent/customer/api/v1/workflows/after-sale',
+    method: 'post',
+    data,
+    headers: { Authorization: authorization },
+    timeout: 120000,
+  })
+}
+
+export function confirmAfterSaleAPI(taskId: string, expectedVersion: number, approved: boolean,
+                                    authorization: string, sessionId: string) {
+  return http<AfterSaleWorkflowState>({
+    url: `/agent/customer/api/v1/workflows/after-sale/${encodeURIComponent(taskId)}/confirm`,
+    method: 'post',
+    data: { expectedVersion, approved },
+    headers: { Authorization: authorization, 'X-Session-Id': sessionId },
     timeout: 60000,
+  })
+}
+
+export function getAfterSaleAPI(taskId: string, authorization: string, sessionId: string) {
+  return http<AfterSaleWorkflowState>({
+    url: `/agent/customer/api/v1/workflows/after-sale/${encodeURIComponent(taskId)}`,
+    method: 'get',
+    headers: { Authorization: authorization, 'X-Session-Id': sessionId },
+    timeout: 60000,
+  })
+}
+
+export function inspectCustomerPhotoAPI(file: File, authorization = '') {
+  const data = new FormData()
+  data.append('file', file)
+  return http<VisionInspectionResult>({
+    url: '/agent/customer/api/v1/vision/inspect',
+    method: 'post',
+    data,
+    headers: { Authorization: authorization },
+    timeout: 120000,
   })
 }
 
@@ -251,6 +400,76 @@ export function getAllIncidentsAPI() {
 export function getOpsCapabilitiesAPI() {
   return http<OpsCapabilities>({
     url: '/agent/ops/api/v1/incidents/capabilities',
+    method: 'get',
+  })
+}
+
+// 运维控制面：指标上报 / 巡检 / 门控审批 / 模拟执行
+
+export function reportMetricAPI(data: { metric_name: string; metric_value: number; target_service: string }) {
+  return http<{ accepted: boolean; incidentTriggered: boolean; incident: IncidentState | null }>({
+    url: '/agent/ops/api/v1/incidents/metrics',
+    method: 'post',
+    data,
+    timeout: 60000,
+  })
+}
+
+export function watchOnceAPI() {
+  return http<{ targets: number; ticks: Array<Record<string, unknown>> }>({
+    url: '/agent/ops/api/v1/incidents/metrics/watch-once',
+    method: 'post',
+    timeout: 60000,
+  })
+}
+
+export interface GateRecord {
+  id: string
+  alertId: string
+  playbook: string
+  riskScore: number
+  approver: string
+  status: string
+  reason: string
+  createdAt: string
+  decidedAt?: string | null
+  decidedBy?: string | null
+  executionSummary?: string | null
+}
+
+export function getGateDecisionsAPI(status?: 'pending_approval') {
+  return http<GateRecord[]>({
+    url: `/agent/ops/api/v1/incidents/gate-decisions${status ? `?status=${status}` : ''}`,
+    method: 'get',
+  })
+}
+
+export function approveGateAPI(gateId: string, approver: string) {
+  return http<{ gate: GateRecord; execution: Record<string, unknown> }>({
+    url: `/agent/ops/api/v1/incidents/gate-decisions/${gateId}/approve?approver=${encodeURIComponent(approver)}`,
+    method: 'post',
+    timeout: 60000,
+  })
+}
+
+export function rejectGateAPI(gateId: string, approver: string, reason: string) {
+  return http<GateRecord>({
+    url: `/agent/ops/api/v1/incidents/gate-decisions/${gateId}/reject`
+      + `?approver=${encodeURIComponent(approver)}&reason=${encodeURIComponent(reason)}`,
+    method: 'post',
+  })
+}
+
+export function getPlaybooksAPI() {
+  return http<{ executionMode: string; note: string; items: Array<Record<string, unknown>> }>({
+    url: '/agent/ops/api/v1/incidents/playbooks',
+    method: 'get',
+  })
+}
+
+export function getExecutionsAPI() {
+  return http<Array<Record<string, unknown>>>({
+    url: '/agent/ops/api/v1/incidents/executions',
     method: 'get',
   })
 }

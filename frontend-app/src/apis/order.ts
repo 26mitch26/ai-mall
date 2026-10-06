@@ -8,6 +8,17 @@ import type {
 } from '@/types/order'
 import type { CommonPage, PageParam } from '@/types/common'
 
+/** Keep the same operation key after an uncertain network response, including page reloads. */
+const operationKey = (kind: string, data: unknown) => {
+  const storageKey = `mall-operation:${kind}:${JSON.stringify(data)}`
+  let key = uni.getStorageSync(storageKey) as string
+  if (!key) {
+    key = `${kind}-${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`
+    uni.setStorageSync(storageKey, key)
+  }
+  return { key, storageKey }
+}
+
 /** 生成确认单信息 */
 export const generateConfirmOrderAPI = (cartIds: number[]) => {
   return http<ConfirmOrderResult>({
@@ -18,12 +29,15 @@ export const generateConfirmOrderAPI = (cartIds: number[]) => {
 }
 
 /** 生成订单 */
-export const generateOrderAPI = (data: OrderParam) => {
-  return http<GenerateOrderResult>({
+export const generateOrderAPI = async (data: OrderParam) => {
+  const operation = operationKey('order', { ...data, cartIds: [...(data.cartIds || [])].sort((a, b) => a - b) })
+  const result = await http<GenerateOrderResult>({
     method: 'POST',
     url: '/order/generateOrder',
-    data,
+    data: { ...data, idempotencyToken: data.idempotencyToken || operation.key },
   })
+  uni.removeStorageSync(operation.storageKey)
+  return result
 }
 
 /** 按状态分页获取用户订单列表 */
@@ -89,10 +103,14 @@ export const fetchAliapyStatusAPI = (params: { outTradeNo: string }) => {
 }
 
 /** 申请退货 */
-export const createReturnApplyAPI = (data: OmsOrderReturnApplyParam) => {
-  return http({
+export const createReturnApplyAPI = async (data: OmsOrderReturnApplyParam) => {
+  const operation = operationKey('after-sale', data)
+  const result = await http({
     method: 'POST',
     url: '/returnApply/create',
     data,
+    header: { 'Idempotency-Key': operation.key },
   })
+  uni.removeStorageSync(operation.storageKey)
+  return result
 }

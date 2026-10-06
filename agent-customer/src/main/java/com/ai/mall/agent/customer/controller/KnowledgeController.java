@@ -55,6 +55,12 @@ public class KnowledgeController {
     @Value("${ai.model.llm.base-url:http://localhost:11434/api/chat}")
     private String llmBaseUrl;
 
+    @Value("${ai.rag.reranker.enabled:false}")
+    private boolean neuralRerankerEnabled;
+
+    @Value("${agent.knowledge.admin-token:}")
+    private String knowledgeAdminToken = "";
+
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -67,11 +73,24 @@ public class KnowledgeController {
         private String type;
         /** 分块策略：fixed_size / sentence / semantic；缺省 null 表示不分块整体索引 */
         private String chunkStrategy;
+        /** Optional human revision label; immutable internal version is derived with the content hash. */
+        private String version;
+        /** Inclusive activation time; omitted means effective immediately. */
+        private java.time.Instant effectiveAt;
+        /** Audience scope; defaults to public. */
+        private String scope;
     }
 
     @PostMapping("/ingest")
     @Operation(summary = "导入知识库文档", description = "单篇文档入库：构建 BM25 倒排索引并将文档（按需分块后）写入 Milvus 向量库")
-    public Map<String, Object> ingest(@RequestBody IngestRequest request) {
+    public Map<String, Object> ingest(@RequestBody IngestRequest request,
+            @org.springframework.web.bind.annotation.RequestHeader(value="X-Knowledge-Admin-Token", required=false) String adminToken) {
+        if (knowledgeAdminToken == null || knowledgeAdminToken.isBlank() || adminToken == null
+                || !java.security.MessageDigest.isEqual(knowledgeAdminToken.getBytes(StandardCharsets.UTF_8),
+                    adminToken.getBytes(StandardCharsets.UTF_8))) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "Knowledge write access denied");
+        }
         Map<String, Object> result = new HashMap<>();
         if (request.getContent() == null || request.getContent().isBlank()) {
             result.put("indexedChunks", 0);
@@ -86,10 +105,17 @@ public class KnowledgeController {
                 .content(request.getContent().trim())
                 .source(request.getSource() != null ? request.getSource() : docId + ".md")
                 .type(request.getType() != null ? request.getType() : "general")
+                .version(request.getVersion())
+                .effectiveAt(request.getEffectiveAt())
+                .scope(request.getScope() != null ? request.getScope() : "public")
                 .build();
         ragService.indexDocuments(List.of(doc), request.getChunkStrategy());
         result.put("indexedChunks", 1);
         result.put("docId", docId);
+        result.put("version", doc.getVersion());
+        result.put("contentHash", doc.getContentHash());
+        result.put("effectiveAt", doc.getEffectiveAt());
+        result.put("scope", doc.getScope());
         log.info("知识库导入完成: docId={}, source={}, type={}, chunkStrategy={}",
                 docId, doc.getSource(), doc.getType(), request.getChunkStrategy());
         return result;
@@ -111,8 +137,10 @@ public class KnowledgeController {
         result.put("embeddingModel", embeddingModel);
         result.put("vectorStore", "Milvus");
         result.put("vectorIndex", "ANN");
-        result.put("retrieval", "Milvus ANN + BM25 + RRF + Feature Rerank");
-        result.put("pipeline", List.of("Query 改写", "ANN 语义召回", "BM25 关键词召回", "RRF 融合", "特征重排", "Ollama 生成"));
+        result.put("retrieval", "Adaptive semantic/exact/hybrid + ANN/BM25 + RRF + configurable local neural rerank");
+        result.put("pipeline", List.of("Query-time rewrite/decompose", "Adaptive ANN/BM25 recall", "RRF fusion", "Qwen3 local rerank with feature fallback", "Ollama generation"));
+        result.put("reranker", Map.of("enabled", neuralRerankerEnabled,
+                "model", "Qwen3-Reranker-0.6B", "localOnly", true));
         result.put("cache", semanticAnswerCacheService.stats());
         Map<String, Object> knowledgeBase = new HashMap<>();
         knowledgeBase.put("documents", ragService.countIndexedSources());
@@ -123,13 +151,20 @@ public class KnowledgeController {
 
     @GetMapping("/source")
     @Operation(summary = "读取来源全文", description = "按来源标识读取知识库入库时保存的原始文档全文")
-    public Map<String, Object> source(@RequestParam String source) {
-        Map<String, String> document = ragService.findFullSource(source);
+    public Map<String, Object> source(@RequestParam String source,
+                                     @RequestParam(required=false) String version) {
+        Map<String, String> document = ragService.findSourceRevision(source,version);
         Map<String, Object> result = new HashMap<>();
         result.put("found", !document.isEmpty());
         result.put("source", document.getOrDefault("source", source));
         result.put("type", document.getOrDefault("type", "general"));
         result.put("content", document.getOrDefault("content", ""));
+        result.put("version", document.getOrDefault("version", ""));
+        result.put("contentHash", document.getOrDefault("contentHash", ""));
+        result.put("version", document.getOrDefault("version", ""));
+        result.put("contentHash", document.getOrDefault("contentHash", ""));
+        result.put("effectiveAt", document.getOrDefault("effectiveAt", ""));
+        result.put("scope", document.getOrDefault("scope", "public"));
         return result;
     }
 

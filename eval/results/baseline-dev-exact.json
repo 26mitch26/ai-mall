@@ -1,0 +1,185 @@
+{
+  "generatedAt": "2026-10-06T11:49:04.720462+00:00",
+  "runId": "1e6451d236ea",
+  "dataSha256": "1f90ab627c18df9a2d60515c4fe986e47efa9defe89ac2061fdf8999839560cd",
+  "split": "dev",
+  "language": "zh-adapted",
+  "label": "baseline-exact-2048",
+  "trialsPerTask": 2,
+  "maxHttpCalls": 40,
+  "scheduledAttempts": 20,
+  "complete": false,
+  "maxMemoryPercent": 90,
+  "baseUrl": "http://localhost:8083",
+  "model": "qwen3.5-noVL:latest",
+  "externalApiSpend": 0,
+  "costNote": "Local compute/electricity costs not measured; no cloud judge calls. Cache must be disabled for independent-trial comparison.",
+  "metrics": {
+    "attempts": 1,
+    "passed": 0,
+    "taskProxyPassRate": 0,
+    "infraErrors": 0,
+    "p50Ms": 4580.89,
+    "p95Ms": 4580.89,
+    "modelCalls": 0,
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "semanticCorrectness": null,
+    "businessOutcomeSuccess": null,
+    "humanReviewed": false,
+    "reliability": [
+      {
+        "k": 1,
+        "eligibleTasks": 1,
+        "passAtK": 0.0,
+        "passPowerK": 0.0
+      },
+      {
+        "k": 2,
+        "eligibleTasks": 0,
+        "passAtK": null,
+        "passPowerK": null
+      },
+      {
+        "k": 3,
+        "eligibleTasks": 0,
+        "passAtK": null,
+        "passPowerK": null
+      }
+    ]
+  },
+  "trials": [
+    {
+      "id": "bitext-check_refund_policy-0-zh-adapted",
+      "intent": "check_refund_policy",
+      "trial": 1,
+      "request": {
+        "message": "帮我查一下你们的退款政策",
+        "sessionId": "product-eval-1e6451d236ea-0-bitext-check_refund_policy-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 87,
+        "availableMB": 2045
+      },
+      "response": {
+        "sessionId": "product-eval-1e6451d236ea-0-bitext-check_refund_policy-0-zh-adapted",
+        "message": "帮我查一下你们的退款政策",
+        "answer": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复，已为您转接人工客服。",
+        "intent": "general",
+        "responseTime": 4465,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据不足，已自动转人工（证据强度 0.00）",
+        "evidenceScore": 0.0,
+        "retrievalRoute": "exact",
+        "reranker": "feature",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "dee193bf4e524e88cd790af62c5c901d",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 1,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 4246,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 4316,
+              "outcome": "refusal"
+            },
+            {
+              "name": "chat",
+              "durationMs": 4465,
+              "outcome": "refusal"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 1,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复，已为您转接人工客服。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": false
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 4580.89,
+      "memoryAfter": {
+        "usedPercent": 96,
+        "availableMB": 596
+      }
+    }
+  ]
+}

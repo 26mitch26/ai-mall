@@ -25,7 +25,7 @@ scrape_configs:
   - job_name: 'agent-ops'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['host.docker.internal:8083']
+      - targets: ['host.docker.internal:8084']
 
   - job_name: 'agent-test'
     metrics_path: '/actuator/prometheus'

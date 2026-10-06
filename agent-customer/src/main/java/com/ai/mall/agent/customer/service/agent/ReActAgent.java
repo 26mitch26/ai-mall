@@ -14,6 +14,10 @@ import com.ai.mall.agent.customer.service.rag.SemanticAnswerCacheService;
 import com.ai.mall.agent.customer.service.security.InputSanitizer;
 import com.ai.mall.agent.customer.service.security.OutputGuardrail;
 import com.ai.mall.agent.customer.service.tool.ToolRegistry;
+import com.ai.mall.agent.customer.service.workflow.AfterSaleWorkflowService;
+import com.ai.mall.agent.customer.model.workflow.AfterSaleWorkflowState;
+import com.ai.mall.agent.customer.service.security.OperationFingerprint;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.ai.mall.common.circuitbreaker.ModelCircuitBreaker;
 import com.ai.mall.common.circuitbreaker.ModelRouterService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +27,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import java.util.concurrent.TimeUnit;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -33,11 +41,18 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.UUID;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ReActAgent {
+
+    @org.springframework.beans.factory.annotation.Value("${ai.customer.explicit-handoff.enabled:true}")
+    private boolean explicitHandoffEnabled = true;
+
+    @org.springframework.beans.factory.annotation.Value("${ai.customer.policy-direct.enabled:true}")
+    private boolean policyDirectEnabled = true;
 
     private final AgentLlmClient agentLlmClient;
     private final ModelRouterService modelRouterService;
@@ -50,21 +65,25 @@ public class ReActAgent {
     private final OutputGuardrail outputGuardrail;
     private final AuditService auditService;
 
+    @Autowired(required = false)
+    private AfterSaleWorkflowService afterSaleWorkflowService;
+
     private static final int MAX_ITERATIONS = 5;
     private final Map<String, List<Document>> retrievalTrace = new ConcurrentHashMap<>();
 
     /** 本轮检索的证据判定结果（相似度 / BM25 / 依据强弱），供对话接口在响应里展示"检索判定" */
     private final Map<String, RagService.RetrievalOutcome> evidenceTrace = new ConcurrentHashMap<>();
 
-    /** 待确认下单槽位：sessionId -> 已推荐商品（两段式下单：先推荐并请用户确认，确认后才创建订单，防误下单） */
-    private final Map<String, PendingOrder> pendingOrders = new ConcurrentHashMap<>();
-
-    /** 候选清单槽位：模糊意向推荐出多个候选后，等待用户"第N个/商品名"选择 */
-    private final Map<String, List<PendingOrder>> pendingCandidates = new ConcurrentHashMap<>();
+    /** Durable, owner-scoped confirmation state; Redis is required for cross-instance safety. */
+    @Autowired(required = false)
+    private StringRedisTemplate stateRedis;
 
     /** 待确认的下单推荐（商品ID/名称/单价/数量） */
     private record PendingOrder(Long productId, String name, double price, int quantity) {
     }
+    private record PendingOrderState(PendingOrder order, String operationId, String status) { }
+    private static final DefaultRedisScript<Long> PENDING_CAS = new DefaultRedisScript<>(
+            "if redis.call('GET', KEYS[1]) == ARGV[1] then redis.call('SET', KEYS[1], ARGV[2], 'EX', ARGV[3]); return 1; end; return 0;", Long.class);
 
     /** 返回本轮最近一次 RAG 命中，供 ChatResponse 展示可解释来源。 */
     public List<Document> getLastRetrieval(String sessionId) {
@@ -117,9 +136,21 @@ public class ReActAgent {
         if (InputSanitizer.BLOCKED_MESSAGE.equals(sanitizedQuery)) {
             recordAudit(sessionId, effectiveContext, AuditEventType.INPUT_BLOCKED,
                     "用户输入命中注入防护，已拦截", true, 0);
+            String refused = "这条消息无法处理，请调整表述后重试。";
+            memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "assistant", refused));
+            retrievalTrace.remove(sessionId);
+            evidenceTrace.remove(sessionId);
+            return refused;
         }
         if (inputSanitizer.isValidLength(sanitizedQuery)) {
             query = sanitizedQuery;
+        }
+
+        if (explicitHandoffEnabled && HumanSupportIntent.matches(query)) {
+            retrievalTrace.remove(sessionId);
+            evidenceTrace.remove(sessionId);
+            finalizeDeterministicAnswer(sessionId, query, HumanSupportIntent.GUIDANCE, effectiveContext, startTime);
+            return HumanSupportIntent.GUIDANCE;
         }
 
         // "帮我买/推荐下单"两段式流程（含待确认槽位的"确认/取消"回复）优先于其他确定性路径：
@@ -162,7 +193,11 @@ public class ReActAgent {
         // 跳过整条 LLM 推理链路（本机 2~3s → <50ms）。仅缓存不涉实时数据的通用回答
         // （含工具取数的回答不入缓存），并有 TTL/LRU 边界，见 SemanticAnswerCacheService。
         String ctxKey = memoryContextKey(history);
-        Optional<SemanticAnswerCacheService.CachedAnswer> cached = semanticAnswerCache.lookup(query, ctxKey);
+        // Avoid attaching an earlier turn's evidence to a cache hit or refusal.
+        retrievalTrace.remove(sessionId);
+        evidenceTrace.remove(sessionId);
+        Optional<SemanticAnswerCacheService.CachedAnswer> cached = policyDirectEnabled && PolicyQuestionIntent.matches(query)
+                ? Optional.empty() : semanticAnswerCache.lookup(query, ctxKey);
         if (cached.isPresent()) {
             log.info("ReAct 语义缓存命中, session={}, query={}", sessionId, query);
             String answer = applyGuardrail(sessionId, effectiveContext, cached.get().answer(), true, startTime);
@@ -179,8 +214,6 @@ public class ReActAgent {
         for (ChatMessage msg : history) {
             contextBuilder.append(msg.getRole()).append(": ").append(msg.getContent()).append("\n");
         }
-
-        String toolDescriptions = getToolDescriptions();
 
         // RAG 前置检索（压测与体验验证结论：原先只在"熔断降级"时才检索知识库，
         // 正常路径 LLM 看不到知识库 → 政策类问题要么拒答、要么答案不稳定；
@@ -201,10 +234,18 @@ public class ReActAgent {
                             + ")，直接拒答转人工", true, 0);
             long costMs = System.currentTimeMillis() - startTime;
             recordAudit(sessionId, effectiveContext, AuditEventType.FINAL_ANSWER, refusal, false, costMs);
-            semanticAnswerCache.store(query, ctxKey, refusal, List.of());
             memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "user", query));
             memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "assistant", refusal));
             return refusal;
+        }
+
+        if (policyDirectEnabled && PolicyQuestionIntent.matches(query)) {
+            PolicyAnswerComposer.Result composed = PolicyAnswerComposer.compose(query, ragDocs);
+            String answer = composed == null ? RagService.NO_CONTEXT_ANSWER
+                    : applyGuardrail(sessionId, effectiveContext, composed.answer(), true, startTime);
+            finalizeDeterministicAnswer(sessionId, query, answer, effectiveContext, startTime, true);
+            retrievalTrace.put(sessionId, composed == null ? List.of() : composed.sources());
+            return answer;
         }
 
         String ragContext = (ragDocs == null || ragDocs.isEmpty())
@@ -215,6 +256,7 @@ public class ReActAgent {
                         .reduce((a, b) -> a + "\n" + b)
                         .orElse("");
 
+        String toolDescriptions = getToolDescriptions();
         String systemPrompt = String.format("""
                 你是一个智能客服助手，使用ReAct（思考-行动-观察）模式来回答问题。
 
@@ -301,7 +343,7 @@ public class ReActAgent {
                 String answer = applyGuardrail(sessionId, effectiveContext, rawAnswer, grounding, startTime);
                 // 未动用取数工具的通用回答才可缓存（涉及订单/物流等实时数据的回答不缓存，避免串用户数据）
                 if (!toolGrounded) {
-                    semanticAnswerCache.store(query, ctxKey, answer, ragDocs);
+                    storeVerifiedRagAnswer(query, ctxKey, answer, ragDocs, outcome);
                 }
                 memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "user", query));
                 memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "assistant", answer));
@@ -315,10 +357,20 @@ public class ReActAgent {
         boolean grounded = toolGrounded || (ragDocs != null && !ragDocs.isEmpty());
         String answer = applyGuardrail(sessionId, effectiveContext, fallbackAnswer, grounded, startTime);
         // RAG 答案依托静态知识库，可安全语义缓存（检索为空的拒答话术同样可缓存，稳定复用）
-        semanticAnswerCache.store(query, ctxKey, answer, ragDocs);
+        storeVerifiedRagAnswer(query, ctxKey, answer, ragDocs, outcome);
         memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "user", query));
         memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "assistant", answer));
         return answer;
+    }
+
+    private void storeVerifiedRagAnswer(String query, String contextKey, String answer,
+                                        List<Document> documents, RagService.RetrievalOutcome outcome) {
+        if (answer == null || answer.isBlank() || RagService.NO_CONTEXT_ANSWER.equals(answer)
+                || documents == null || documents.isEmpty() || outcome == null || outcome.weakEvidence()
+                || outcome.knowledgeVersion() == null || "unknown".equals(outcome.knowledgeVersion())
+                || documents.stream().anyMatch(doc -> !doc.isEvidenceVerified()
+                    || !outcome.knowledgeVersion().equals(doc.getKnowledgeVersion()))) return;
+        semanticAnswerCache.store(query, contextKey, answer, documents, outcome.knowledgeVersion());
     }
 
     /**
@@ -378,6 +430,7 @@ public class ReActAgent {
     }
 
     private boolean isProductQuery(String query) {
+        if (PolicyQuestionIntent.matches(query)) return false;
         if (query == null || query.isBlank()) return false;
         boolean hasProductWord = query.contains("商品") || query.contains("手机") || query.contains("平板")
                 || query.contains("耳机") || query.contains("电脑") || query.contains("鞋")
@@ -573,40 +626,74 @@ public class ReActAgent {
         boolean hasOrderSn = ORDER_SN_PATTERN.matcher(query).find();
 
         // 第一段：已选商品待确认槽位的后续回复（只认明确话术；长消息视为换话题，槽位保留不做动作）
-        PendingOrder pending = pendingOrders.get(sessionId);
+        PendingOrderState pendingState = loadPending(sessionId, context);
+        PendingOrder pending = pendingState == null ? null : pendingState.order();
         if (pending != null) {
+            if ("CANCELLED".equals(pendingState.status())) {
+                removePending(sessionId, context);
+                pendingState = null;
+                pending = null;
+            } else if (List.of("COMPLETED", "UNKNOWN", "CLAIMED").contains(pendingState.status())) {
+                String reconciled = reconcilePending(sessionId, context, pendingState);
+                PendingOrderState latest = loadPending(sessionId, context);
+                if (latest != null && "COMPLETED".equals(latest.status())) removePending(sessionId, context);
+                finalizeDeterministicAnswer(sessionId, query, reconciled, context, startTime);
+                return reconciled;
+            }
             // 含订单编号的"取消"是"取消真实订单"请求，交给取消订单路径处理，不在这里吞掉
-            if (!hasOrderSn && isCancelWord(query)) {
-                pendingOrders.remove(sessionId);
-                pendingCandidates.remove(sessionId);
+            if (pending != null && !hasOrderSn && isCancelWord(query)) {
+                if (!cancelPending(sessionId, context, pendingState)) {
+                    String processing = "下单已进入处理或核对阶段，不能再取消此确认；请先查看『我的订单』。";
+                    finalizeDeterministicAnswer(sessionId, query, processing, context, startTime);
+                    return processing;
+                }
+                removeCandidates(sessionId, context);
                 String canceled = "已取消本次下单，未创建任何订单。需要时随时告诉我。";
                 finalizeDeterministicAnswer(sessionId, query, canceled, context, startTime);
                 return canceled;
             }
-            if (isConfirmWord(query) && query.length() <= 20) {
-                pendingOrders.remove(sessionId);
-                return executePlaceOrder(sessionId, query, context, startTime, pending);
+            if (pending != null && isConfirmWord(query) && query.length() <= 20) {
+                if (!"PENDING".equals(pendingState.status()) || !claimPending(sessionId, context, pendingState)) {
+                    String already = "这笔下单请求已在处理中或等待核对，请先查看『我的订单』，暂时不会重复提交。";
+                    finalizeDeterministicAnswer(sessionId, query, already, context, startTime);
+                    return already;
+                }
+                String result = executePlaceOrder(sessionId, query, context, startTime, pending, pendingState.operationId());
+                finishPending(sessionId, context, pendingState, result.contains("已为您下单成功") ? "COMPLETED" : "UNKNOWN");
+                return result;
+            }
+            if (pending != null && "PENDING".equals(pendingState.status())
+                    && (isOrderCreateIntent(query) || isRecommendIntent(query))) {
+                String prompt = "已有一项下单确认待处理：" + pending.name() + "（" + pending.price()
+                        + " 元）。请先回复确认或取消，再开始新的下单。";
+                finalizeDeterministicAnswer(sessionId, query, prompt, context, startTime);
+                return prompt;
             }
         }
 
         // 第二段：候选清单槽位（模糊推荐给出多个候选后）：支持"第N个/商品名"选择、直接确认、取消
-        List<PendingOrder> candidates = pendingCandidates.get(sessionId);
+        List<PendingOrder> candidates = loadCandidates(sessionId, context);
         if (candidates != null && !candidates.isEmpty()) {
             if (!hasOrderSn && isCancelWord(query)) {
-                pendingCandidates.remove(sessionId);
+                removeCandidates(sessionId, context);
                 String canceled = "已取消本次推荐。需要时随时告诉我，我再帮您挑。";
                 finalizeDeterministicAnswer(sessionId, query, canceled, context, startTime);
                 return canceled;
             }
             if (isConfirmWord(query) && query.length() <= 20) {
                 // 用户看过多候选清单后直接确认：按清单第一个下单（候选行已展示价格）
-                pendingCandidates.remove(sessionId);
-                return executePlaceOrder(sessionId, query, context, startTime, candidates.get(0));
+                removeCandidates(sessionId, context);
+                PendingOrder chosen = candidates.get(0);
+                PendingOrderState state = savePending(sessionId, context, chosen);
+                if (!claimPending(sessionId, context, state)) return "下单请求已在处理中，请先查看『我的订单』。";
+                String result = executePlaceOrder(sessionId, query, context, startTime, chosen, state.operationId());
+                finishPending(sessionId, context, state, result.contains("已为您下单成功") ? "COMPLETED" : "UNKNOWN");
+                return result;
             }
             PendingOrder chosen = matchCandidate(query, candidates);
             if (chosen != null) {
-                pendingCandidates.remove(sessionId);
-                pendingOrders.put(sessionId, chosen);
+                removeCandidates(sessionId, context);
+                savePending(sessionId, context, chosen);
                 String prompt = "已选择：" + chosen.name() + "（售价 " + chosen.price() + " 元）。\n"
                         + "确认下单吗？回复“确认下单”我就为您创建订单。";
                 finalizeDeterministicAnswer(sessionId, query, prompt, context, startTime);
@@ -634,11 +721,11 @@ public class ReActAgent {
             result = "没有找到与“" + keyword + "”相关的商品，换个关键词或描述一下您的需求吧。";
         } else if (found.size() == 1) {
             PendingOrder item = found.get(0);
-            pendingOrders.put(sessionId, item);
+            savePending(sessionId, context, item);
             result = "为您推荐：" + item.name() + "（售价 " + item.price() + " 元）。\n"
                     + "确认下单吗？回复“确认下单”我就为您创建订单；也可以告诉我更具体的要求，我再帮您挑。";
         } else {
-            pendingCandidates.put(sessionId, found);
+            saveCandidates(sessionId, context, found);
             StringBuilder sb = new StringBuilder("根据您的需求，为您推荐以下商品：");
             for (int i = 0; i < found.size(); i++) {
                 sb.append("\n").append(i + 1).append(". ").append(found.get(i).name())
@@ -734,18 +821,21 @@ public class ReActAgent {
      * 调用 place_order 工具创建订单并拼装回答（工具内置：加购物车 → 默认地址 → 幂等 token → 生成订单）。
      */
     private String executePlaceOrder(String sessionId, String query, ToolInvocationContext context,
-                                     long startTime, PendingOrder pending) {
+                                     long startTime, PendingOrder pending, String operationId) {
         String params;
         try {
             params = objectMapper.writeValueAsString(Map.of(
-                    "product_id", pending.productId(), "quantity", pending.quantity()));
+                    "product_id", pending.productId(), "quantity", pending.quantity(), "expected_price", pending.price()));
         } catch (Exception e) {
             return null;
         }
 
         recordAudit(sessionId, context, AuditEventType.TOOL_CALL,
                 "下单: place_order, productId=" + pending.productId(), false, 0);
-        String observation = toolRegistry.executeStructuredTool("place_order", params, context);
+        ToolInvocationContext approved = ToolInvocationContext.builder()
+                .sessionId(context.getSessionId()).memberId(context.getMemberId()).userToken(context.getUserToken())
+                .operationId(operationId).operationHash(OperationFingerprint.hash(params)).writeApproved(true).build();
+        String observation = toolRegistry.executeStructuredTool("place_order", params, approved);
         recordAudit(sessionId, context, AuditEventType.TOOL_RESULT, "下单返回", false, 0);
 
         String result;
@@ -772,6 +862,120 @@ public class ReActAgent {
 
         finalizeDeterministicAnswer(sessionId, query, result, context, startTime);
         return result;
+    }
+
+    private PendingOrderState savePending(String sessionId, ToolInvocationContext context, PendingOrder order) {
+        String key = pendingKey("order", sessionId, context);
+        PendingOrderState state = new PendingOrderState(order, UUID.randomUUID().toString(), "PENDING");
+        requireRedis();
+        if (!Boolean.TRUE.equals(stateRedis.opsForValue().setIfAbsent(key, writeJson(state), 7, TimeUnit.DAYS))) {
+            throw new IllegalStateException("已有下单确认状态，不能替换用户已看到的草稿");
+        }
+        return state;
+    }
+
+    private boolean cancelPending(String sessionId, ToolInvocationContext context, PendingOrderState expectedState) {
+        String key = pendingKey("order", sessionId, context);
+        String raw = stateRedis.opsForValue().get(key);
+        if (raw == null) return false;
+        try {
+            PendingOrderState current = objectMapper.readValue(raw, PendingOrderState.class);
+            if (!"PENDING".equals(current.status()) || !expectedState.operationId().equals(current.operationId())) return false;
+            String cancelled = writeJson(new PendingOrderState(current.order(), current.operationId(), "CANCELLED"));
+            return Long.valueOf(1).equals(stateRedis.execute(PENDING_CAS, List.of(key), raw, cancelled, "604800"));
+        } catch (Exception e) { throw new IllegalStateException("下单确认状态无法取消", e); }
+    }
+
+    private PendingOrderState loadPending(String sessionId, ToolInvocationContext context) {
+        requireRedis();
+        String raw = stateRedis.opsForValue().get(pendingKey("order", sessionId, context));
+        if (raw == null) return null;
+        try { return objectMapper.readValue(raw, PendingOrderState.class); }
+        catch (Exception e) { throw new IllegalStateException("下单确认状态无法读取", e); }
+    }
+
+    private boolean claimPending(String sessionId, ToolInvocationContext context, PendingOrderState state) {
+        String key = pendingKey("order", sessionId, context);
+        requireRedis();
+        String raw = stateRedis.opsForValue().get(key);
+        if (raw == null) return false;
+        PendingOrderState current;
+        try { current = objectMapper.readValue(raw, PendingOrderState.class); }
+        catch (Exception e) { throw new IllegalStateException("下单确认状态无法读取", e); }
+        if (!"PENDING".equals(current.status()) || !state.operationId().equals(current.operationId())) return false;
+        Long result = stateRedis.execute(PENDING_CAS, List.of(key), raw,
+                writeJson(new PendingOrderState(state.order(), state.operationId(), "CLAIMED")), "604800");
+        return Long.valueOf(1).equals(result);
+    }
+
+    private void finishPending(String sessionId, ToolInvocationContext context, PendingOrderState initial, String status) {
+        String key = pendingKey("order", sessionId, context);
+        String raw = stateRedis.opsForValue().get(key);
+        if (raw == null) return;
+        try {
+            PendingOrderState current = objectMapper.readValue(raw, PendingOrderState.class);
+            if (List.of("CLAIMED", "UNKNOWN", "PENDING").contains(current.status())
+                    && initial.operationId().equals(current.operationId())) {
+                String updated = writeJson(new PendingOrderState(initial.order(), initial.operationId(), status));
+                stateRedis.execute(PENDING_CAS, List.of(key), raw, updated, "604800");
+            }
+        } catch (Exception e) { throw new IllegalStateException("下单确认状态无法更新", e); }
+    }
+
+    private String reconcilePending(String sessionId, ToolInvocationContext context, PendingOrderState state) {
+        String response = toolRegistry.lookupOperation("order", state.operationId(), context);
+        JsonNode root;
+        try { root = objectMapper.readTree(response); }
+        catch (Exception e) { return "下单结果仍待核对；我不会重复提交，请稍后查看『我的订单』。"; }
+        JsonNode operation = root.path("data");
+        if ("COMPLETED".equals(operation.path("status").asText())) {
+            JsonNode result = operation.path("result");
+            String orderSn = result.path("order").path("orderSn").asText("");
+            finishPending(sessionId, context, state, "COMPLETED");
+            return orderSn.isBlank() ? "订单已创建，请在『我的订单』中查看。" : "这笔订单已创建，订单号：" + orderSn + "。可在『我的订单』中继续处理。";
+        }
+        if (!"PROCESSING".equals(operation.path("status").asText())
+                && List.of("PENDING", "CLAIMED").contains(state.status())) {
+            finishPending(sessionId, context, state, "UNKNOWN");
+        }
+        return "下单结果仍待核对；我不会重复提交，请稍后查看『我的订单』。";
+    }
+
+    private void saveCandidates(String sessionId, ToolInvocationContext context, List<PendingOrder> candidates) {
+        requireRedis();
+        if (!Boolean.TRUE.equals(stateRedis.opsForValue().setIfAbsent(pendingKey("candidates", sessionId, context), writeJson(candidates), 7, TimeUnit.DAYS))) {
+            throw new IllegalStateException("已有商品候选待选择，请先完成当前选择");
+        }
+    }
+
+    private List<PendingOrder> loadCandidates(String sessionId, ToolInvocationContext context) {
+        requireRedis();
+        String raw = stateRedis.opsForValue().get(pendingKey("candidates", sessionId, context));
+        if (raw == null) return null;
+        try { return objectMapper.readValue(raw, new TypeReference<>() { }); }
+        catch (Exception e) { throw new IllegalStateException("商品候选状态无法读取", e); }
+    }
+
+    private void removePending(String sessionId, ToolInvocationContext context) { requireRedis(); stateRedis.delete(pendingKey("order", sessionId, context)); }
+    private void removeCandidates(String sessionId, ToolInvocationContext context) { requireRedis(); stateRedis.delete(pendingKey("candidates", sessionId, context)); }
+
+    private String pendingKey(String type, String sessionId, ToolInvocationContext context) {
+        String actor = context != null && context.isAuthenticated() ? "member_" + context.getMemberId() : "anon";
+        return "agent:pending:" + type + ":" + sha256(actor + "\n" + sessionId);
+    }
+
+    private void requireRedis() {
+        if (stateRedis == null) throw new IllegalStateException("持久化下单确认服务不可用，已停止未确认写操作");
+    }
+
+    private String writeJson(Object value) {
+        try { return objectMapper.writeValueAsString(value); }
+        catch (Exception e) { throw new IllegalStateException("确认状态无法持久化", e); }
+    }
+
+    private String sha256(String value) {
+        try { return java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8))); }
+        catch (Exception e) { throw new IllegalStateException(e); }
     }
 
     /** 明确表达"要购买"的动作意图（"买过什么/买了哪些"等回忆类问法不算） */
@@ -877,16 +1081,14 @@ public class ReActAgent {
                     result = "订单 " + orderSn + " 当前状态为“" + orderStatusText(status)
                             + "”，仅待付款订单可以取消。如需退换货，可以告诉我“申请退货”。";
                 } else {
-                    String cancelObservation = toolRegistry.executeStructuredTool("cancel_order",
-                            "{\"order_sn\":\"" + orderSn + "\"}", context);
-                    JsonNode cancelRoot = objectMapper.readTree(cancelObservation);
-                    if (cancelRoot.path("blocked").asBoolean(false)) {
-                        result = cancelRoot.path("error").asText("该操作需要登录后才能进行，请先登录。");
-                    } else if (cancelRoot.path("code").asInt(500) == 200) {
-                        result = "已为您取消订单 " + orderSn + "，订单状态已变为“已关闭”，商品库存已释放。"
-                                + "如需要可以重新下单，或者看看其他商品。";
+                    if (context == null || !context.isAuthenticated() || context.getUserToken() == null || context.getUserToken().isBlank()) {
+                        result = "取消订单需要登录，请登录后再试。";
+                    } else if (afterSaleWorkflowService == null) {
+                        result = "取消订单确认服务暂不可用；订单尚未取消。";
                     } else {
-                        result = "取消未成功：" + cancelRoot.path("error").asText("请稍后再试或联系人工客服。");
+                        AfterSaleWorkflowState workflow = afterSaleWorkflowService.prepareCancellation(context, orderSn);
+                        result = workflow.getDraft() + "\n任务编号：" + workflow.getTaskId()
+                                + "；确认取消请调用订单取消工作流确认接口。确认前不会取消订单。";
                     }
                 }
             } else {
@@ -911,13 +1113,7 @@ public class ReActAgent {
         return hasAction && !isHowTo;
     }
 
-    /**
-     * 对售后工单申请执行确定性工具调用（设计动机同订单查询：写操作事实必须来自系统）。
-     * <p>
-     * 1. 有订单号 —— 直接调用 create_after_sale，绑定当前登录会员创建真实工单；
-     * 2. 无订单号 —— 引导补充订单编号，形成多轮补槽位；
-     * 3. 政策类问题（如何申请退货）返回 null，继续走 RAG 主链路。
-     */
+    /** Prepare a durable draft only. Creation requires a separate, explicit confirmation call. */
     private String tryDirectAfterSale(String sessionId, String query,
                                       ToolInvocationContext context, long startTime) {
         if (query == null || query.isBlank() || !isAfterSaleIntent(query)) {
@@ -935,33 +1131,17 @@ public class ReActAgent {
         String orderSn = matcher.group(1);
         String reason = (query.contains("质量") || query.contains("损坏") || query.contains("故障")
                 || query.contains("坏")) ? "质量问题" : "用户申请售后";
-        String params;
-        try {
-            params = objectMapper.writeValueAsString(Map.of(
-                    "order_sn", orderSn, "reason", reason, "description", query));
-        } catch (Exception e) {
-            return null;
+        if (context == null || !context.isAuthenticated() || context.getUserToken() == null || context.getUserToken().isBlank()) {
+            return "申请售后需要登录，请登录后再试。";
         }
-
-        recordAudit(sessionId, context, AuditEventType.TOOL_CALL,
-                "售后工单: create_after_sale, orderSn=" + orderSn, false, 0);
-        String observation = toolRegistry.executeStructuredTool("create_after_sale", params, context);
-        recordAudit(sessionId, context, AuditEventType.TOOL_RESULT, "售后工单返回", false, 0);
-
+        if (afterSaleWorkflowService == null) return "售后申请草稿服务暂不可用，请稍后再试。";
         String result;
         try {
-            JsonNode root = objectMapper.readTree(observation);
-            if (root.path("blocked").asBoolean(false)) {
-                result = root.path("error").asText("该操作需要登录后才能进行，请先登录。");
-            } else if (root.path("code").asInt(500) == 200) {
-                result = "已为您为订单 " + orderSn + " 提交售后工单，退货原因：" + reason
-                        + "。平台将在 24 小时内完成审核，审核通过后按短信提示寄回商品即可。";
-            } else {
-                result = "售后工单提交未成功，请确认订单编号是否正确，或稍后再试。";
-            }
-        } catch (Exception e) {
-            log.warn("售后工单结果解析失败: {}", e.getMessage());
-            result = "售后工单提交结果暂时无法确认，请稍后在会员中心查看。";
+            AfterSaleWorkflowState workflow = afterSaleWorkflowService.prepare(context, orderSn, reason, query);
+            result = workflow.getDraft() + "\n任务编号：" + workflow.getTaskId()
+                    + "；确认提交请调用售后工作流确认接口。确认前不会创建工单。";
+        } catch (RuntimeException e) {
+            result = "暂时无法准备售后申请，请确认订单属于当前账号后重试。";
         }
 
         long costMs = System.currentTimeMillis() - startTime;
@@ -1111,8 +1291,16 @@ public class ReActAgent {
      */
     private void finalizeDeterministicAnswer(String sessionId, String query, String answer,
                                              ToolInvocationContext context, long startTime) {
+        finalizeDeterministicAnswer(sessionId, query, answer, context, startTime, false);
+    }
+
+    private void finalizeDeterministicAnswer(String sessionId, String query, String answer,
+                                             ToolInvocationContext context, long startTime, boolean preserveEvidence) {
         long costMs = System.currentTimeMillis() - startTime;
-        retrievalTrace.put(sessionId, List.of());
+        if (!preserveEvidence) {
+            retrievalTrace.put(sessionId, List.of());
+            evidenceTrace.remove(sessionId);
+        }
         recordAudit(sessionId, context, AuditEventType.FINAL_ANSWER, answer, false, costMs);
         memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "user", query));
         memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "assistant", answer));

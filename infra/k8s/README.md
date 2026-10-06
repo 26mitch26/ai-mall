@@ -138,7 +138,7 @@ Infrastructure: MySQL, Redis, Kafka, Neo4j, Milvus, ES, MinIO, Prometheus, Grafa
 | mall-portal      | mall-portal:8081         | 8081 | /api/*               |
 | mall-search      | mall-search:8082         | 8082 | /search/*            |
 | agent-customer   | agent-customer:8082      | 8082 | /agent/customer/*    |
-| agent-ops        | agent-ops:8083           | 8083 | /agent/ops/*         |
+| agent-ops        | agent-ops:8084           | 8084 | /agent/ops/*         |
 | agent-test       | agent-test:8085          | 8085 | /agent/test/*        |
 | MySQL            | mysql:3306               | 3306 | —                    |
 | Redis            | redis:6379               | 6379 | —                    |

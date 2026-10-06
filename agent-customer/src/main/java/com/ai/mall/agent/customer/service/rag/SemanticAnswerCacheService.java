@@ -6,7 +6,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import java.time.Clock;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
@@ -55,6 +60,9 @@ public class SemanticAnswerCacheService {
 
     private final EmbeddingModel embeddingModel;
 
+    @Autowired(required = false)
+    private StringRedisTemplate redisTemplate;
+
     /** 缓存总开关：false 时 lookup 恒未命中、store 不写入，用于 A/B 实测开/关的延迟与命中率差异（默认开） */
     private final boolean enabled;
 
@@ -65,6 +73,14 @@ public class SemanticAnswerCacheService {
     private final AtomicLong exactHits = new AtomicLong();
     private final AtomicLong semanticHits = new AtomicLong();
     private final AtomicLong misses = new AtomicLong();
+    private final AtomicLong knowledgeEpoch = new AtomicLong();
+    private volatile String publishedKnowledgeVersion = "0";
+
+    @Value("${ai.rag.retrieval.scope:public}")
+    private String retrievalScope = "public";
+
+    @Autowired(required = false)
+    private Clock clock = Clock.systemUTC();
 
     public SemanticAnswerCacheService(EmbeddingModel embeddingModel,
                                       @Value("${ai.customer.semantic-cache.enabled:true}") boolean enabled) {
@@ -82,6 +98,7 @@ public class SemanticAnswerCacheService {
         private String answer;
         private float[] vector;
         private long ts;
+        private long knowledgeEpoch;
         /** 该回答引用的知识库来源，命中缓存时随答案一起复用，保证来源卡片不丢失 */
         private List<Document> sources;
     }
@@ -101,6 +118,7 @@ public class SemanticAnswerCacheService {
      */
     public Optional<CachedAnswer> lookup(String query, String ctxKey) {
         long start = System.nanoTime();
+        synchronizeKnowledgeVersion();
         if (!enabled) {
             return Optional.empty();
         }
@@ -112,7 +130,7 @@ public class SemanticAnswerCacheService {
 
         // 1) 精确命中（同一归一化问句 + 同一上下文）
         Entry exact = entries.get(key);
-        if (exact != null && !isExpired(exact)) {
+        if (exact != null && !isExpired(exact) && exact.getKnowledgeEpoch() == knowledgeEpoch.get()) {
             exactHits.incrementAndGet();
             log.debug("语义缓存[精确]命中, key={}, cost={}µs", key, (System.nanoTime() - start) / 1000);
             return Optional.of(new CachedAnswer(exact.getAnswer(), exact.getSources()));
@@ -128,7 +146,7 @@ public class SemanticAnswerCacheService {
                 Entry best = null;
                 double bestSim = SIM_THRESHOLD;
                 for (Entry e : entries.values()) {
-                    if (isExpired(e) || !safe(ctxKey).equals(e.getCtxKey())) {
+                    if (isExpired(e) || e.getKnowledgeEpoch() != knowledgeEpoch.get() || !safe(ctxKey).equals(e.getCtxKey())) {
                         continue;
                     }
                     if (e.getVector() == null) {
@@ -166,20 +184,87 @@ public class SemanticAnswerCacheService {
      * @param sources 回答引用的知识库来源（可为空列表）
      */
     public void store(String query, String ctxKey, String answer, List<Document> sources) {
+        store(query, ctxKey, answer, sources, null);
+    }
+
+    /** Store only if the answer was generated from the still-current published knowledge snapshot. */
+    public synchronized void store(String query, String ctxKey, String answer, List<Document> sources, String expectedKnowledgeVersion) {
         try {
+            synchronizeKnowledgeVersion();
             if (!enabled || query == null || query.isBlank() || answer == null || answer.isBlank()) {
+                return;
+            }
+            if (expectedKnowledgeVersion != null && !expectedKnowledgeVersion.equals(publishedKnowledgeVersion)) return;
+            if (sources != null && sources.stream().anyMatch(source -> source.getKnowledgeVersion() != null
+                    && !source.getKnowledgeVersion().equals(publishedKnowledgeVersion))) {
+                log.debug("跳过缓存旧知识快照的回答");
                 return;
             }
             String normalized = normalize(query);
             String key = md5(normalized + "|" + safe(ctxKey));
             float[] vector = embed(query);
             Entry entry = new Entry(query, safe(ctxKey), answer, vector, System.currentTimeMillis(),
-                    sources == null ? List.of() : List.copyOf(sources));
+                    knowledgeEpoch.get(), sources == null ? List.of() : List.copyOf(sources));
+            if (expectedKnowledgeVersion != null && !expectedKnowledgeVersion.equals(publishedKnowledgeVersion)) return;
             entries.put(key, entry);
             evictIfNeeded();
             log.debug("语义缓存写入, key={}, size={}", key, entries.size());
         } catch (Exception e) {
             log.debug("语义缓存写入失败, err={}", e.getMessage());
+        }
+    }
+
+    /** Invalidate answers and citations immediately after a knowledge revision publishes. */
+    public void invalidateKnowledgeVersion() {
+        invalidateKnowledgeVersion(Long.toString(knowledgeEpoch.get() + 1));
+    }
+
+    public synchronized void invalidateKnowledgeVersion(String version) {
+        knowledgeEpoch.incrementAndGet();
+        publishedKnowledgeVersion = version == null ? "unknown" : version;
+        entries.clear();
+    }
+
+    /** Synchronize the local cache to the Redis-published epoch, including after an app restart. */
+    public synchronized void observeKnowledgeVersion(String version) {
+        if (version != null && !version.equals("unknown") && !version.equals(publishedKnowledgeVersion)) {
+            knowledgeEpoch.incrementAndGet();
+            publishedKnowledgeVersion = version;
+            entries.clear();
+        }
+    }
+
+    private synchronized void synchronizeKnowledgeVersion() {
+        if (redisTemplate == null) return;
+        try {
+            Set<String> sources = redisTemplate.opsForSet().members("rag:revision:sources");
+            if (sources != null) for (String source : sources.stream().limit(200).toList()) {
+                Set<String> revisions = redisTemplate.opsForZSet().reverseRangeByScore(
+                        "rag:revisions:" + source, Double.NEGATIVE_INFINITY, clock.millis());
+                if (revisions == null || revisions.isEmpty()) continue;
+                String active = null;
+                for (String revision : revisions) {
+                    Object scopeValue = redisTemplate.opsForHash().get("bm25:source:" + source + ":" + revision, "scope");
+                    String scope = scopeValue == null ? "public" : scopeValue.toString();
+                    if (scope.isBlank() || "public".equals(scope) || "*".equals(scope) || scope.equals(retrievalScope)) {
+                        active = revision;
+                        break;
+                    }
+                }
+                if (active == null) continue;
+                String activeKey = "rag:active:" + source + ":" + retrievalScope;
+                String current = redisTemplate.opsForValue().get(activeKey);
+                if (!active.equals(current)) {
+                    DefaultRedisScript<Long> activate = new DefaultRedisScript<>(
+                            "if redis.call('GET', KEYS[1]) == ARGV[1] then return 0 end; " +
+                                    "redis.call('SET', KEYS[1], ARGV[1]); redis.call('INCR', KEYS[2]); return 1", Long.class);
+                    redisTemplate.execute(activate, List.of(activeKey, "rag:knowledge:epoch"), active);
+                }
+            }
+            String version = redisTemplate.opsForValue().get("rag:knowledge:epoch");
+            if (version != null) observeKnowledgeVersion(version);
+        } catch (Exception e) {
+            log.debug("无法从Redis刷新知识缓存版本: {}", e.getMessage());
         }
     }
 

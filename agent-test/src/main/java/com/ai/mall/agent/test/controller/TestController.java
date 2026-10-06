@@ -5,6 +5,8 @@ import com.ai.mall.agent.test.service.agent.TestAgent;
 import com.ai.mall.agent.test.service.report.TestReportGenerator;
 import com.ai.mall.agent.test.service.report.TestReportStore;
 import com.ai.mall.agent.test.config.AgentTestConfig;
+import com.ai.mall.agent.test.config.TestAccessInterceptor;
+import com.ai.mall.agent.test.service.security.TestAccessGuard;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,7 @@ public class TestController {
     private final TestReportGenerator reportGenerator;
     private final TestReportStore reportStore;
     private final AgentTestConfig config;
+    private final TestAccessGuard accessGuard;
 
     @GetMapping("/capabilities")
     @Operation(summary = "测试 Agent 能力", description = "返回契约测试引擎与本地模型信息")
@@ -37,14 +40,20 @@ public class TestController {
                 "modules", config.getModules(),
                 "aiEnabled", config.getAi().isEnabled(),
                 "model", config.getAi().getModel(),
+                "authRequired", accessGuard.isAuthEnabled(),
+                "mcpEnabled", config.getMcp().isEnabled(),
                 "pipeline", List.of("OpenAPI Discover", "Contract Cases", "HTTP Execute", "Assertions", "Report")
         );
     }
 
     @PostMapping("/generate")
     @Operation(summary = "生成并运行测试用例", description = "为指定模块自动发现API并生成/运行测试用例")
-    public TestReport generateAndRunTests(@RequestParam String module) {
-        log.info("Generating and running tests for module: {}", module);
+    public TestReport generateAndRunTests(@RequestParam String module,
+                                          @RequestAttribute(value = TestAccessInterceptor.CALLER_ATTRIBUTE,
+                                                  required = false) String caller) {
+        // module 白名单：拒绝任意字符串把服务变成"对内网系统的自动化扫描器"
+        accessGuard.validateModule(module);
+        log.info("[{}] Generating and running tests for module: {}", caller, module);
         return testAgent.runTests(module);
     }
 

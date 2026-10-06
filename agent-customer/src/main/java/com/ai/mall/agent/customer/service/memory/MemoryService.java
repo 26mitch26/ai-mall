@@ -27,6 +27,8 @@ public class MemoryService {
 
     private final RedisTemplate<String, Object> redisTemplate;
     private final ObjectMapper objectMapper;
+    @org.springframework.beans.factory.annotation.Value("${ai.memory.archive-enabled:true}")
+    private boolean archiveEnabled = true;
     /**
      * 长期记忆专用向量库（独立的 Milvus 集合）：与知识库向量库物理隔离，
      * 避免历史对话被知识检索命中、混进回答的"来源"里。
@@ -58,7 +60,7 @@ public class MemoryService {
         log.debug("Added message to session {}: {}", sessionId, message.getContent());
 
         // 2. 判断是否为重要消息，异步存入Milvus长期记忆
-        if (isImportantMessage(message)) {
+        if (archiveEnabled && isImportantMessage(message)) {
             CompletableFuture.runAsync(() -> {
                 try {
                     storeLongTermMemory(sessionId, message);

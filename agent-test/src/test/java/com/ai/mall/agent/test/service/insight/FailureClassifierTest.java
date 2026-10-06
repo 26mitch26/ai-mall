@@ -74,4 +74,49 @@ class FailureClassifierTest {
         TestResult r = TestResult.builder().testCaseId("t").testCaseName("c").passed(true).build();
         assertFalse(classifier.classify(caseOf(), r).isPresent());
     }
+
+    // ==================== 会话/评测类结果 ====================
+
+    private TestResult conversationalFailure(String assertionName, String actual) {
+        return TestResult.builder().testCaseId("s1").testCaseName("会话用例")
+                .passed(false).actualStatusCode(200)
+                .assertionDetails(java.util.List.of(
+                        com.ai.mall.agent.test.model.AssertionDetail.builder()
+                                .assertionName(assertionName).passed(false)
+                                .expected("ok").actual(actual).message("未通过").build()))
+                .build();
+    }
+
+    @Test
+    void conversationalAssertionFailureIsAlwaysHighValueSignal() {
+        var summary = classifier.classifyConversational(
+                conversationalFailure("拒答正确性 (expectedRefusal)", "抱歉，我无法回答"));
+        assertTrue(summary.isPresent(),
+                "会话断言名是动态拼的，不可能在契约层白名单里；除噪音外都应沉淀");
+        assertTrue(summary.get().contains("拒答正确性"));
+        assertTrue(summary.get().contains("抱歉，我无法回答"));
+    }
+
+    @Test
+    void conversationalConnectionNoiseIsStillExcluded() {
+        TestResult r = TestResult.builder().testCaseId("s1").testCaseName("会话用例")
+                .passed(false).actualStatusCode(0)
+                .errorMessage("Connection refused")
+                .build();
+        assertFalse(classifier.classifyConversational(r).isPresent(),
+                "环境噪音不应被记成 Agent 质量缺陷");
+    }
+
+    @Test
+    void conversationalPassedResultIsIgnored() {
+        TestResult r = TestResult.builder().testCaseId("s1").passed(true).build();
+        assertFalse(classifier.classifyConversational(r).isPresent());
+    }
+
+    @Test
+    void conversationalFailureWithoutAssertionFallsBackToStatusCode() {
+        TestResult r = TestResult.builder().testCaseId("s1").passed(false)
+                .actualStatusCode(503).build();
+        assertTrue(classifier.classifyConversational(r).orElse("").contains("503"));
+    }
 }

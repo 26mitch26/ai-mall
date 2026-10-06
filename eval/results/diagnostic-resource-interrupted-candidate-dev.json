@@ -1,0 +1,93 @@
+{
+  "generatedAt": "2026-10-06T12:03:20.343677+00:00",
+  "runId": "45cdf15ab2c9",
+  "dataSha256": "1f90ab627c18df9a2d60515c4fe986e47efa9defe89ac2061fdf8999839560cd",
+  "split": "dev",
+  "language": "zh-adapted",
+  "label": "low-memory-candidate",
+  "trialsPerTask": 2,
+  "maxHttpCalls": 40,
+  "scheduledAttempts": 20,
+  "complete": false,
+  "maxMemoryPercent": 90,
+  "baseUrl": "http://localhost:8083",
+  "model": "ai-mall-eval-qwen3:0.6b",
+  "externalApiSpend": 0,
+  "costNote": "Local compute/electricity costs not measured; no cloud judge calls. Cache must be disabled for independent-trial comparison.",
+  "metrics": {
+    "attempts": 2,
+    "passed": 0,
+    "taskProxyPassRate": 0,
+    "infraErrors": 2,
+    "p50Ms": 4076.06,
+    "p95Ms": 4101.62,
+    "modelCalls": null,
+    "inputTokens": null,
+    "outputTokens": null,
+    "semanticCorrectness": null,
+    "businessOutcomeSuccess": null,
+    "humanReviewed": false,
+    "reliability": [
+      {
+        "k": 1,
+        "eligibleTasks": 2,
+        "passAtK": 0.0,
+        "passPowerK": 0.0
+      },
+      {
+        "k": 2,
+        "eligibleTasks": 0,
+        "passAtK": null,
+        "passPowerK": null
+      },
+      {
+        "k": 3,
+        "eligibleTasks": 0,
+        "passAtK": null,
+        "passPowerK": null
+      }
+    ]
+  },
+  "trials": [
+    {
+      "id": "bitext-check_refund_policy-0-zh-adapted",
+      "intent": "check_refund_policy",
+      "trial": 1,
+      "request": {
+        "message": "帮我查一下你们的退款政策",
+        "sessionId": "product-eval-45cdf15ab2c9-0-bitext-check_refund_policy-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1915
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4050.5,
+      "memoryAfter": {
+        "usedPercent": 89,
+        "availableMB": 1677
+      }
+    },
+    {
+      "id": "bitext-check_payment_methods-0-zh-adapted",
+      "intent": "check_payment_methods",
+      "trial": 1,
+      "request": {
+        "message": "怎么查看你们支持哪些付款方式",
+        "sessionId": "product-eval-45cdf15ab2c9-0-bitext-check_payment_methods-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 89,
+        "availableMB": 1677
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4101.62,
+      "memoryAfter": {
+        "usedPercent": 90,
+        "availableMB": 1504
+      }
+    }
+  ]
+}

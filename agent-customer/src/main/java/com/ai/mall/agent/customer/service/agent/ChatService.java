@@ -11,6 +11,8 @@ import com.ai.mall.agent.customer.model.ToolInvocationContext;
 import com.ai.mall.agent.customer.service.audit.AuditService;
 import com.ai.mall.agent.customer.service.memory.MemoryService;
 import com.ai.mall.agent.customer.service.rag.RagService;
+import com.ai.mall.agent.customer.service.telemetry.AgentTelemetry;
+import com.ai.mall.agent.customer.service.evidence.EvidenceVerifier;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,14 +32,25 @@ public class ChatService {
     private final AgentCollaborationService agentCollaborationService;
     private final MemoryService memoryService;
     private final AuditService auditService;
+    private final com.ai.mall.agent.customer.service.graph.PolicyGraphService policyGraph;
 
     public ChatResponse chat(ChatRequest request) {
+        try (AgentTelemetry.Scope trace = AgentTelemetry.open()) {
+            ChatResponse response = processChat(request);
+            response.setTrace(trace.summary());
+            return response;
+        }
+    }
+
+    private ChatResponse processChat(ChatRequest request) {
         long startTime = System.currentTimeMillis();
 
         String sessionId = request.getSessionId();
         if (sessionId == null || sessionId.isEmpty()) {
             sessionId = UUID.randomUUID().toString();
         }
+        String publicSession = sessionId;
+        sessionId = memorySession(sessionId, request.getUserId());
 
         log.info("Processing chat request for session: {}", sessionId);
 
@@ -56,24 +69,50 @@ public class ChatService {
                 .build());
 
         CollaborationPlan collaboration = agentCollaborationService.plan(request.getMessage());
-        String answer = reactAgent.think(sessionId, request.getMessage(), context);
+        String query = StandaloneQueryResolver.resolve(request.getMessage(), memoryService.getShortTermMemory(sessionId));
+        var graph = policyGraph.retrieve(query);
+        if (!java.util.Objects.equals(query, request.getMessage())) AgentTelemetry.recordStage("rewrite", 0, "success");
+        String answer;
+        try (var graphEvidence = com.ai.mall.agent.customer.service.graph.GraphEvidenceContext.open(policyGraph.evidenceFor(graph))) {
+            answer = reactAgent.think(sessionId, query, context);
+        }
 
         long responseTime = System.currentTimeMillis() - startTime;
 
         RagService.RetrievalOutcome evidence = reactAgent.getLastEvidence(sessionId);
+        EvidenceVerifier.Report evidenceReport = new EvidenceVerifier().verify(answer, reactAgent.getLastRetrieval(sessionId));
+        if(!evidenceReport.conflicts().isEmpty()) {
+            answer="检索到的积分抵扣规则存在冲突，暂时无法确认适用上限，请联系人工客服核对。下方列出本次检索的政策依据。";
+            AgentTelemetry.recordStage("evidence",0,"refusal");
+        }
         List<SourceReference> sources = isRefusal(answer) ? List.of() : toSources(reactAgent.getLastRetrieval(sessionId));
+        AgentTelemetry.recordStage("chat", responseTime, isRefusal(answer) ? "refusal" : "success");
 
         return ChatResponse.builder()
-                .sessionId(sessionId)
+                .sessionId(publicSession)
                 .message(request.getMessage())
                 .answer(answer)
                 .intent(classifyIntent(request.getMessage()))
+                .resolutionStatus(HumanSupportIntent.matches(request.getMessage()) || isRefusal(answer)
+                        ? "HANDOFF_RECOMMENDED" : "RESPONSE_PROVIDED")
+                .handoffStatus("NOT_CONNECTED")
                 .responseTime(responseTime)
                 .sources(sources)
                 .collaboration(collaboration)
                 .retrievalDecision(buildRetrievalDecision(answer, sources, evidence))
                 .evidenceScore(evidence != null ? evidence.evidenceScore() : null)
+                .retrievalRoute(HumanSupportIntent.GUIDANCE.equals(answer) ? "human-guidance"
+                        : evidence != null ? evidence.route() : "tool-or-cache")
+                .reranker(evidence != null ? evidence.reranker() : null)
+                .correctionCount(evidence != null ? evidence.correctionCount() : 0)
+                .knowledgeVersion(evidence != null ? evidence.knowledgeVersion() : null)
+                .evidenceReport(evidenceReport)
+                .graph(graph)
                 .build();
+    }
+
+    public static String memorySession(String sessionId, String memberId) {
+        return (memberId == null || memberId.isBlank() ? "anon" : "member_" + memberId) + "_" + sessionId;
     }
 
     /**
@@ -82,20 +121,27 @@ public class ChatService {
      */
     private String buildRetrievalDecision(String answer, List<SourceReference> sources,
                                           RagService.RetrievalOutcome evidence) {
+        if (HumanSupportIntent.GUIDANCE.equals(answer)) return "处理指引 · 人工客服尚未接入";
         if (answer != null && answer.contains("无法凭知识库自行确认")) {
-            return "检索判定 · 输出护栏拦截，已转人工";
+            return "检索判定 · 输出护栏拦截，建议联系人工客服";
         }
         if (isRefusal(answer)) {
             return evidence != null && evidence.weakEvidence()
-                    ? "检索判定 · 依据不足，已自动转人工（证据强度 "
+                    ? "检索判定 · 依据不足，建议联系人工客服（证据强度 "
                             + String.format("%.2f", evidence.evidenceScore()) + "）"
-                    : "检索判定 · 依据不足，已自动转人工（依据来自历史复答或模型自判）";
+                    : "检索判定 · 依据不足，建议联系人工客服（依据来自历史复答或模型自判）";
         }
         if (sources == null || sources.isEmpty()) {
             return "检索判定 · 实时业务数据（工具直查）";
         }
+        String routeLabel = evidence == null ? "知识检索" : switch (String.valueOf(evidence.route())) {
+            case "semantic" -> "语义检索";
+            case "exact" -> "关键词检索";
+            case "hybrid" -> "混合检索";
+            default -> "知识检索";
+        };
         return evidence != null && evidence.topSimilarity() > 0
-                ? "检索判定 · 依据充分（混合检索，语义相似度 "
+                ? "检索判定 · 依据充分（" + routeLabel + "，语义相似度 "
                         + String.format("%.2f", evidence.topSimilarity()) + "）"
                 : "检索判定 · 依据充分（知识库命中）";
     }
@@ -106,7 +152,8 @@ public class ChatService {
      */
     private boolean isRefusal(String answer) {
         return answer != null && (answer.contains("我在知识库中没有找到")
-                || answer.contains("无法给您准确的答复"));
+                || answer.contains("无法给您准确的答复")
+                || answer.contains("暂时无法确认适用上限"));
     }
 
     private List<SourceReference> toSources(List<Document> documents) {
@@ -124,6 +171,12 @@ public class ChatService {
                     .content(shorten(document.getContent(), 280))
                     .score(document.getScore())
                     .retrievalSource(document.getRetrievalSource() == null ? "hybrid" : document.getRetrievalSource())
+                    .version(document.getVersion())
+                    .contentHash(document.getContentHash())
+                    .effectiveAt(document.getEffectiveAt())
+                    .scope(document.getScope())
+                    .evidenceVerified(document.isEvidenceVerified())
+                    .knowledgeVersion(document.getKnowledgeVersion())
                     .build());
             if (sources.size() == 3) break;
         }

@@ -12,6 +12,8 @@ import com.ai.mall.agent.customer.service.rag.SemanticAnswerCacheService;
 import com.ai.mall.agent.customer.service.security.InputSanitizer;
 import com.ai.mall.agent.customer.service.security.OutputGuardrail;
 import com.ai.mall.agent.customer.service.tool.ToolRegistry;
+import com.ai.mall.agent.customer.service.workflow.AfterSaleWorkflowService;
+import com.ai.mall.agent.customer.model.workflow.AfterSaleWorkflowState;
 import com.ai.mall.common.circuitbreaker.ModelCircuitBreaker;
 import com.ai.mall.common.circuitbreaker.ModelRouterService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,9 +22,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -59,6 +68,17 @@ class ReActAgentTest {
     @Mock
     private AuditService auditService;
 
+    @Mock
+    private AfterSaleWorkflowService afterSaleWorkflowService;
+
+    @Mock
+    private StringRedisTemplate stateRedis;
+
+    @Mock
+    private ValueOperations<String, String> redisValues;
+
+    private final Map<String, String> redisState = new HashMap<>();
+
     private ObjectMapper objectMapper;
 
     private ReActAgent agent;
@@ -81,6 +101,35 @@ class ReActAgentTest {
                 outputGuardrail,
                 auditService
         );
+        ReflectionTestUtils.setField(agent, "stateRedis", stateRedis);
+        // Existing cases exercise the planning loop; the public-policy route has its own regression below.
+        ReflectionTestUtils.setField(agent, "policyDirectEnabled", false);
+        ReflectionTestUtils.setField(agent, "afterSaleWorkflowService", afterSaleWorkflowService);
+        lenient().when(stateRedis.opsForValue()).thenReturn(redisValues);
+        lenient().when(redisValues.get(anyString())).thenAnswer(invocation -> redisState.get(invocation.getArgument(0)));
+        lenient().doAnswer(invocation -> {
+            redisState.put(invocation.getArgument(0), invocation.getArgument(1));
+            return null;
+        }).when(redisValues).set(anyString(), anyString(), anyLong(), eq(TimeUnit.DAYS));
+        lenient().when(redisValues.setIfAbsent(anyString(), anyString(), anyLong(), eq(TimeUnit.DAYS)))
+                .thenAnswer(invocation -> {
+                    String key = invocation.getArgument(0);
+                    if (redisState.containsKey(key)) return false;
+                    redisState.put(key, invocation.getArgument(1));
+                    return true;
+                });
+        lenient().when(stateRedis.execute(any(DefaultRedisScript.class), anyList(), any(Object[].class)))
+                .thenAnswer(invocation -> {
+                    String key = ((List<String>) invocation.getArgument(1)).get(0);
+                    String expected = invocation.getArgument(2);
+                    String replacement = invocation.getArgument(3);
+                    if (expected.equals(redisState.get(key))) {
+                        redisState.put(key, replacement);
+                        return 1L;
+                    }
+                    return 0L;
+                });
+        lenient().when(stateRedis.delete(anyString())).thenAnswer(invocation -> redisState.remove(invocation.getArgument(0)) != null);
         userContext = ToolInvocationContext.builder()
                 .sessionId("session-2")
                 .memberId("member-1001")
@@ -411,20 +460,16 @@ class ReActAgentTest {
                         {"code":200,"message":"操作成功","data":{
                           "id":9,"memberId":"member-1001","orderSn":"202610020100000002","status":0,"payAmount":6999.0
                         }}""");
-        when(toolRegistry.executeStructuredTool(eq("cancel_order"), anyString(),
-                any(ToolInvocationContext.class)))
-                .thenReturn("""
-                        {"code":200,"message":"操作成功","data":{
-                          "orderSn":"202610020100000002","status":4,"statusText":"已关闭"
-                        }}""");
+        when(afterSaleWorkflowService.prepareCancellation(any(ToolInvocationContext.class), eq("202610020100000002")))
+                .thenReturn(AfterSaleWorkflowState.builder().taskId("wf-cancel").orderSn("202610020100000002")
+                        .draft("订单取消申请草稿\n订单：202610020100000002").build());
 
         String answer = agent.think(sessionId, query, userContext);
 
-        assertTrue(answer.contains("已为您取消订单"));
+        assertTrue(answer.contains("订单取消申请草稿"));
         assertTrue(answer.contains("202610020100000002"));
-        // 取消工具必须携带用户身份（归属与写操作均需令牌）
-        verify(toolRegistry).executeStructuredTool(eq("cancel_order"), contains("202610020100000002"),
-                argThat(ctx -> ctx != null && "member-1001".equals(ctx.getMemberId())));
+        verify(afterSaleWorkflowService).prepareCancellation(any(ToolInvocationContext.class), eq("202610020100000002"));
+        verify(toolRegistry, never()).executeStructuredTool(eq("cancel_order"), anyString(), any(ToolInvocationContext.class));
         verify(modelRouterService, never()).callWithFallback(anyString());
     }
 
@@ -545,9 +590,10 @@ class ReActAgentTest {
         String answer = agent.think(sessionId, query, userContext);
 
         assertEquals(RagService.NO_CONTEXT_ANSWER, answer);
-        // 证据不足直接拒答：不进入模型推理（省掉 20s+ 无效推理），拒答话术可复用
+        // 证据不足直接拒答且不缓存，避免无证据答案残留。
         verify(modelRouterService, never()).callWithFallback(anyString());
-        verify(semanticAnswerCache).store(eq(query), anyString(), eq(RagService.NO_CONTEXT_ANSWER), anyList());
+        verify(semanticAnswerCache, never()).store(anyString(), anyString(), anyString(), anyList());
+        verify(semanticAnswerCache, never()).store(anyString(), anyString(), anyString(), anyList(), anyString());
     }
 
     @Test
@@ -629,9 +675,6 @@ class ReActAgentTest {
 
         when(inputSanitizer.sanitize(maliciousQuery))
                 .thenReturn("[BLOCKED: 输入包含不安全内容]");
-        when(inputSanitizer.isValidLength("[BLOCKED: 输入包含不安全内容]")).thenReturn(true);
-        when(memoryService.getShortTermMemory(sessionId)).thenReturn(new ArrayList<>());
-        when(toolRegistry.getAllTools()).thenReturn(new ArrayList<>());
         when(memoryService.createMessage(anyString(), anyString(), anyString()))
                 .thenReturn(ChatMessage.builder()
                         .id("msg-4")
@@ -639,11 +682,6 @@ class ReActAgentTest {
                         .role("assistant")
                         .content("输入已被拦截")
                         .build());
-        when(modelRouterService.callWithFallback(anyString()))
-                .thenReturn("""
-                        Thought: The input was blocked
-                        Final Answer: 输入包含不安全内容。""");
-
         String answer = agent.think(sessionId, maliciousQuery);
 
         assertNotNull(answer);
@@ -773,5 +811,34 @@ class ReActAgentTest {
         verify(modelRouterService, never()).callWithFallback(anyString());
         // 命中路径的答案同样必须过输出护栏
         verify(outputGuardrail).check(anyString(), anyBoolean());
+    }
+    @Test
+    void explicitHumanRequestDoesNotSpendModelCallsOrClaimTransfer() {
+        String answer = agent.think("human-request", "请转人工客服");
+        assertEquals(HumanSupportIntent.GUIDANCE, answer);
+        verify(modelRouterService, never()).callWithFallback(anyString());
+        verify(ragService, never()).retrieveWithEvidence(anyString(), anyInt());
+        verifyNoInteractions(toolRegistry);
+    }
+
+    @Test
+    void publicPaymentPolicyCannotBeMisroutedToPrivateOrderTools() {
+        ReflectionTestUtils.setField(agent, "policyDirectEnabled", true);
+        when(memoryService.getShortTermMemory(anyString())).thenReturn(List.of());
+        Document policy = Document.builder().source("payment-faq.md").content("支付方式：支持微信支付和支付宝。")
+                .evidenceVerified(true).build();
+        when(ragService.retrieveWithEvidence("支持哪些支付方式", 3))
+                .thenReturn(new RagService.RetrievalOutcome(List.of(policy), .9, 5, .9, false));
+        String answer = agent.think("public-policy", "支持哪些支付方式");
+        assertTrue(answer.contains("微信"));
+        assertEquals(List.of(policy), agent.getLastRetrieval("public-policy"));
+        assertNotNull(agent.getLastEvidence("public-policy"));
+        verify(semanticAnswerCache, never()).lookup(anyString(), anyString());
+        verify(modelRouterService, never()).callWithFallback(anyString());
+        verify(ragService, never()).generateAnswer(anyString(), anyList());
+        verifyNoInteractions(toolRegistry);
+        agent.think("public-policy", "请转人工客服");
+        assertTrue(agent.getLastRetrieval("public-policy").isEmpty());
+        assertNull(agent.getLastEvidence("public-policy"));
     }
 }

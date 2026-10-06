@@ -32,6 +32,7 @@ test:
       - mall-admin
       - mall-portal
       - agent-customer-scenarios
+      - agent-customer-quality
     module-base-urls:
       mall-admin: http://localhost:8081
       mall-portal: http://localhost:8087
@@ -50,6 +51,68 @@ test:
       enabled: ${TEST_AGENT_AI_ENABLED:false}
       model: ${TEST_AGENT_MODEL:qwen3.5-noVL:latest}
       temperature: 0.3
+    # 入口鉴权：本服务能对内网服务发起真实请求，直连 8085 会绕过网关，因此自身必须 fail-closed。
+    # 两条凭证通道：① 用户 JWT（与网关 jwt.secret 同密钥，前端/CI 走这条）；
+    #             ② 内部静态令牌（X-Test-Agent-Token 头，供 CodeBuddy 等外部 Agent 使用）。
+    auth:
+      enabled: ${TEST_AGENT_AUTH_ENABLED:true}
+      jwt-enabled: true
+      token: ${TEST_AGENT_TOKEN:}
+    # 被测服务凭证：执行器为契约用例注入令牌。留空表示不注入（公开接口场景）。
+    # 此前执行器从不带任何请求头，需要登录态的接口只会被判 401/403 —— 假红灯淹没有效信号。
+    target-auth:
+      token: ${TEST_AGENT_TARGET_TOKEN:}
+      header-name: Authorization
+      token-prefix: 'Bearer '
+      # 按模块覆盖令牌（可选），例如管理端与会员端用不同账号
+      module-tokens: {}
+    # 开跑前的环境可达性探针：被测服务没起来时，报告自证"红灯来自环境"
+    probe:
+      enabled: ${TEST_AGENT_PROBE_ENABLED:true}
+      path: /actuator/health
+      timeout-ms: 2000
+      healthy-statuses:
+        - UP
+    # 客服 Agent 质量评测（gold 集 + 确定性指标 + 可选 LLM judge）
+    quality:
+      enabled: ${TEST_AGENT_QUALITY_ENABLED:true}
+      split: test
+      categories:
+        - policy
+        - no_answer
+        - injection
+        - boundary
+        - conflict
+      # 单条用例要真实走一次大模型（约 15-25s），默认按类别轮询取 12 条；全量 149 条需预留一小时
+      max-cases: ${TEST_AGENT_QUALITY_MAX_CASES:12}
+      include-follow-up: false
+      min-source-recall: 0.7
+      min-refusal-accuracy: 0.9
+      min-blocked-accuracy: 1.0
+      min-correctness: 70
+    # 报告留存：内存 + 本地 JSON 双写，重启后 reportId 仍可查询（MCP / 前端历史列表都依赖它）
+    report:
+      persist: ${TEST_AGENT_REPORT_PERSIST:true}
+      file: ${TEST_AGENT_REPORT_FILE:test-reports.json}
+      max-retained: 20
+      # 落盘时截断每条用例的响应体，完整响应只留内存
+      max-response-chars: 2000
+    # MCP 接入（Streamable HTTP JSON-only，协议版本 2025-06-18）。
+    # 端点 POST /mcp，不进网关白名单：调用方必须携带上面两条凭证之一。
+    mcp:
+      enabled: ${TEST_AGENT_MCP_ENABLED:true}
+      allowed-origins: ${TEST_AGENT_MCP_ORIGINS:}
+      # 回归会真实打被测服务，默认串行；队列满直接拒绝，避免被当作压测入口
+      max-concurrent-runs: 1
+      max-queued-runs: 8
+      max-wait-seconds: 300
+      max-report-results: 50
+      run-history-size: 50
+
+# 与网关 JwtAuthenticationFilter 同一密钥：直连 8085 时由本服务校验用户 JWT
+jwt:
+  secret: ${JWT_SECRET:default-dev-secret-change-in-prod}
+  tokenHead: 'Bearer '
 
 # SpringDoc OpenAPI
 springdoc:

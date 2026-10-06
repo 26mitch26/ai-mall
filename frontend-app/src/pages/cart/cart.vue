@@ -1,5 +1,8 @@
 <template>
-  <view class="container">
+  <view class="container pc-storefront-page">
+    <!-- #ifdef H5 -->
+    <pc-storefront-nav active="cart" />
+    <!-- #endif -->
     <!-- 空白页 -->
     <view v-if="!hasLogin || empty === true" class="empty">
       <image src="/static/emptyCart.jpg" mode="aspectFit"></image>
@@ -74,6 +77,7 @@
 </template>
 
 <script setup lang="ts">
+import PcStorefrontNav from '@/components/pc-storefront-nav.vue'
 import { ref, computed, watch } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { useMemberStore } from '@/stores/member'
@@ -451,5 +455,47 @@ const calcTotal = () => {
 .action-section .checkbox.checked,
 .cart-item .checkbox.checked {
   color: #fa436a;
+}
+
+@media screen and (min-width: 769px) {
+  .container {
+    width: min(1240px, calc(100% - 64px));
+    min-height: calc(100vh - 80px);
+    margin: 0 auto;
+    padding: 24px 0 40px;
+  }
+
+  .empty {
+    position: static !important;
+    height: calc(100vh - 144px) !important;
+    min-height: 360px;
+    padding-bottom: 0 !important;
+    border-radius: 18px;
+  }
+
+  .empty image {
+    width: 180px;
+    height: 120px;
+  }
+
+  .empty-tips {
+    font-size: 14px !important;
+  }
+
+  .cart-list {
+    overflow: hidden;
+    border: 1px solid #edf0f6;
+    border-radius: 18px;
+    background: #fff;
+  }
+
+  .cart-item {
+    padding: 18px 24px;
+  }
+
+  .cart-item .image-wrapper {
+    width: 112px;
+    height: 112px;
+  }
 }
 </style>

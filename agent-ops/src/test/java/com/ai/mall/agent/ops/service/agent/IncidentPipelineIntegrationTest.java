@@ -2,6 +2,7 @@ package com.ai.mall.agent.ops.service.agent;
 
 import com.ai.mall.agent.ops.model.HealLevel;
 import com.ai.mall.agent.ops.model.IncidentState;
+import com.ai.mall.agent.ops.service.audit.GateDecisionStore;
 import com.ai.mall.agent.ops.service.event.EventBus;
 import com.ai.mall.agent.ops.service.knowledge.KnowledgeGraphService;
 import com.ai.mall.common.circuitbreaker.ModelCircuitBreaker;
@@ -46,6 +47,9 @@ class IncidentPipelineIntegrationTest {
     private Orchestrator orchestrator;
     private MonitorAgent monitorAgent;
 
+    @org.junit.jupiter.api.io.TempDir
+    java.nio.file.Path tempDir;
+
     @BeforeEach
     void setUp() throws Exception {
         // local-mode：同步分发；ObjectMapper 注册 JavaTimeModule 以支持 LocalDateTime
@@ -61,7 +65,10 @@ class IncidentPipelineIntegrationTest {
 
         RCAAgent rcaAgent = new RCAAgent(eventBus, knowledgeGraph);
         HealAgent healAgent = new HealAgent(eventBus);
-        ChangeAgent changeAgent = new ChangeAgent(eventBus);
+        // ChangeAgent 现在把门控决策落成可审批的 GateRecord（不再只写无人可查的内存 List）
+        GateDecisionStore gateStore = new GateDecisionStore(new ObjectMapper(),
+                tempDir.resolve("gates.json").toString(), 50);
+        ChangeAgent changeAgent = new ChangeAgent(eventBus, gateStore);
 
         // 熔断器不打桩：getState 返回 null 时不命中任何告警分支，仅记录可用性日志
         ModelRouterService router = mock(ModelRouterService.class);

@@ -1,0 +1,2238 @@
+{
+  "generatedAt": "2026-10-06T12:34:56.829500+00:00",
+  "runId": "6bdc799b65c7",
+  "dataSha256": "1f90ab627c18df9a2d60515c4fe986e47efa9defe89ac2061fdf8999839560cd",
+  "split": "dev",
+  "language": "zh-adapted",
+  "label": "semantic-cpu-ablation-no-cache",
+  "trialsPerTask": 2,
+  "maxHttpCalls": 40,
+  "scheduledAttempts": 20,
+  "complete": false,
+  "maxMemoryPercent": 90,
+  "baseUrl": "http://localhost:8083",
+  "model": "ai-mall-eval-qwen3:0.6b",
+  "externalApiSpend": 0,
+  "configuration": {
+    "semanticCacheEnabled": false,
+    "policyDirectEnabled": false,
+    "explicitHandoffEnabled": false,
+    "contextTokens": 2048,
+    "archiveEnabled": false,
+    "model": "ai-mall-eval-qwen3:0.6b",
+    "localBackends": true,
+    "gpuLayers": 0,
+    "retrievalStrategy": "auto",
+    "keepAlive": "0",
+    "semanticRerankFeatureEnabled": false
+  },
+  "metadataHttpCalls": 1,
+  "costNote": "Local compute/electricity costs not measured; no cloud judge calls. Model calls/tokens count generation only, embedding usage is unknown. Cache disabled for independent-trial comparison.",
+  "metrics": {
+    "attempts": 13,
+    "passed": 9,
+    "taskProxyPassRate": 0.6923076923076923,
+    "infraErrors": 0,
+    "p50Ms": 8852.7,
+    "p95Ms": 26325.14,
+    "modelCalls": 16,
+    "inputTokens": 19434,
+    "outputTokens": 986,
+    "semanticCorrectness": null,
+    "businessOutcomeSuccess": null,
+    "humanReviewed": false,
+    "reliability": [
+      {
+        "k": 1,
+        "eligibleTasks": 10,
+        "passAtK": 0.75,
+        "passPowerK": 0.75
+      },
+      {
+        "k": 2,
+        "eligibleTasks": 3,
+        "passAtK": 0.6666666666666666,
+        "passPowerK": 0.3333333333333333
+      },
+      {
+        "k": 3,
+        "eligibleTasks": 0,
+        "passAtK": null,
+        "passPowerK": null
+      }
+    ]
+  },
+  "trials": [
+    {
+      "id": "bitext-check_refund_policy-0-zh-adapted",
+      "intent": "check_refund_policy",
+      "trial": 1,
+      "request": {
+        "message": "帮我查一下你们的退款政策",
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-check_refund_policy-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 86,
+        "availableMB": 2095
+      },
+      "resourceWaitSeconds": 0,
+      "response": {
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-check_refund_policy-0-zh-adapted",
+        "message": "帮我查一下你们的退款政策",
+        "answer": "我在知识库中没有找到相关信息，建议您联系人工客服进一步确认。",
+        "intent": "general",
+        "resolutionStatus": "HANDOFF_RECOMMENDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 19326,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据不足，建议联系人工客服（依据来自历史复答或模型自判）",
+        "evidenceScore": 0.7082746028900146,
+        "retrievalRoute": "semantic",
+        "reranker": "feature",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "6fcce016bf9867ca417763b645ff1b89",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 1,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 15,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 1616,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 10214,
+              "outcome": "success"
+            },
+            {
+              "name": "tool",
+              "durationMs": 17,
+              "outcome": "failure"
+            },
+            {
+              "name": "llm",
+              "durationMs": 7306,
+              "outcome": "success"
+            },
+            {
+              "name": "chat",
+              "durationMs": 19326,
+              "outcome": "refusal"
+            }
+          ],
+          "modelCalls": 2,
+          "inputTokens": 2345,
+          "outputTokens": 153
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 1,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "我在知识库中没有找到相关信息，建议您联系人工客服进一步确认。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": false
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 19402.58,
+      "memoryAfter": {
+        "usedPercent": 86,
+        "availableMB": 2116
+      }
+    },
+    {
+      "id": "bitext-check_payment_methods-0-zh-adapted",
+      "intent": "check_payment_methods",
+      "trial": 1,
+      "request": {
+        "message": "怎么查看你们支持哪些付款方式",
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-check_payment_methods-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 86,
+        "availableMB": 2116
+      },
+      "resourceWaitSeconds": 0,
+      "response": {
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-check_payment_methods-0-zh-adapted",
+        "message": "怎么查看你们支持哪些付款方式",
+        "answer": "我们支持的支付方式包括微信支付、支付宝和银联云闪付。如果您需要进一步了解支付方式，可以联系人工客服获取详细信息。",
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 18700,
+        "sources": [
+          {
+            "id": "86d4a27a-189c-334e-913a-d26910221a96",
+            "source": "docs/knowledge/shipping-policy.md",
+            "type": "policy",
+            "content": "# AI-Mall 配送与运费规则\n\n运费门槛：全场实付金额满九十九元免基础运费；不足九十九元时，普通地区收取八元运费，偏远地区（新疆、西藏、内蒙古部分地区）收取十五元。包邮门槛按优惠后的实付金额计算，不包含运费与税费。\n发货时效：现货商品在付款后二十四小时内出库；预售商品按商品页面承诺的时间发货。遇大促期间时效顺延，请您理解。\n配送时效：同城订单支持半日达，最快四小时送达；省内一般一到两天，外省二到四天，偏远地区三到五天。\n物流跟踪：发货后可在订单详情查看物流轨迹，也可以让智能客服查询订单的物流单号与配送公司。",
+            "score": 1.0,
+            "retrievalSource": "milvus",
+            "version": "fc6fbc7b165c6378579938a1864798c0bb366ce738d2b13a7ff06102b28eb6bf",
+            "contentHash": "339b38fcbfcb24401a8ae3d1888dea04d77eaa9237b65263d2937eade3e7c677",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "bfb841b9-45a3-3389-b981-43fbee571ab3",
+            "source": "docs/knowledge/payment-faq.md",
+            "type": "policy",
+            "content": "# AI-Mall 支付 FAQ\n\n支持的支付方式：微信支付、支付宝、银联云闪付。本地演示环境使用模拟支付，支付成功后订单状态会自动更新为待发货。\n重复扣款处理：出现重复扣款时，请在智能客服提供订单编号，客服会查询订单支付记录，并为您创建售后工单核实，核实无误后多扣金额将在一到三个工作日内原路退回。\n支付失败处理：支付失败后订单将在十五分钟内自动释放库存，您可以重新下单，不会产生额外费用。\n退款异常处理：若退款超过三个工作日仍未到账，请提供订单编号联系智能客服人工核实。",
+            "score": 0.8577046685560537,
+            "retrievalSource": "milvus",
+            "version": "433850f26f796fb4274103bddb3a4a8c9e0e13982053dc1c11643bdea3f7df49",
+            "contentHash": "e03eebd5efc5ce7432262d1481a91f8bc616eb5d2695f7765271d2dda7c7ce5b",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "3c5b553b-c47e-3db9-9304-154b183461f5",
+            "source": "docs/knowledge/member-benefits.md",
+            "type": "policy",
+            "content": "# AI-Mall 会员权益规则\n\n会员等级：AI-Mall 使用成长值划分会员等级，默认所有注册用户为普通会员；成长值累积可提升会员等级，等级越高享受的权益越多。\n成长值获取：完成订单支付后可获得成长值，评价商品可额外获得成长值。\n积分规则：订单完成后按实付金额发放积分，100 积分可抵扣 1 元，单笔订单最高抵扣订单金额的 50%；积分与优惠券可以同时使用。\n优惠券规则：优惠券在券面有效期内使用，过期自动作废、不支持补发；每笔订单最多使用一张优惠券，具体使用门槛以券面说明为准。",
+            "score": 0.561262611053264,
+            "retrievalSource": "milvus",
+            "version": "b69358bf4d4e1717b83382bfb16b48167f1a316c16503b77d1e91d159dc66409",
+            "contentHash": "b4a59e068d91abe5cb680ef1819face672dcde1fc7b65a1e092063c72791d2b5",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          }
+        ],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据充分（语义检索，语义相似度 0.66）",
+        "evidenceScore": 0.6644206047058105,
+        "retrievalRoute": "semantic",
+        "reranker": "feature",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "b59f2556d80990e4281d55f91ad9545e",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 10,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 1197,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 9953,
+              "outcome": "success"
+            },
+            {
+              "name": "tool",
+              "durationMs": 5,
+              "outcome": "failure"
+            },
+            {
+              "name": "llm",
+              "durationMs": 7408,
+              "outcome": "success"
+            },
+            {
+              "name": "chat",
+              "durationMs": 18700,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 2,
+          "inputTokens": 2290,
+          "outputTokens": 166
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 2,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "我们支持的支付方式包括微信支付、支付宝和银联云闪付。",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "如果您需要进一步了解支付方式，可以联系人工客服获取详细信息。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 18726.33,
+      "memoryAfter": {
+        "usedPercent": 89,
+        "availableMB": 1634
+      }
+    },
+    {
+      "id": "bitext-delivery_period-0-zh-adapted",
+      "intent": "delivery_period",
+      "trial": 1,
+      "request": {
+        "message": "想查一下买的东西多久送到",
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-delivery_period-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 89,
+        "availableMB": 1653
+      },
+      "resourceWaitSeconds": 0,
+      "response": {
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-delivery_period-0-zh-adapted",
+        "message": "想查一下买的东西多久送到",
+        "answer": "无法直接查询订单配送时间，建议您联系人工客服进一步确认。",
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 8846,
+        "sources": [
+          {
+            "id": "bfb841b9-45a3-3389-b981-43fbee571ab3",
+            "source": "docs/knowledge/payment-faq.md",
+            "type": "policy",
+            "content": "# AI-Mall 支付 FAQ\n\n支持的支付方式：微信支付、支付宝、银联云闪付。本地演示环境使用模拟支付，支付成功后订单状态会自动更新为待发货。\n重复扣款处理：出现重复扣款时，请在智能客服提供订单编号，客服会查询订单支付记录，并为您创建售后工单核实，核实无误后多扣金额将在一到三个工作日内原路退回。\n支付失败处理：支付失败后订单将在十五分钟内自动释放库存，您可以重新下单，不会产生额外费用。\n退款异常处理：若退款超过三个工作日仍未到账，请提供订单编号联系智能客服人工核实。",
+            "score": 1.0,
+            "retrievalSource": "milvus",
+            "version": "433850f26f796fb4274103bddb3a4a8c9e0e13982053dc1c11643bdea3f7df49",
+            "contentHash": "e03eebd5efc5ce7432262d1481a91f8bc616eb5d2695f7765271d2dda7c7ce5b",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "52b96d07-8f9b-356e-a9a8-97e3499fe236",
+            "source": "docs/knowledge/refund-policy.md",
+            "type": "policy",
+            "content": "# AI-Mall 退货退款政策\n\n订单签收后七日内，支持无理由退货退款。退回商品需保持完好、吊牌未剪、不影响二次销售；食品、贴身衣物与定制类商品不支持无理由退货。\n退款金额以实际支付金额为准，不含运费。符合退货条件的订单，在申请审核通过后一到三个工作日内退款至原支付账户。\n退货运费规则：商品存在质量问题或发错货时，退货运费由平台承担；非质量问题的七天无理由退货，退回运费由买家承担。\n退货操作路径：进入智能客服或会员中心选择对应订单，提交退货原因与说明，等待平台审核即可。发票、赠品需随商品一并退回。",
+            "score": 0.9739046366224193,
+            "retrievalSource": "milvus",
+            "version": "d3ddbfb6f1880c62efb47e624457318d05ae80a0e0fe295f32a4860d4b21d707",
+            "contentHash": "d67585a2cbc375bcb82c64974878f01ca80c3d62b82f351b81b88193eceedb35",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "86d4a27a-189c-334e-913a-d26910221a96",
+            "source": "docs/knowledge/shipping-policy.md",
+            "type": "policy",
+            "content": "# AI-Mall 配送与运费规则\n\n运费门槛：全场实付金额满九十九元免基础运费；不足九十九元时，普通地区收取八元运费，偏远地区（新疆、西藏、内蒙古部分地区）收取十五元。包邮门槛按优惠后的实付金额计算，不包含运费与税费。\n发货时效：现货商品在付款后二十四小时内出库；预售商品按商品页面承诺的时间发货。遇大促期间时效顺延，请您理解。\n配送时效：同城订单支持半日达，最快四小时送达；省内一般一到两天，外省二到四天，偏远地区三到五天。\n物流跟踪：发货后可在订单详情查看物流轨迹，也可以让智能客服查询订单的物流单号与配送公司。",
+            "score": 0.9628282928412607,
+            "retrievalSource": "milvus",
+            "version": "fc6fbc7b165c6378579938a1864798c0bb366ce738d2b13a7ff06102b28eb6bf",
+            "contentHash": "339b38fcbfcb24401a8ae3d1888dea04d77eaa9237b65263d2937eade3e7c677",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          }
+        ],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据充分（语义检索，语义相似度 0.67）",
+        "evidenceScore": 0.6734256148338318,
+        "retrievalRoute": "semantic",
+        "reranker": "feature",
+        "correctionCount": 1,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "90356fd395378c62c9b4adfe229392f7",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "success"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 12,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 1303,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 7439,
+              "outcome": "success"
+            },
+            {
+              "name": "chat",
+              "durationMs": 8846,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 1,
+          "inputTokens": 1117,
+          "outputTokens": 38
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 1,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "无法直接查询订单配送时间，建议您联系人工客服进一步确认。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 8852.7,
+      "memoryAfter": {
+        "usedPercent": 91,
+        "availableMB": 1390
+      }
+    },
+    {
+      "id": "bitext-delivery_options-0-zh-adapted",
+      "intent": "delivery_options",
+      "trial": 1,
+      "request": {
+        "message": "查一下配送方式",
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-delivery_options-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1925
+      },
+      "resourceWaitSeconds": 1,
+      "response": {
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-delivery_options-0-zh-adapted",
+        "message": "查一下配送方式",
+        "answer": "没有找到相关信息，建议您联系人工客服进一步确认。",
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 7859,
+        "sources": [
+          {
+            "id": "86d4a27a-189c-334e-913a-d26910221a96",
+            "source": "docs/knowledge/shipping-policy.md",
+            "type": "policy",
+            "content": "# AI-Mall 配送与运费规则\n\n运费门槛：全场实付金额满九十九元免基础运费；不足九十九元时，普通地区收取八元运费，偏远地区（新疆、西藏、内蒙古部分地区）收取十五元。包邮门槛按优惠后的实付金额计算，不包含运费与税费。\n发货时效：现货商品在付款后二十四小时内出库；预售商品按商品页面承诺的时间发货。遇大促期间时效顺延，请您理解。\n配送时效：同城订单支持半日达，最快四小时送达；省内一般一到两天，外省二到四天，偏远地区三到五天。\n物流跟踪：发货后可在订单详情查看物流轨迹，也可以让智能客服查询订单的物流单号与配送公司。",
+            "score": 1.0,
+            "retrievalSource": "milvus",
+            "version": "fc6fbc7b165c6378579938a1864798c0bb366ce738d2b13a7ff06102b28eb6bf",
+            "contentHash": "339b38fcbfcb24401a8ae3d1888dea04d77eaa9237b65263d2937eade3e7c677",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "bfb841b9-45a3-3389-b981-43fbee571ab3",
+            "source": "docs/knowledge/payment-faq.md",
+            "type": "policy",
+            "content": "# AI-Mall 支付 FAQ\n\n支持的支付方式：微信支付、支付宝、银联云闪付。本地演示环境使用模拟支付，支付成功后订单状态会自动更新为待发货。\n重复扣款处理：出现重复扣款时，请在智能客服提供订单编号，客服会查询订单支付记录，并为您创建售后工单核实，核实无误后多扣金额将在一到三个工作日内原路退回。\n支付失败处理：支付失败后订单将在十五分钟内自动释放库存，您可以重新下单，不会产生额外费用。\n退款异常处理：若退款超过三个工作日仍未到账，请提供订单编号联系智能客服人工核实。",
+            "score": 0.9511860681753682,
+            "retrievalSource": "milvus",
+            "version": "433850f26f796fb4274103bddb3a4a8c9e0e13982053dc1c11643bdea3f7df49",
+            "contentHash": "e03eebd5efc5ce7432262d1481a91f8bc616eb5d2695f7765271d2dda7c7ce5b",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "52b96d07-8f9b-356e-a9a8-97e3499fe236",
+            "source": "docs/knowledge/refund-policy.md",
+            "type": "policy",
+            "content": "# AI-Mall 退货退款政策\n\n订单签收后七日内，支持无理由退货退款。退回商品需保持完好、吊牌未剪、不影响二次销售；食品、贴身衣物与定制类商品不支持无理由退货。\n退款金额以实际支付金额为准，不含运费。符合退货条件的订单，在申请审核通过后一到三个工作日内退款至原支付账户。\n退货运费规则：商品存在质量问题或发错货时，退货运费由平台承担；非质量问题的七天无理由退货，退回运费由买家承担。\n退货操作路径：进入智能客服或会员中心选择对应订单，提交退货原因与说明，等待平台审核即可。发票、赠品需随商品一并退回。",
+            "score": 0.07912751189552328,
+            "retrievalSource": "milvus",
+            "version": "d3ddbfb6f1880c62efb47e624457318d05ae80a0e0fe295f32a4860d4b21d707",
+            "contentHash": "d67585a2cbc375bcb82c64974878f01ca80c3d62b82f351b81b88193eceedb35",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          }
+        ],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据充分（语义检索，语义相似度 0.60）",
+        "evidenceScore": 0.6029534339904785,
+        "retrievalRoute": "semantic",
+        "reranker": "feature",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "6e98a8379dce03426ab0104d1c85b149",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 9,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 428,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 7332,
+              "outcome": "success"
+            },
+            {
+              "name": "chat",
+              "durationMs": 7859,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 1,
+          "inputTokens": 1112,
+          "outputTokens": 37
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 1,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "没有找到相关信息，建议您联系人工客服进一步确认。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 7867.51,
+      "memoryAfter": {
+        "usedPercent": 91,
+        "availableMB": 1410
+      }
+    },
+    {
+      "id": "bitext-get_invoice-0-zh-adapted",
+      "intent": "get_invoice",
+      "trial": 1,
+      "request": {
+        "message": "帮我获取我的发票",
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-get_invoice-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1890
+      },
+      "resourceWaitSeconds": 1,
+      "response": {
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-get_invoice-0-zh-adapted",
+        "message": "帮我获取我的发票",
+        "answer": "无法获取您的发票，您需要登录AI-Mall后，通过订单详情页申请或使用电子发票功能。请先登录账户。",
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 19954,
+        "sources": [
+          {
+            "id": "c762336e-9d63-3324-ad72-dbb12a7eb4ce",
+            "source": "docs/knowledge/invoice-warranty.md",
+            "type": "policy",
+            "content": "# AI-Mall 发票与保修服务说明\n\n发票类型：平台支持开具电子普通发票与增值税专用发票。电子普通发票在订单完成后自动开具并发送至下单邮箱，也可在订单详情页手动申请重发；增值税专用发票需在提交订单时选择并填写完整的公司名称、纳税人识别号、开户行与账号、注册地址与电话，审核通过后三个工作日内开具并邮寄。\n\n开票时间：订单支付完成后即可申请开票；订单发生退款时，发票将同步冲红作废。已开具的发票如需更换，请在开票后三十天内提交更换申请，注明更换原因并提供正确的抬头信息；跨月换开需要先作废原发票，周期约为三到五个工作日。\n\n保修期限：手机、平板、笔记本等主机…",
+            "score": 1.0,
+            "retrievalSource": "milvus",
+            "version": "cbfea9362ec5d81543e2b968e5c52d186904ef22f87af954cee26de3e40e8470",
+            "contentHash": "80acb22613b174b025fbadc897ae1ff3e87c91f35cdc01a420c210f4bc4b1efe",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "52b96d07-8f9b-356e-a9a8-97e3499fe236",
+            "source": "docs/knowledge/refund-policy.md",
+            "type": "policy",
+            "content": "# AI-Mall 退货退款政策\n\n订单签收后七日内，支持无理由退货退款。退回商品需保持完好、吊牌未剪、不影响二次销售；食品、贴身衣物与定制类商品不支持无理由退货。\n退款金额以实际支付金额为准，不含运费。符合退货条件的订单，在申请审核通过后一到三个工作日内退款至原支付账户。\n退货运费规则：商品存在质量问题或发错货时，退货运费由平台承担；非质量问题的七天无理由退货，退回运费由买家承担。\n退货操作路径：进入智能客服或会员中心选择对应订单，提交退货原因与说明，等待平台审核即可。发票、赠品需随商品一并退回。",
+            "score": 0.6703669261522532,
+            "retrievalSource": "milvus",
+            "version": "d3ddbfb6f1880c62efb47e624457318d05ae80a0e0fe295f32a4860d4b21d707",
+            "contentHash": "d67585a2cbc375bcb82c64974878f01ca80c3d62b82f351b81b88193eceedb35",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "3c5b553b-c47e-3db9-9304-154b183461f5",
+            "source": "docs/knowledge/member-benefits.md",
+            "type": "policy",
+            "content": "# AI-Mall 会员权益规则\n\n会员等级：AI-Mall 使用成长值划分会员等级，默认所有注册用户为普通会员；成长值累积可提升会员等级，等级越高享受的权益越多。\n成长值获取：完成订单支付后可获得成长值，评价商品可额外获得成长值。\n积分规则：订单完成后按实付金额发放积分，100 积分可抵扣 1 元，单笔订单最高抵扣订单金额的 50%；积分与优惠券可以同时使用。\n优惠券规则：优惠券在券面有效期内使用，过期自动作废、不支持补发；每笔订单最多使用一张优惠券，具体使用门槛以券面说明为准。",
+            "score": 0.6553033627524099,
+            "retrievalSource": "milvus",
+            "version": "b69358bf4d4e1717b83382bfb16b48167f1a316c16503b77d1e91d159dc66409",
+            "contentHash": "b4a59e068d91abe5cb680ef1819face672dcde1fc7b65a1e092063c72791d2b5",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          }
+        ],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据充分（语义检索，语义相似度 0.64）",
+        "evidenceScore": 0.6357215642929077,
+        "retrievalRoute": "semantic",
+        "reranker": "feature",
+        "correctionCount": 1,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "af9bc1bf8ea4181c3827e6761b650790",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "success"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 10,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 546,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 10012,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 9295,
+              "outcome": "success"
+            },
+            {
+              "name": "chat",
+              "durationMs": 19954,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 2,
+          "inputTokens": 2878,
+          "outputTokens": 107
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 2,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "无法获取您的发票，您需要登录AI-Mall后，通过订单详情页申请或使用电子发票功能。",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "请先登录账户。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 19974.99,
+      "memoryAfter": {
+        "usedPercent": 92,
+        "availableMB": 1259
+      }
+    },
+    {
+      "id": "bitext-track_order-0-zh-adapted",
+      "intent": "track_order",
+      "trial": 1,
+      "request": {
+        "message": "帮我查订单AM-DEMO-PUBLIC-001的位置",
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-track_order-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1781
+      },
+      "resourceWaitSeconds": 1,
+      "response": {
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-track_order-0-zh-adapted",
+        "message": "帮我查订单AM-DEMO-PUBLIC-001的位置",
+        "answer": "该操作需要登录后才能进行，请先登录",
+        "intent": "order_task",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 18,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 实时业务数据（工具直查）",
+        "evidenceScore": null,
+        "retrievalRoute": "tool-or-cache",
+        "reranker": null,
+        "correctionCount": 0,
+        "knowledgeVersion": null,
+        "trace": {
+          "traceId": "9adb3d0e25089c2428fcdef55eadf9b1",
+          "stages": [
+            {
+              "name": "chat",
+              "durationMs": 18,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 0,
+          "unsupportedNumericClaims": 0,
+          "claims": [],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 26.55,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1781
+      }
+    },
+    {
+      "id": "bitext-cancel_order-0-zh-adapted",
+      "intent": "cancel_order",
+      "trial": 1,
+      "request": {
+        "message": "取消订单AM-DEMO-PUBLIC-001时遇到问题",
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-cancel_order-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1781
+      },
+      "resourceWaitSeconds": 0,
+      "response": {
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-cancel_order-0-zh-adapted",
+        "message": "取消订单AM-DEMO-PUBLIC-001时遇到问题",
+        "answer": "该操作需要登录后才能进行，请先登录",
+        "intent": "order_task",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 11,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 实时业务数据（工具直查）",
+        "evidenceScore": null,
+        "retrievalRoute": "tool-or-cache",
+        "reranker": null,
+        "correctionCount": 0,
+        "knowledgeVersion": null,
+        "trace": {
+          "traceId": "f253f5bcf3d53d87a2408363534adc24",
+          "stages": [
+            {
+              "name": "chat",
+              "durationMs": 11,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 0,
+          "unsupportedNumericClaims": 0,
+          "claims": [],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 15.87,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1781
+      }
+    },
+    {
+      "id": "bitext-get_refund-0-zh-adapted",
+      "intent": "get_refund",
+      "trial": 1,
+      "request": {
+        "message": "我要申请退款",
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-get_refund-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1781
+      },
+      "resourceWaitSeconds": 0,
+      "response": {
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-get_refund-0-zh-adapted",
+        "message": "我要申请退款",
+        "answer": "请提供需要申请售后的订单编号（例如：202609300001），我来帮您创建售后工单。",
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 7,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 实时业务数据（工具直查）",
+        "evidenceScore": null,
+        "retrievalRoute": "tool-or-cache",
+        "reranker": null,
+        "correctionCount": 0,
+        "knowledgeVersion": null,
+        "trace": {
+          "traceId": "e61e1bff14abc286dd641cdd442d78c4",
+          "stages": [
+            {
+              "name": "chat",
+              "durationMs": 7,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 0,
+          "unsupportedNumericClaims": 0,
+          "claims": [],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 26.98,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1779
+      }
+    },
+    {
+      "id": "bitext-contact_human_agent-0-zh-adapted",
+      "intent": "contact_human_agent",
+      "trial": 1,
+      "request": {
+        "message": "帮我联系真人客服",
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-contact_human_agent-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1778
+      },
+      "resourceWaitSeconds": 0,
+      "response": {
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-contact_human_agent-0-zh-adapted",
+        "message": "帮我联系真人客服",
+        "answer": "我无法直接联系真人客服，但根据知识库，您可以联系智能客服并提供订单编号以查询售后工单状态。请提供订单编号以便协助您。",
+        "intent": "general",
+        "resolutionStatus": "HANDOFF_RECOMMENDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 21993,
+        "sources": [
+          {
+            "id": "6f7fabf0-6d45-3b30-afea-cd696fb82c26",
+            "source": "docs/knowledge/after-sale-process.md",
+            "type": "policy",
+            "content": "# AI-Mall 售后流程说明\n\n售后工单提交：在智能客服或会员中心选择对应订单，提交售后原因和问题描述，平台会在二十四小时内完成审核。\n退货流程：审核通过后请将商品寄回平台售后地址，平台收到并验收商品后发起退款，退款在一到三个工作日内原路退回。\n换货规则：商品存在质量问题或发错商品时，可申请免费换货，换货产生的往返运费由平台承担；因个人原因（款式、尺码等）申请换货时，往返运费由买家承担。\n售后进度查询：联系智能客服并提供订单编号，即可查询售后工单的处理状态。保修期内非人为损坏可免费维修，人为损坏收取材料费与工时费。",
+            "score": 1.0,
+            "retrievalSource": "milvus",
+            "version": "0a7e0c91590cb9bfeee76a1dcbffec560b9fbf69ed049c54b3d0c13e4f381b64",
+            "contentHash": "a6184f8616d7b234fe428568c25c094aac464d159505e00e98baa50f52190096",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "bfb841b9-45a3-3389-b981-43fbee571ab3",
+            "source": "docs/knowledge/payment-faq.md",
+            "type": "policy",
+            "content": "# AI-Mall 支付 FAQ\n\n支持的支付方式：微信支付、支付宝、银联云闪付。本地演示环境使用模拟支付，支付成功后订单状态会自动更新为待发货。\n重复扣款处理：出现重复扣款时，请在智能客服提供订单编号，客服会查询订单支付记录，并为您创建售后工单核实，核实无误后多扣金额将在一到三个工作日内原路退回。\n支付失败处理：支付失败后订单将在十五分钟内自动释放库存，您可以重新下单，不会产生额外费用。\n退款异常处理：若退款超过三个工作日仍未到账，请提供订单编号联系智能客服人工核实。",
+            "score": 0.977364500996728,
+            "retrievalSource": "milvus",
+            "version": "433850f26f796fb4274103bddb3a4a8c9e0e13982053dc1c11643bdea3f7df49",
+            "contentHash": "e03eebd5efc5ce7432262d1481a91f8bc616eb5d2695f7765271d2dda7c7ce5b",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "438f1006-20ae-3272-bbf3-edbd2886fb29",
+            "source": "docs/knowledge/account-security.md",
+            "type": "policy",
+            "content": "# AI-Mall 会员账号与信息安全说明\n\n账号注册与登录：会员账号支持手机号注册与登录，注册时需完成短信验证码校验。为保障账号安全，登录密码要求八位以上并包含字母与数字；连续五次输入错误密码账号将被临时锁定三十分钟，可通过短信验证码快速解锁。建议开启登录保护，开启后在陌生设备登录需要额外短信验证。\n\n密码找回：忘记密码时，在登录页选择\"忘记密码\"，通过注册手机号接收验证码后重置。若手机号已停用，可联系人工客服并提供最近一笔订单的订单号、收货人姓名与下单时间进行身份核验，核验通过后协助更换绑定手机号。为保护账号安全，客服不会索要您的登录密码与短信验证码…",
+            "score": 0.9446210140250052,
+            "retrievalSource": "milvus",
+            "version": "8e2f7eb79c4906f2585355ead29bed1bb3a7b8cb72d316c5fb9f119c341e3bb8",
+            "contentHash": "0f7fe1bbefe5a7a6699bcf0ace4f8ce654af6847e64b095b9fc39b8a26d1922b",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          }
+        ],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据充分（语义检索，语义相似度 0.59）",
+        "evidenceScore": 0.5906946063041687,
+        "retrievalRoute": "semantic",
+        "reranker": "feature",
+        "correctionCount": 1,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "35531fe94a9ea694f8300c47803d2b7f",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "success"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 9,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 1305,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 10919,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 9673,
+              "outcome": "success"
+            },
+            {
+              "name": "chat",
+              "durationMs": 21993,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 2,
+          "inputTokens": 2803,
+          "outputTokens": 142
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 2,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "我无法直接联系真人客服，但根据知识库，您可以联系智能客服并提供订单编号以查询售后工单状态。",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "请提供订单编号以便协助您。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 21998.92,
+      "memoryAfter": {
+        "usedPercent": 90,
+        "availableMB": 1590
+      }
+    },
+    {
+      "id": "bitext-payment_issue-0-zh-adapted",
+      "intent": "payment_issue",
+      "trial": 1,
+      "request": {
+        "message": "我不知道怎么反馈支付时遇到的问题",
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-payment_issue-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 89,
+        "availableMB": 1624
+      },
+      "resourceWaitSeconds": 0,
+      "response": {
+        "sessionId": "product-eval-6bdc799b65c7-0-bitext-payment_issue-0-zh-adapted",
+        "message": "我不知道怎么反馈支付时遇到的问题",
+        "answer": "我无法提供具体支付问题的反馈，建议您联系人工客服进一步确认。",
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 26299,
+        "sources": [
+          {
+            "id": "52b96d07-8f9b-356e-a9a8-97e3499fe236",
+            "source": "docs/knowledge/refund-policy.md",
+            "type": "policy",
+            "content": "# AI-Mall 退货退款政策\n\n订单签收后七日内，支持无理由退货退款。退回商品需保持完好、吊牌未剪、不影响二次销售；食品、贴身衣物与定制类商品不支持无理由退货。\n退款金额以实际支付金额为准，不含运费。符合退货条件的订单，在申请审核通过后一到三个工作日内退款至原支付账户。\n退货运费规则：商品存在质量问题或发错货时，退货运费由平台承担；非质量问题的七天无理由退货，退回运费由买家承担。\n退货操作路径：进入智能客服或会员中心选择对应订单，提交退货原因与说明，等待平台审核即可。发票、赠品需随商品一并退回。",
+            "score": 1.0,
+            "retrievalSource": "milvus",
+            "version": "d3ddbfb6f1880c62efb47e624457318d05ae80a0e0fe295f32a4860d4b21d707",
+            "contentHash": "d67585a2cbc375bcb82c64974878f01ca80c3d62b82f351b81b88193eceedb35",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "bfb841b9-45a3-3389-b981-43fbee571ab3",
+            "source": "docs/knowledge/payment-faq.md",
+            "type": "policy",
+            "content": "# AI-Mall 支付 FAQ\n\n支持的支付方式：微信支付、支付宝、银联云闪付。本地演示环境使用模拟支付，支付成功后订单状态会自动更新为待发货。\n重复扣款处理：出现重复扣款时，请在智能客服提供订单编号，客服会查询订单支付记录，并为您创建售后工单核实，核实无误后多扣金额将在一到三个工作日内原路退回。\n支付失败处理：支付失败后订单将在十五分钟内自动释放库存，您可以重新下单，不会产生额外费用。\n退款异常处理：若退款超过三个工作日仍未到账，请提供订单编号联系智能客服人工核实。",
+            "score": 0.61178434600229,
+            "retrievalSource": "milvus",
+            "version": "433850f26f796fb4274103bddb3a4a8c9e0e13982053dc1c11643bdea3f7df49",
+            "contentHash": "e03eebd5efc5ce7432262d1481a91f8bc616eb5d2695f7765271d2dda7c7ce5b",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "6f7fabf0-6d45-3b30-afea-cd696fb82c26",
+            "source": "docs/knowledge/after-sale-process.md",
+            "type": "policy",
+            "content": "# AI-Mall 售后流程说明\n\n售后工单提交：在智能客服或会员中心选择对应订单，提交售后原因和问题描述，平台会在二十四小时内完成审核。\n退货流程：审核通过后请将商品寄回平台售后地址，平台收到并验收商品后发起退款，退款在一到三个工作日内原路退回。\n换货规则：商品存在质量问题或发错商品时，可申请免费换货，换货产生的往返运费由平台承担；因个人原因（款式、尺码等）申请换货时，往返运费由买家承担。\n售后进度查询：联系智能客服并提供订单编号，即可查询售后工单的处理状态。保修期内非人为损坏可免费维修，人为损坏收取材料费与工时费。",
+            "score": 0.5263005065985984,
+            "retrievalSource": "milvus",
+            "version": "0a7e0c91590cb9bfeee76a1dcbffec560b9fbf69ed049c54b3d0c13e4f381b64",
+            "contentHash": "a6184f8616d7b234fe428568c25c094aac464d159505e00e98baa50f52190096",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          }
+        ],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据充分（语义检索，语义相似度 0.69）",
+        "evidenceScore": 0.6885098218917847,
+        "retrievalRoute": "semantic",
+        "reranker": "feature",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "f97f900e6910a5e7ec7918a3bd438514",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 8,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 1285,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 8768,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 8535,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 7607,
+              "outcome": "success"
+            },
+            {
+              "name": "chat",
+              "durationMs": 26299,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 3,
+          "inputTokens": 3539,
+          "outputTokens": 179
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 1,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "我无法提供具体支付问题的反馈，建议您联系人工客服进一步确认。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 26325.14,
+      "memoryAfter": {
+        "usedPercent": 90,
+        "availableMB": 1493
+      }
+    },
+    {
+      "id": "bitext-check_refund_policy-0-zh-adapted",
+      "intent": "check_refund_policy",
+      "trial": 2,
+      "request": {
+        "message": "帮我查一下你们的退款政策",
+        "sessionId": "product-eval-6bdc799b65c7-1-bitext-check_refund_policy-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 87,
+        "availableMB": 2007
+      },
+      "resourceWaitSeconds": 1,
+      "response": {
+        "sessionId": "product-eval-6bdc799b65c7-1-bitext-check_refund_policy-0-zh-adapted",
+        "message": "帮我查一下你们的退款政策",
+        "answer": "有关于退货运费的政策，订单签收后七日内支持无理由退货退款。商品需保持完好、吊牌未剪、不影响二次销售；食品、贴身衣物与定制类商品不支持无理由退货。退款金额以实际支付金额为准，不含运费。符合退货条件的订单，在申请审核通过后一到三个工作日内退款至原支付账户。",
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 9712,
+        "sources": [
+          {
+            "id": "52b96d07-8f9b-356e-a9a8-97e3499fe236",
+            "source": "docs/knowledge/refund-policy.md",
+            "type": "policy",
+            "content": "# AI-Mall 退货退款政策\n\n订单签收后七日内，支持无理由退货退款。退回商品需保持完好、吊牌未剪、不影响二次销售；食品、贴身衣物与定制类商品不支持无理由退货。\n退款金额以实际支付金额为准，不含运费。符合退货条件的订单，在申请审核通过后一到三个工作日内退款至原支付账户。\n退货运费规则：商品存在质量问题或发错货时，退货运费由平台承担；非质量问题的七天无理由退货，退回运费由买家承担。\n退货操作路径：进入智能客服或会员中心选择对应订单，提交退货原因与说明，等待平台审核即可。发票、赠品需随商品一并退回。",
+            "score": 1.0,
+            "retrievalSource": "milvus",
+            "version": "d3ddbfb6f1880c62efb47e624457318d05ae80a0e0fe295f32a4860d4b21d707",
+            "contentHash": "d67585a2cbc375bcb82c64974878f01ca80c3d62b82f351b81b88193eceedb35",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "6f7fabf0-6d45-3b30-afea-cd696fb82c26",
+            "source": "docs/knowledge/after-sale-process.md",
+            "type": "policy",
+            "content": "# AI-Mall 售后流程说明\n\n售后工单提交：在智能客服或会员中心选择对应订单，提交售后原因和问题描述，平台会在二十四小时内完成审核。\n退货流程：审核通过后请将商品寄回平台售后地址，平台收到并验收商品后发起退款，退款在一到三个工作日内原路退回。\n换货规则：商品存在质量问题或发错商品时，可申请免费换货，换货产生的往返运费由平台承担；因个人原因（款式、尺码等）申请换货时，往返运费由买家承担。\n售后进度查询：联系智能客服并提供订单编号，即可查询售后工单的处理状态。保修期内非人为损坏可免费维修，人为损坏收取材料费与工时费。",
+            "score": 0.2577400287793268,
+            "retrievalSource": "milvus",
+            "version": "0a7e0c91590cb9bfeee76a1dcbffec560b9fbf69ed049c54b3d0c13e4f381b64",
+            "contentHash": "a6184f8616d7b234fe428568c25c094aac464d159505e00e98baa50f52190096",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "bfb841b9-45a3-3389-b981-43fbee571ab3",
+            "source": "docs/knowledge/payment-faq.md",
+            "type": "policy",
+            "content": "# AI-Mall 支付 FAQ\n\n支持的支付方式：微信支付、支付宝、银联云闪付。本地演示环境使用模拟支付，支付成功后订单状态会自动更新为待发货。\n重复扣款处理：出现重复扣款时，请在智能客服提供订单编号，客服会查询订单支付记录，并为您创建售后工单核实，核实无误后多扣金额将在一到三个工作日内原路退回。\n支付失败处理：支付失败后订单将在十五分钟内自动释放库存，您可以重新下单，不会产生额外费用。\n退款异常处理：若退款超过三个工作日仍未到账，请提供订单编号联系智能客服人工核实。",
+            "score": 0.2507128556327945,
+            "retrievalSource": "milvus",
+            "version": "433850f26f796fb4274103bddb3a4a8c9e0e13982053dc1c11643bdea3f7df49",
+            "contentHash": "e03eebd5efc5ce7432262d1481a91f8bc616eb5d2695f7765271d2dda7c7ce5b",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          }
+        ],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据充分（语义检索，语义相似度 0.71）",
+        "evidenceScore": 0.7082746028900146,
+        "retrievalRoute": "semantic",
+        "reranker": "feature",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "3926bb952f30cad7d5ad5adc4f7eebde",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 11,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 1162,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 8463,
+              "outcome": "success"
+            },
+            {
+              "name": "chat",
+              "durationMs": 9712,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 1,
+          "inputTokens": 1117,
+          "outputTokens": 86
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 5,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "有关于退货运费的政策，订单签收后七日内支持无理由退货退款。",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "商品需保持完好、吊牌未剪、不影响二次销售；",
+              "evidenceIds": [
+                "52b96d07-8f9b-356e-a9a8-97e3499fe236"
+              ],
+              "support": "lexical-match"
+            },
+            {
+              "text": "食品、贴身衣物与定制类商品不支持无理由退货。",
+              "evidenceIds": [
+                "52b96d07-8f9b-356e-a9a8-97e3499fe236"
+              ],
+              "support": "lexical-match"
+            },
+            {
+              "text": "退款金额以实际支付金额为准，不含运费。",
+              "evidenceIds": [
+                "52b96d07-8f9b-356e-a9a8-97e3499fe236"
+              ],
+              "support": "lexical-match"
+            },
+            {
+              "text": "符合退货条件的订单，在申请审核通过后一到三个工作日内退款至原支付账户。",
+              "evidenceIds": [
+                "52b96d07-8f9b-356e-a9a8-97e3499fe236"
+              ],
+              "support": "lexical-match"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 9732.38,
+      "memoryAfter": {
+        "usedPercent": 90,
+        "availableMB": 1510
+      }
+    },
+    {
+      "id": "bitext-check_payment_methods-0-zh-adapted",
+      "intent": "check_payment_methods",
+      "trial": 2,
+      "request": {
+        "message": "怎么查看你们支持哪些付款方式",
+        "sessionId": "product-eval-6bdc799b65c7-1-bitext-check_payment_methods-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 87,
+        "availableMB": 2020
+      },
+      "resourceWaitSeconds": 1,
+      "response": {
+        "sessionId": "product-eval-6bdc799b65c7-1-bitext-check_payment_methods-0-zh-adapted",
+        "message": "怎么查看你们支持哪些付款方式",
+        "answer": "支持的支付方式：微信支付、支付宝、银联云闪付。",
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 7307,
+        "sources": [
+          {
+            "id": "86d4a27a-189c-334e-913a-d26910221a96",
+            "source": "docs/knowledge/shipping-policy.md",
+            "type": "policy",
+            "content": "# AI-Mall 配送与运费规则\n\n运费门槛：全场实付金额满九十九元免基础运费；不足九十九元时，普通地区收取八元运费，偏远地区（新疆、西藏、内蒙古部分地区）收取十五元。包邮门槛按优惠后的实付金额计算，不包含运费与税费。\n发货时效：现货商品在付款后二十四小时内出库；预售商品按商品页面承诺的时间发货。遇大促期间时效顺延，请您理解。\n配送时效：同城订单支持半日达，最快四小时送达；省内一般一到两天，外省二到四天，偏远地区三到五天。\n物流跟踪：发货后可在订单详情查看物流轨迹，也可以让智能客服查询订单的物流单号与配送公司。",
+            "score": 1.0,
+            "retrievalSource": "milvus",
+            "version": "fc6fbc7b165c6378579938a1864798c0bb366ce738d2b13a7ff06102b28eb6bf",
+            "contentHash": "339b38fcbfcb24401a8ae3d1888dea04d77eaa9237b65263d2937eade3e7c677",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "bfb841b9-45a3-3389-b981-43fbee571ab3",
+            "source": "docs/knowledge/payment-faq.md",
+            "type": "policy",
+            "content": "# AI-Mall 支付 FAQ\n\n支持的支付方式：微信支付、支付宝、银联云闪付。本地演示环境使用模拟支付，支付成功后订单状态会自动更新为待发货。\n重复扣款处理：出现重复扣款时，请在智能客服提供订单编号，客服会查询订单支付记录，并为您创建售后工单核实，核实无误后多扣金额将在一到三个工作日内原路退回。\n支付失败处理：支付失败后订单将在十五分钟内自动释放库存，您可以重新下单，不会产生额外费用。\n退款异常处理：若退款超过三个工作日仍未到账，请提供订单编号联系智能客服人工核实。",
+            "score": 0.8577046685560537,
+            "retrievalSource": "milvus",
+            "version": "433850f26f796fb4274103bddb3a4a8c9e0e13982053dc1c11643bdea3f7df49",
+            "contentHash": "e03eebd5efc5ce7432262d1481a91f8bc616eb5d2695f7765271d2dda7c7ce5b",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "3c5b553b-c47e-3db9-9304-154b183461f5",
+            "source": "docs/knowledge/member-benefits.md",
+            "type": "policy",
+            "content": "# AI-Mall 会员权益规则\n\n会员等级：AI-Mall 使用成长值划分会员等级，默认所有注册用户为普通会员；成长值累积可提升会员等级，等级越高享受的权益越多。\n成长值获取：完成订单支付后可获得成长值，评价商品可额外获得成长值。\n积分规则：订单完成后按实付金额发放积分，100 积分可抵扣 1 元，单笔订单最高抵扣订单金额的 50%；积分与优惠券可以同时使用。\n优惠券规则：优惠券在券面有效期内使用，过期自动作废、不支持补发；每笔订单最多使用一张优惠券，具体使用门槛以券面说明为准。",
+            "score": 0.561262611053264,
+            "retrievalSource": "milvus",
+            "version": "b69358bf4d4e1717b83382bfb16b48167f1a316c16503b77d1e91d159dc66409",
+            "contentHash": "b4a59e068d91abe5cb680ef1819face672dcde1fc7b65a1e092063c72791d2b5",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          }
+        ],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据充分（语义检索，语义相似度 0.66）",
+        "evidenceScore": 0.6644206047058105,
+        "retrievalRoute": "semantic",
+        "reranker": "feature",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "95240f358a9debd116712752ab399ce7",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 14,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 427,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 6792,
+              "outcome": "success"
+            },
+            {
+              "name": "chat",
+              "durationMs": 7307,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 1,
+          "inputTokens": 1116,
+          "outputTokens": 22
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 1,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "支持的支付方式：微信支付、支付宝、银联云闪付。",
+              "evidenceIds": [
+                "bfb841b9-45a3-3389-b981-43fbee571ab3"
+              ],
+              "support": "lexical-match"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 7313.45,
+      "memoryAfter": {
+        "usedPercent": 90,
+        "availableMB": 1493
+      }
+    },
+    {
+      "id": "bitext-delivery_period-0-zh-adapted",
+      "intent": "delivery_period",
+      "trial": 2,
+      "request": {
+        "message": "想查一下买的东西多久送到",
+        "sessionId": "product-eval-6bdc799b65c7-1-bitext-delivery_period-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 87,
+        "availableMB": 1992
+      },
+      "resourceWaitSeconds": 1,
+      "response": {
+        "sessionId": "product-eval-6bdc799b65c7-1-bitext-delivery_period-0-zh-adapted",
+        "message": "想查一下买的东西多久送到",
+        "answer": "我在知识库中没有找到相关信息，建议您联系人工客服进一步确认。",
+        "intent": "general",
+        "resolutionStatus": "HANDOFF_RECOMMENDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 8388,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据不足，建议联系人工客服（依据来自历史复答或模型自判）",
+        "evidenceScore": 0.6734256148338318,
+        "retrievalRoute": "semantic",
+        "reranker": "feature",
+        "correctionCount": 1,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "9bdd79e7b326241d2d4dc458aabaac1d",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "success"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 9,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 482,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 7825,
+              "outcome": "success"
+            },
+            {
+              "name": "chat",
+              "durationMs": 8388,
+              "outcome": "refusal"
+            }
+          ],
+          "modelCalls": 1,
+          "inputTokens": 1117,
+          "outputTokens": 56
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 1,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "我在知识库中没有找到相关信息，建议您联系人工客服进一步确认。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": false
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 8408.37,
+      "memoryAfter": {
+        "usedPercent": 90,
+        "availableMB": 1473
+      }
+    }
+  ]
+}

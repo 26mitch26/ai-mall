@@ -4,6 +4,7 @@ import com.ai.mall.agent.test.config.AgentTestConfig;
 import com.ai.mall.agent.test.model.AssertionDetail;
 import com.ai.mall.agent.test.model.ScenarioCase;
 import com.ai.mall.agent.test.model.TestResult;
+import com.ai.mall.agent.test.service.support.MemberLoginService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -40,16 +41,22 @@ public class CustomerScenarioRunner {
     /** 场景测试模块名（TestAgent 路由标识） */
     public static final String MODULE_NAME = "agent-customer-scenarios";
 
+    /** 客服对话端点（经网关）：缺陷回流按此路径聚合计数 */
+    public static final String CHAT_PATH = "/agent/customer/api/v1/chat";
+
     private final ScenarioCaseLoader caseLoader;
     private final ObjectMapper objectMapper;
     private final AgentTestConfig config;
+    private final MemberLoginService loginService;
     private final RestTemplate http;
     private final AgentTestConfig.ScenarioConfig scenario;
 
-    public CustomerScenarioRunner(ScenarioCaseLoader caseLoader, ObjectMapper objectMapper, AgentTestConfig config) {
+    public CustomerScenarioRunner(ScenarioCaseLoader caseLoader, ObjectMapper objectMapper,
+                                  AgentTestConfig config, MemberLoginService loginService) {
         this.caseLoader = caseLoader;
         this.objectMapper = objectMapper;
         this.config = config;
+        this.loginService = loginService;
         this.scenario = config.getScenario();
         // 场景含 LLM 路径（政策问答实测可到 ~25s），需要独立的读超时，
         // 不能沿用契约执行器 10s 的全局读超时（会把正常慢回答误判为失败）。
@@ -77,7 +84,7 @@ public class CustomerScenarioRunner {
                     "test.agent.scenario.enabled=false，场景套件已关闭", ""));
         }
 
-        String token = login();
+        String token = loginService.login();
         if (token == null) {
             String reason = "会员登录失败（" + scenario.getLoginUsername() + "@" + scenario.getGatewayUrl()
                     + "），无法执行需要身份的会话用例";
@@ -123,7 +130,7 @@ public class CustomerScenarioRunner {
             String body;
             try {
                 ResponseEntity<String> resp = http.exchange(
-                        scenario.getGatewayUrl() + "/agent/customer/api/v1/chat",
+                        scenario.getGatewayUrl() + CHAT_PATH,
                         HttpMethod.POST, new HttpEntity<>(payload, headers), String.class);
                 actualStatus = resp.getStatusCode().value();
                 body = resp.getBody();
@@ -217,33 +224,6 @@ public class CustomerScenarioRunner {
     }
 
     // ==================== 工具方法 ====================
-
-    /** 登录演示会员，返回 JWT；失败返回 null（不抛出，交由调用方逐用例标注失败原因）。 */
-    private String login() {
-        try {
-            // 用表单体而非 URL 预编码参数：@ 等字符经手写 URLEncoder 后再走 RestTemplate
-            // 会被二次编码（%40→%2540），实测导致"用户名或密码错误"（见本次开发中的自测记录）。
-            MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
-            form.add("username", scenario.getLoginUsername());
-            form.add("password", scenario.getLoginPassword());
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
-            String body = http.postForObject(scenario.getGatewayUrl() + "/sso/login",
-                    new HttpEntity<>(form, headers), String.class);
-            JsonNode root = objectMapper.readTree(body);
-            String token = root.path("data").path("token").asText("");
-            if (token.isBlank()) {
-                log.warn("会员登录失败: {}", truncate(body, 200));
-                return null;
-            }
-            log.info("Scenario suite logged in as {}", scenario.getLoginUsername());
-            return token;
-        } catch (Exception e) {
-            log.warn("会员登录异常: {}", e.getMessage());
-            return null;
-        }
-    }
 
     private void addAssertion(List<AssertionDetail> assertions, String name, boolean passed,
                               String expected, String actual) {

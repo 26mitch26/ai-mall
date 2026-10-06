@@ -190,15 +190,61 @@ public class HealAgent {
     }
 
     /**
-     * Dry-Run预演：在隔离环境中模拟执行Playbook，验证步骤可行性
+     * Dry-Run 预演：检查 playbook 步骤是否可执行。
+     *
+     * <p>此前这里是 {@code for (step : steps) log.debug(...); return true;}——
+     * 无论步骤是否为空都返回 true，使下游的 {@code dry_run_failed} 分支成为死代码。
+     * 现在改为真实判定：至少要有一个非空步骤，且不允许出现占位步骤。
      */
     private boolean dryRun(Playbook playbook) {
         log.info("Executing dry-run for playbook: {} ({} steps)", playbook.name, playbook.steps.size());
+        if (playbook.steps.isEmpty()) {
+            log.warn("Dry-run rejected: playbook {} has no steps", playbook.name);
+            return false;
+        }
         for (String step : playbook.steps) {
+            if (step == null || step.isBlank() || step.toLowerCase().contains("todo")) {
+                log.warn("Dry-run rejected: playbook {} has a placeholder step: {}", playbook.name, step);
+                return false;
+            }
             log.debug("Dry-run step: {}", step);
         }
         log.info("Dry-run verification: {}", playbook.verification);
         return true;
+    }
+
+    /** 全部 playbook 名称（供前端与审批单展示可用处置动作）。 */
+    public List<String> playbookNames() {
+        return PLAYBOOKS.stream().map(playbook -> playbook.name).toList();
+    }
+
+    /**
+     * 取某个 playbook 的执行步骤。
+     *
+     * <p>供 {@code SimulatedExecutor} 使用：此前 {@code steps} 只出现在 dryRun 的日志里，
+     * 从未被任何代码消费，模拟执行器因此拿不到步骤内容。
+     */
+    public List<String> stepsOf(String playbookName) {
+        if (playbookName == null) {
+            return List.of();
+        }
+        return PLAYBOOKS.stream()
+                .filter(playbook -> playbook.name.equalsIgnoreCase(playbookName))
+                .findFirst()
+                .map(playbook -> List.copyOf(playbook.steps))
+                .orElseGet(List::of);
+    }
+
+    /** 取某个 playbook 声明的验证条件。 */
+    public String verificationOf(String playbookName) {
+        if (playbookName == null) {
+            return "";
+        }
+        return PLAYBOOKS.stream()
+                .filter(playbook -> playbook.name.equalsIgnoreCase(playbookName))
+                .findFirst()
+                .map(playbook -> playbook.verification)
+                .orElse("");
     }
 
     /**

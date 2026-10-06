@@ -120,6 +120,49 @@
                 <strong>{{ incident.changeDecision?.approver || '评估中' }}</strong>
                 <p>风险 {{ Math.round((incident.changeDecision?.riskScore || 0) * 100) }}% · {{ incident.changeDecision?.status || '-' }}</p>
                 <small>{{ incident.changeDecision?.reason || '等待审批门控' }}</small>
+                <div v-if="gateOf(incident.id)" class="gate-actions">
+                  <el-button size="small" type="primary" plain @click="approve(gateOf(incident.id)!)">批准并模拟执行</el-button>
+                  <el-button size="small" type="danger" plain @click="reject(gateOf(incident.id)!)">驳回</el-button>
+                  <small v-if="gateOf(incident.id)?.executionSummary" class="gate-summary">
+                    模拟执行：{{ gateOf(incident.id)?.executionSummary }}
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-card>
+
+        <el-card class="incident-panel" shadow="never">
+          <template #header>
+            <div class="panel-header">
+              <div><strong>待审批变更</strong><span>批准后执行的是模拟推演，不会触碰真实设施</span></div>
+              <el-button :icon="Refresh" circle @click="refreshGates" />
+            </div>
+          </template>
+          <el-empty v-if="!pendingGates.length" description="暂无待审批变更" />
+          <div v-for="gate in pendingGates" :key="gate.id" class="incident-card">
+            <div class="incident-topline">
+              <div>
+                <el-tag type="warning" effect="dark" size="small">{{ gate.approver }}</el-tag>
+                <strong>{{ gate.playbook }}</strong>
+                <span>风险 {{ Math.round(gate.riskScore * 100) }}%</span>
+              </div>
+              <el-tag type="info" round>pending_approval</el-tag>
+            </div>
+            <div class="incident-details">
+              <div class="detail-block">
+                <span>审批单</span>
+                <strong>{{ gate.id.slice(0, 8) }}</strong>
+                <p>{{ gate.reason || '-' }}</p>
+                <small>关联告警 {{ gate.alertId }}</small>
+              </div>
+              <div class="detail-block">
+                <span>操作</span>
+                <small>门控闭环：批准 / 驳回都会留痕并回写历史成功率</small>
+                <div class="gate-actions">
+                  <el-button size="small" type="primary" plain @click="approve(gate)">批准并模拟执行</el-button>
+                  <el-button size="small" type="danger" plain @click="reject(gate)">驳回</el-button>
+                </div>
               </div>
             </div>
           </div>
@@ -135,9 +178,13 @@ import { Refresh, Right, WarnTriangleFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import type { TagProps } from 'element-plus'
 import {
+  approveGateAPI,
   getAllIncidentsAPI,
+  getGateDecisionsAPI,
   getOpsCapabilitiesAPI,
+  rejectGateAPI,
   triggerIncidentAPI,
+  type GateRecord,
   type IncidentState,
   type OpsCapabilities,
 } from '@/apis/agent'
@@ -146,6 +193,43 @@ const triggerForm = ref({ metric_name: 'cpu_usage_percent', metric_value: 95, ta
 const triggering = ref(false)
 const incidents = ref<IncidentState[]>([])
 const capabilities = ref<OpsCapabilities | null>(null)
+const pendingGates = ref<GateRecord[]>([])
+
+/** 审批单按告警 ID 关联到事件卡片上 */
+const gateOf = (alertId: string) => pendingGates.value.find(gate => gate.alertId === alertId)
+
+const refreshGates = async () => {
+  try {
+    const response = await getGateDecisionsAPI('pending_approval')
+    pendingGates.value = response.data || []
+  } catch {
+    pendingGates.value = []
+  }
+}
+
+const approve = async (gate: GateRecord) => {
+  try {
+    const response = await approveGateAPI(gate.id, 'oncall-demo')
+    const execution = response.data?.execution as Record<string, unknown> | undefined
+    const steps = (execution?.steps as unknown[])?.length || 0
+    ElMessage.success(`已批准：${execution?.mode || 'simulated'} 执行，${steps} 步推演`)
+    await Promise.all([refreshGates(), refreshIncidents()])
+  } catch {
+    ElMessage.error('批准失败：该审批单可能已被处理')
+    await refreshGates()
+  }
+}
+
+const reject = async (gate: GateRecord) => {
+  try {
+    await rejectGateAPI(gate.id, 'oncall-demo', '人工驳回：风险过高')
+    ElMessage.info('已驳回，故障停在待审批状态')
+    await Promise.all([refreshGates(), refreshIncidents()])
+  } catch {
+    ElMessage.error('驳回失败：该审批单可能已被处理')
+    await refreshGates()
+  }
+}
 const defaultAlgorithms = ['3-Sigma', 'EWMA', 'Bayesian Inference', 'Graph Traversal']
 const pipelineStages = [
   { title: 'Monitor Agent', subtitle: '3-Sigma + EWMA' },
@@ -207,7 +291,7 @@ const statusType = (status: string): TagProps['type'] => {
 const statusLabel = (status: string) => ({ resolved: '已自动闭环', pending_approval: '待人工审批', healing: '自愈中', analyzed: '已定位根因', detected: '已检测' } as Record<string, string>)[status] || status
 const activeStep = (status: string) => ({ detected: 1, analyzed: 2, healing: 3, resolved: 4, pending_approval: 4 } as Record<string, number>)[status] || 1
 
-onMounted(() => Promise.all([refreshIncidents(), loadCapabilities()]))
+onMounted(() => Promise.all([refreshIncidents(), loadCapabilities(), refreshGates()]))
 </script>
 
 <style scoped>
@@ -220,4 +304,5 @@ onMounted(() => Promise.all([refreshIncidents(), loadCapabilities()]))
 .incident-column { min-width: 0; }.summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 12px; }.summary-grid > div { padding: 14px 16px; border: 1px solid #e4e8f0; border-radius: 12px; background: white; }.summary-grid span, .summary-grid strong { display: block; }.summary-grid span { color: #858ea1; font-size: 11px; }.summary-grid strong { margin-top: 5px; font-size: 22px; }.summary-grid .success { color: #27a36d; }.summary-grid .warning { color: #ce7b32; }
 .incident-panel :deep(.el-card__body) { max-height: 590px; overflow-y: auto; }.incident-card { margin-bottom: 13px; padding: 17px; border: 1px solid #e5e8ef; border-radius: 13px; background: #fbfcfe; }.incident-topline { display: flex; justify-content: space-between; align-items: center; }.incident-topline > div { display: flex; align-items: center; gap: 10px; }.incident-topline span { color: #7f889a; font-size: 12px; }.incident-steps { margin: 15px 0; }.incident-details { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 10px; }.detail-block { padding: 12px; border-radius: 10px; background: white; }.detail-block > span { color: #929aab; font-size: 10px; text-transform: uppercase; }.detail-block strong { display: block; margin: 6px 0; color: #293149; font-size: 13px; }.detail-block p { margin: 0 0 5px; color: #5c667a; font-size: 11px; line-height: 1.55; }.detail-block small { color: #9aa2b1; font-size: 10px; }.rca-block { border-left: 3px solid #6b62cc; }
 @media (max-width: 1150px) { .dashboard-grid { grid-template-columns: 1fr; }.pipeline-strip { grid-template-columns: repeat(2, 1fr); }.incident-details { grid-template-columns: 1fr; }.ops-hero { align-items: flex-start; flex-direction: column; gap: 15px; } }
+.gate-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }.gate-summary { width: 100%; color: #6b7a90; }
 </style>

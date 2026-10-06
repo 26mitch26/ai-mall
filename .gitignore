@@ -17,8 +17,12 @@
 target/
 build/
 out/
+__pycache__/
+*.py[cod]
+.venv/
 .run/
 .codebuddy/
+.workbuddy/
 **/.qoder/
 
 # IDE

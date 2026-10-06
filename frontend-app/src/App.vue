@@ -15,6 +15,9 @@ onHide(() => {
 <style lang="scss">
 // 字体图标
 @use '@/styles/fonts.scss';
+/* #ifdef H5 */
+@use '@/styles/storefront.scss';
+/* #endif */
 
 view,
 navigator,

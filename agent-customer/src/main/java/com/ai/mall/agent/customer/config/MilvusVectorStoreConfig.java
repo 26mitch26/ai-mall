@@ -28,6 +28,8 @@ import java.util.concurrent.TimeUnit;
  * 同时 override 了 Spring AI 自动装配的 VectorStore，注入带上述连接参数的客户端。
  */
 @Configuration
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(
+        name = "ai.rag.vector-store.enabled", havingValue = "true", matchIfMissing = true)
 public class MilvusVectorStoreConfig {
 
     private static final Logger log = LoggerFactory.getLogger(MilvusVectorStoreConfig.class);

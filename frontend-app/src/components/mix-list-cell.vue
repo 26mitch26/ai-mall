@@ -9,14 +9,14 @@
     <text v-if="icon" class="cell-icon yticon" :style="[{ color: iconColor }]" :class="icon"></text>
     <text class="cell-tit clamp">{{ title }}</text>
     <text v-if="tips" class="cell-tip">{{ tips }}</text>
-    <text class="cell-more yticon" :class="typeList[navigateType]"></text>
+    <text class="cell-more yticon" :class="moreIcon"></text>
   </view>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   icon?: string
   title?: string
   tips?: string
@@ -24,7 +24,7 @@ const props = defineProps<{
   border?: string
   hoverClass?: string
   iconColor?: string
-}>()
+}>(), { navigateType: 'right' })
 
 const emit = defineEmits<{
   eventClick: []
@@ -35,7 +35,8 @@ const typeList = {
   right: 'icon-you',
   up: 'icon-shang',
   down: 'icon-xia',
-}
+} as const
+const moreIcon = computed(() => typeList[props.navigateType])
 </script>
 
 <style lang="scss" scoped>

@@ -9,13 +9,18 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -31,10 +36,19 @@ public class TestExecutor {
     private final SemanticAssertionService semanticAssertionService;
 
     public TestResult execute(TestCase testCase) {
-        return execute(testCase, config.getBaseUrl());
+        return execute(testCase, config.getBaseUrl(), null);
     }
 
     public TestResult execute(TestCase testCase, String targetBaseUrl) {
+        return execute(testCase, targetBaseUrl, null);
+    }
+
+    /**
+     * 执行单条契约用例。
+     *
+     * @param module 目标模块名，用于按模块挑选被测令牌（可为 null）
+     */
+    public TestResult execute(TestCase testCase, String targetBaseUrl, String module) {
         log.info("Executing test case: {} [{} {}]", testCase.getName(), testCase.getMethod(), testCase.getApiPath());
 
         long startTime = System.currentTimeMillis();
@@ -48,13 +62,16 @@ public class TestExecutor {
 
             log.debug("Sending {} request to: {}", httpMethod, url);
 
-            ResponseEntity<String> response = restTemplate.exchange(
-                    url,
-                    httpMethod,
-                    null,
-                    String.class,
-                    testCase.getRequestParams() != null ? testCase.getRequestParams() : Map.of()
-            );
+            String requestBody = resolveRequestBody(testCase);
+            HttpHeaders headers = buildHeaders(module, requestBody != null);
+            ResponseEntity<String> response;
+            if (requestBody == null && headers.isEmpty()) {
+                // 无 body 无自定义头：走不带实体的重载，保持最简请求
+                response = restTemplate.exchange(url, httpMethod, null, String.class, Map.of());
+            } else {
+                response = restTemplate.exchange(url, httpMethod,
+                        new HttpEntity<>(requestBody, headers), String.class);
+            }
 
             long executionTime = System.currentTimeMillis() - startTime;
             int actualStatusCode = response.getStatusCode().value();
@@ -141,7 +158,7 @@ public class TestExecutor {
                     .testCaseName(testCase.getName())
                     .passed(passed)
                     .actualStatusCode(actualStatusCode)
-                    .actualResponse(responseBody != null ? truncate(responseBody, 500) : "")
+                    .actualResponse(responseBody != null ? truncate(responseBody, config.getMaxResponseChars()) : "")
                     .executionTime(executionTime)
                     .timestamp(LocalDateTime.now())
                     .assertionDetails(assertions)
@@ -181,49 +198,115 @@ public class TestExecutor {
 
     /**
      * Build the full URL for a test case, replacing path parameters and adding query parameters.
+     *
+     * <p>Query 参数统一交给 {@link UriComponentsBuilder} 编码：此前手工拼串不编码，
+     * 遇到 {@code &}、空格、中文或路径穿越类边界值时，实际测的是 URL 解析而不是参数校验，
+     * 结论不可信。路径参数先做占位符替换，再由 encode() 统一编码，避免双重编码。
      */
     private String buildUrl(TestCase testCase, String baseUrl) {
         String path = testCase.getApiPath();
+        Map<String, Object> params = params(testCase);
 
         // Replace path parameters like {id} with actual values from request params
-        if (testCase.getRequestParams() != null) {
-            for (Map.Entry<String, Object> entry : testCase.getRequestParams().entrySet()) {
-                String placeholder = "{" + entry.getKey() + "}";
-                if (path.contains(placeholder)) {
-                    path = path.replace(placeholder, String.valueOf(entry.getValue()));
-                }
+        for (Map.Entry<String, Object> entry : params.entrySet()) {
+            String placeholder = "{" + entry.getKey() + "}";
+            if (path.contains(placeholder)) {
+                path = path.replace(placeholder, String.valueOf(entry.getValue()));
             }
         }
 
         // Remove remaining path parameter placeholders (use "test" as default)
         path = path.replaceAll("\\{[^}]+\\}", "test");
 
-        String url = baseUrl + path;
-
-        // Append query parameters (only those not used as path params)
-        if (testCase.getRequestParams() != null && !testCase.getRequestParams().isEmpty()) {
-            StringBuilder queryString = new StringBuilder();
-            for (Map.Entry<String, Object> entry : testCase.getRequestParams().entrySet()) {
-                String key = entry.getKey();
-                // Skip path parameters already substituted
-                if (testCase.getApiPath().contains("{" + key + "}")) {
-                    continue;
-                }
-                // Skip body parameters
-                if ("requestBody".equals(key) || key.startsWith("body.")) {
-                    continue;
-                }
-                if (!queryString.isEmpty()) {
-                    queryString.append("&");
-                }
-                queryString.append(key).append("=").append(entry.getValue());
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(baseUrl + path);
+        for (Map.Entry<String, Object> entry : params.entrySet()) {
+            String key = entry.getKey();
+            // 路径参数已替换进 path，无需再进 query
+            if (testCase.getApiPath().contains("{" + key + "}")) {
+                continue;
             }
-            if (!queryString.isEmpty()) {
-                url = url + "?" + queryString;
+            if (isBodyKey(key)) {
+                continue;
+            }
+            builder.queryParam(key, String.valueOf(entry.getValue()));
+        }
+        return builder.build().encode().toUriString();
+    }
+
+    /**
+     * 提取请求体。
+     *
+     * <p>支持两种写法：{@code requestBody}（整个 JSON 字符串或对象）与
+     * {@code body.*} 前缀键（按字段组装）。此前执行器固定传 null 实体，
+     * 所有 POST/PUT 用例实际都是"空 body 调用"，写路径的行为根本没被验证。
+     */
+    private String resolveRequestBody(TestCase testCase) {
+        Map<String, Object> params = params(testCase);
+        if (params.isEmpty()) {
+            return null;
+        }
+        Object raw = params.get("requestBody");
+        if (raw instanceof String text) {
+            return text.isBlank() ? null : text;
+        }
+        if (raw != null) {
+            return writeJson(raw);
+        }
+        Map<String, Object> fields = new LinkedHashMap<>();
+        for (Map.Entry<String, Object> entry : params.entrySet()) {
+            if (entry.getKey().startsWith("body.")) {
+                fields.put(entry.getKey().substring("body.".length()), entry.getValue());
             }
         }
+        return fields.isEmpty() ? null : writeJson(fields);
+    }
 
-        return url;
+    private String writeJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception e) {
+            log.warn("Failed to serialize request body: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 构造请求头：需要 JSON 载体时给 Content-Type，并注入被测服务令牌。
+     *
+     * <p>令牌缺失时不做任何伪装——没有凭证就意味着所有受保护接口只会返回 401/403，
+     * 那是被测服务的正确行为，不是缺陷。
+     */
+    private HttpHeaders buildHeaders(String module, boolean hasBody) {
+        HttpHeaders headers = new HttpHeaders();
+        if (hasBody) {
+            headers.setContentType(MediaType.APPLICATION_JSON);
+        }
+        String token = resolveTargetToken(module);
+        if (token != null && !token.isBlank()) {
+            AgentTestConfig.TargetAuthConfig targetAuth = config.getTargetAuth();
+            String prefix = targetAuth.getTokenPrefix() == null ? "" : targetAuth.getTokenPrefix();
+            headers.set(targetAuth.getHeaderName(), prefix + token);
+        }
+        return headers;
+    }
+
+    private String resolveTargetToken(String module) {
+        AgentTestConfig.TargetAuthConfig targetAuth = config.getTargetAuth();
+        if (module != null && targetAuth.getModuleTokens() != null) {
+            String moduleToken = targetAuth.getModuleTokens().get(module);
+            if (moduleToken != null && !moduleToken.isBlank()) {
+                return moduleToken;
+            }
+        }
+        return targetAuth.getToken();
+    }
+
+    private Map<String, Object> params(TestCase testCase) {
+        return testCase.getRequestParams() == null ? Map.of() : testCase.getRequestParams();
+    }
+
+    private boolean isBodyKey(String key) {
+        return "requestBody".equals(key) || key.startsWith("body.");
     }
 
     private boolean isValidJson(String json) {

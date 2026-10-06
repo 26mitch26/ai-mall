@@ -53,6 +53,49 @@ public class FailureClassifier {
         return Optional.empty();
     }
 
+    /**
+     * 会话/评测类结果的失败分类。
+     *
+     * <p>契约层靠断言名白名单挑信号（{@link #SEMANTIC_ASSERTIONS}），但会话场景与质量评测
+     * 的断言名是动态拼出来的（如"回答包含[退货]"），不可能进白名单。因此这里改用另一条规则：
+     * <b>除环境噪音外，一律视为高价值信号</b>——意图识别错、来源缺失、拒答失效、
+     * 注入未被阻断，都是产品缺陷而非实现细节。
+     *
+     * @param result 会话/评测用例结果
+     * @return 可沉淀的失败摘要；噪音或通过时为空
+     */
+    public Optional<String> classifyConversational(TestResult result) {
+        if (result == null || result.isPassed() || isConnectionNoise(result)) {
+            return Optional.empty();
+        }
+        String summary = failedAssertionSummary(result);
+        if (summary.isBlank()) {
+            summary = "HTTP " + result.getActualStatusCode();
+        }
+        return Optional.of(truncate(summary));
+    }
+
+    /** 汇总失败断言：断言名 + 实际值，多个用分号连接。 */
+    private String failedAssertionSummary(TestResult result) {
+        if (result.getAssertionDetails() == null) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (AssertionDetail detail : result.getAssertionDetails()) {
+            if (detail.isPassed()) {
+                continue;
+            }
+            if (!sb.isEmpty()) {
+                sb.append("; ");
+            }
+            sb.append(detail.getAssertionName());
+            if (detail.getActual() != null && !detail.getActual().isBlank()) {
+                sb.append(" 实际=").append(detail.getActual());
+            }
+        }
+        return sb.toString();
+    }
+
     private boolean isConnectionNoise(TestResult result) {
         return (result.getErrorMessage() != null && !result.getErrorMessage().isBlank())
                 || hasFailedAssertion(result, "Connection Check");

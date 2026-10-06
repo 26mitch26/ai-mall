@@ -1,15 +1,19 @@
 <template>
-  <view class="help-page">
+  <view class="help-page pc-storefront-page">
+    <!-- #ifdef H5 -->
+    <pc-storefront-nav active="help" />
+    <!-- #endif -->
     <view class="help-hero">
       <view class="hero-badge">知识库</view>
       <text class="hero-title">帮助中心</text>
       <text class="hero-sub">
         以下 {{ documents.length }} 篇政策文档均已收录进智能客服知识库；客服回答会标注引用来源，点击来源即可回到本页查看原文。
       </text>
-      <view v-if="knowledgeMeta" class="hero-meta">
+      <details v-if="knowledgeMeta" class="hero-meta">
+        <summary>服务信息</summary>
         <text>知识库规模：{{ knowledgeMeta.documents }} 篇文档 / {{ knowledgeMeta.chunks }} 个索引分块</text>
         <text v-if="status?.retrieval">检索链路：{{ status.retrieval }}</text>
-      </view>
+      </details>
       <button class="hero-button" @click="goAgent">向智能客服提问</button>
     </view>
 
@@ -27,7 +31,7 @@
         </view>
       </view>
       <view v-if="!documents.length" class="doc-empty">
-        知识库暂未收录文档。运行 scripts/start-demo.ps1 会自动灌入演示知识文档。
+        政策资料暂不可用，请稍后重试或联系人工客服。
       </view>
     </view>
 
@@ -38,6 +42,7 @@
 </template>
 
 <script setup lang="ts">
+import PcStorefrontNav from '@/components/pc-storefront-nav.vue'
 import { computed, ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import {
@@ -257,5 +262,81 @@ onLoad((options?: Record<string, string>) => {
   background: rgba(72, 112, 215, 0.1);
   font-size: 26rpx;
   text-align: center;
+}
+
+@media screen and (min-width: 769px) {
+  .help-page {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.75fr) minmax(0, 1.25fr);
+    align-items: start;
+    gap: 24px;
+    width: min(1240px, calc(100% - 64px));
+    margin: 0 auto;
+    padding: 24px 0 60px;
+  }
+
+  .help-hero {
+    position: sticky;
+    top: 88px;
+    padding: 30px;
+    border-radius: 20px;
+  }
+
+  .hero-title {
+    font-size: 29px;
+  }
+
+  .hero-sub {
+    font-size: 14px;
+  }
+
+  .hero-meta text {
+    font-size: 12px;
+  }
+
+  .hero-button {
+    height: 48px;
+    padding: 0 22px;
+    font-size: 14px;
+    line-height: 48px;
+  }
+
+  .doc-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 16px;
+    margin-top: 0;
+  }
+
+  .doc-card {
+    margin-bottom: 0;
+    border-radius: 14px;
+  }
+
+  .doc-head {
+    min-height: 88px;
+    padding: 18px;
+  }
+
+  .doc-title {
+    font-size: 16px;
+  }
+
+  .doc-meta,
+  .doc-toggle {
+    font-size: 12px;
+  }
+
+  .doc-content {
+    font-size: 13px;
+  }
+
+  .help-cta {
+    grid-column: 2;
+    margin: -8px 0 0;
+    padding: 18px;
+    font-size: 14px;
+  }
 }
 </style>

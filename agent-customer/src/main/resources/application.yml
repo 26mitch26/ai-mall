@@ -2,6 +2,8 @@ server:
   port: 8083
 
 spring:
+  config:
+    import: optional:classpath:application-agent-features.properties
   application:
     name: agent-customer
   autoconfigure:
@@ -83,9 +85,9 @@ ai:
       temperature: 0.5
     # LLM 回答语义缓存（前沿优化）：开 → 相同/同义问句复用已生成答案，跳过整条 LLM 推理；
     # 关 → 每轮都走全链路 RAG+生成。保留开关即能做 A/B 实测（结果见面试准备.md §十）。
-    customer:
-      semantic-cache:
-        enabled: ${SEMANTIC_CACHE_ENABLED:true}
+  customer:
+    semantic-cache:
+      enabled: ${SEMANTIC_CACHE_ENABLED:true}
 
 logging:
   level:

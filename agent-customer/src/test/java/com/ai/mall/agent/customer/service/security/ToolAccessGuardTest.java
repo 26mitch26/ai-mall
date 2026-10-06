@@ -73,7 +73,7 @@ class ToolAccessGuardTest {
                 "仅知道 memberId 不足以代用户下单");
 
         ToolInvocationContext withToken = ToolInvocationContext.builder()
-                .sessionId("s1").memberId("member-1").userToken("jwt-xxx").build();
+                .sessionId("s1").memberId("member-1").userToken("jwt-xxx").writeApproved(true).operationId("approved-1").build();
         assertTrue(guard.authorize("place_order", withToken).isAllowed());
     }
 
@@ -89,7 +89,7 @@ class ToolAccessGuardTest {
                 "仅知道 memberId 不足以取消订单");
 
         ToolInvocationContext withToken = ToolInvocationContext.builder()
-                .sessionId("s1").memberId("member-1").userToken("jwt-xxx").build();
+                .sessionId("s1").memberId("member-1").userToken("jwt-xxx").writeApproved(true).operationId("approved-1").build();
         assertTrue(guard.authorize("cancel_order", withToken).isAllowed());
     }
 
@@ -108,7 +108,7 @@ class ToolAccessGuardTest {
     @DisplayName("写操作带用户令牌时放行")
     void shouldAllowWriteToolWithToken() {
         ToolInvocationContext context = ToolInvocationContext.builder()
-                .sessionId("s1").memberId("member-1").userToken("jwt-xxx").build();
+                .sessionId("s1").memberId("member-1").userToken("jwt-xxx").writeApproved(true).operationId("approved-1").build();
 
         assertTrue(guard.authorize("create_after_sale", context).isAllowed());
     }

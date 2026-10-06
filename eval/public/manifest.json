@@ -1,0 +1,25 @@
+{
+  "provider": "Bitext Innovations",
+  "revision": "72ea2203180d14a416b579c657033ecd21e59a11",
+  "sourceUrl": "https://github.com/bitext/customer-support-llm-chatbot-training-dataset/tree/72ea2203180d14a416b579c657033ecd21e59a11",
+  "csvSha256": "83eff6c52e51bfe6e71121a826cb0d70d8d42741bc36e01180e1e62d396295ab",
+  "upstreamRows": 26872,
+  "sampleRows": 20,
+  "evalTasks": 40,
+  "oracleVersion": 2,
+  "oracleReview": "Before test execution: refund-processing question checks 1-3 business days, not 7-day return eligibility; English accepts English or Chinese concepts.",
+  "intents": [
+    "check_refund_policy",
+    "check_payment_methods",
+    "delivery_period",
+    "delivery_options",
+    "get_invoice",
+    "track_order",
+    "cancel_order",
+    "get_refund",
+    "contact_human_agent",
+    "payment_issue"
+  ],
+  "selection": "Deduplicate normalized instruction per intent; sort by SHA256; first two. Each source row and both languages stay in one split.",
+  "limitations": "Synthetic public customer-support data; not real customer logs. Chinese adaptations require bilingual review. No training/fine-tuning. Vendor responses are not local policy ground truth."
+}

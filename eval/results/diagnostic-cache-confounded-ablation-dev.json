@@ -1,0 +1,2851 @@
+{
+  "generatedAt": "2026-10-06T12:02:19.157502+00:00",
+  "runId": "51c39479ec9e",
+  "dataSha256": "1f90ab627c18df9a2d60515c4fe986e47efa9defe89ac2061fdf8999839560cd",
+  "split": "dev",
+  "language": "zh-adapted",
+  "label": "low-memory-ablation-disabled",
+  "trialsPerTask": 2,
+  "maxHttpCalls": 40,
+  "scheduledAttempts": 20,
+  "complete": true,
+  "maxMemoryPercent": 90,
+  "baseUrl": "http://localhost:8083",
+  "model": "ai-mall-eval-qwen3:0.6b",
+  "externalApiSpend": 0,
+  "costNote": "Local compute/electricity costs not measured; no cloud judge calls. Cache must be disabled for independent-trial comparison.",
+  "metrics": {
+    "attempts": 20,
+    "passed": 8,
+    "taskProxyPassRate": 0.4,
+    "infraErrors": 0,
+    "p50Ms": 152.88,
+    "p95Ms": 2328.06,
+    "modelCalls": 5,
+    "inputTokens": 7702,
+    "outputTokens": 501,
+    "semanticCorrectness": null,
+    "businessOutcomeSuccess": null,
+    "humanReviewed": false,
+    "reliability": [
+      {
+        "k": 1,
+        "eligibleTasks": 10,
+        "passAtK": 0.4,
+        "passPowerK": 0.4
+      },
+      {
+        "k": 2,
+        "eligibleTasks": 10,
+        "passAtK": 0.4,
+        "passPowerK": 0.4
+      },
+      {
+        "k": 3,
+        "eligibleTasks": 0,
+        "passAtK": null,
+        "passPowerK": null
+      }
+    ]
+  },
+  "trials": [
+    {
+      "id": "bitext-check_refund_policy-0-zh-adapted",
+      "intent": "check_refund_policy",
+      "trial": 1,
+      "request": {
+        "message": "帮我查一下你们的退款政策",
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-check_refund_policy-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 80,
+        "availableMB": 3065
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-check_refund_policy-0-zh-adapted",
+        "message": "帮我查一下你们的退款政策",
+        "answer": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。建议您联系人工客服；当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+        "intent": "general",
+        "resolutionStatus": "HANDOFF_RECOMMENDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 231,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据不足，建议联系人工客服（证据强度 0.00）",
+        "evidenceScore": 0.0,
+        "retrievalRoute": "exact",
+        "reranker": "feature",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "5b5ff73cf395e9dd4595d9223bf0e1c6",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 1,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 15,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 77,
+              "outcome": "refusal"
+            },
+            {
+              "name": "chat",
+              "durationMs": 231,
+              "outcome": "refusal"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 3,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "建议您联系人工客服；",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": false
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 524.04,
+      "memoryAfter": {
+        "usedPercent": 81,
+        "availableMB": 3015
+      }
+    },
+    {
+      "id": "bitext-check_payment_methods-0-zh-adapted",
+      "intent": "check_payment_methods",
+      "trial": 1,
+      "request": {
+        "message": "怎么查看你们支持哪些付款方式",
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-check_payment_methods-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 81,
+        "availableMB": 3015
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-check_payment_methods-0-zh-adapted",
+        "message": "怎么查看你们支持哪些付款方式",
+        "answer": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。建议您联系人工客服；当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+        "intent": "general",
+        "resolutionStatus": "HANDOFF_RECOMMENDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 168,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据不足，建议联系人工客服（证据强度 0.00）",
+        "evidenceScore": 0.0,
+        "retrievalRoute": "exact",
+        "reranker": "feature",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "7966116defdd195285791b97ee43d69a",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 15,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 82,
+              "outcome": "refusal"
+            },
+            {
+              "name": "chat",
+              "durationMs": 168,
+              "outcome": "refusal"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 3,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "建议您联系人工客服；",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": false
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 190.73,
+      "memoryAfter": {
+        "usedPercent": 81,
+        "availableMB": 2991
+      }
+    },
+    {
+      "id": "bitext-delivery_period-0-zh-adapted",
+      "intent": "delivery_period",
+      "trial": 1,
+      "request": {
+        "message": "想查一下买的东西多久送到",
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-delivery_period-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 81,
+        "availableMB": 2991
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-delivery_period-0-zh-adapted",
+        "message": "想查一下买的东西多久送到",
+        "answer": "我无法提供具体的配送时间，建议您先登录平台，然后查看您的订单详情或联系客服获取更详细的信息。",
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 6838,
+        "sources": [
+          {
+            "id": "86d4a27a-189c-334e-913a-d26910221a96",
+            "source": "docs/knowledge/shipping-policy.md",
+            "type": "policy",
+            "content": "# AI-Mall 配送与运费规则\n\n运费门槛：全场实付金额满九十九元免基础运费；不足九十九元时，普通地区收取八元运费，偏远地区（新疆、西藏、内蒙古部分地区）收取十五元。包邮门槛按优惠后的实付金额计算，不包含运费与税费。\n发货时效：现货商品在付款后二十四小时内出库；预售商品按商品页面承诺的时间发货。遇大促期间时效顺延，请您理解。\n配送时效：同城订单支持半日达，最快四小时送达；省内一般一到两天，外省二到四天，偏远地区三到五天。\n物流跟踪：发货后可在订单详情查看物流轨迹，也可以让智能客服查询订单的物流单号与配送公司。",
+            "score": 1.0,
+            "retrievalSource": "bm25",
+            "version": "fc6fbc7b165c6378579938a1864798c0bb366ce738d2b13a7ff06102b28eb6bf",
+            "contentHash": "339b38fcbfcb24401a8ae3d1888dea04d77eaa9237b65263d2937eade3e7c677",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "438f1006-20ae-3272-bbf3-edbd2886fb29",
+            "source": "docs/knowledge/account-security.md",
+            "type": "policy",
+            "content": "# AI-Mall 会员账号与信息安全说明\n\n账号注册与登录：会员账号支持手机号注册与登录，注册时需完成短信验证码校验。为保障账号安全，登录密码要求八位以上并包含字母与数字；连续五次输入错误密码账号将被临时锁定三十分钟，可通过短信验证码快速解锁。建议开启登录保护，开启后在陌生设备登录需要额外短信验证。\n\n密码找回：忘记密码时，在登录页选择\"忘记密码\"，通过注册手机号接收验证码后重置。若手机号已停用，可联系人工客服并提供最近一笔订单的订单号、收货人姓名与下单时间进行身份核验，核验通过后协助更换绑定手机号。为保护账号安全，客服不会索要您的登录密码与短信验证码…",
+            "score": 0.0,
+            "retrievalSource": "bm25",
+            "version": "8e2f7eb79c4906f2585355ead29bed1bb3a7b8cb72d316c5fb9f119c341e3bb8",
+            "contentHash": "0f7fe1bbefe5a7a6699bcf0ace4f8ce654af6847e64b095b9fc39b8a26d1922b",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          }
+        ],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据充分（知识库命中）",
+        "evidenceScore": 0.6,
+        "retrievalRoute": "exact",
+        "reranker": "feature",
+        "correctionCount": 1,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "70bc1f9edf7b28b4d60eed4ab69f7f96",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "success"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 4,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 35,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 3844,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 189,
+              "outcome": "success"
+            },
+            {
+              "name": "chat",
+              "durationMs": 6838,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 2,
+          "inputTokens": 2533,
+          "outputTokens": 180
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 1,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "我无法提供具体的配送时间，建议您先登录平台，然后查看您的订单详情或联系客服获取更详细的信息。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 6849.93,
+      "memoryAfter": {
+        "usedPercent": 87,
+        "availableMB": 1939
+      }
+    },
+    {
+      "id": "bitext-delivery_options-0-zh-adapted",
+      "intent": "delivery_options",
+      "trial": 1,
+      "request": {
+        "message": "查一下配送方式",
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-delivery_options-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 87,
+        "availableMB": 1943
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-delivery_options-0-zh-adapted",
+        "message": "查一下配送方式",
+        "answer": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。建议您联系人工客服；当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+        "intent": "general",
+        "resolutionStatus": "HANDOFF_RECOMMENDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 116,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据不足，建议联系人工客服（证据强度 0.00）",
+        "evidenceScore": 0.0,
+        "retrievalRoute": "exact",
+        "reranker": "feature",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "39e68c0590a799311741e55947967545",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 5,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 43,
+              "outcome": "refusal"
+            },
+            {
+              "name": "chat",
+              "durationMs": 116,
+              "outcome": "refusal"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 3,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "建议您联系人工客服；",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": false
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 135.94,
+      "memoryAfter": {
+        "usedPercent": 87,
+        "availableMB": 2084
+      }
+    },
+    {
+      "id": "bitext-get_invoice-0-zh-adapted",
+      "intent": "get_invoice",
+      "trial": 1,
+      "request": {
+        "message": "帮我获取我的发票",
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-get_invoice-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 87,
+        "availableMB": 2084
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-get_invoice-0-zh-adapted",
+        "message": "帮我获取我的发票",
+        "answer": "不在知识库中提到相关信息，建议您联系人工客服进一步确认。",
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 2306,
+        "sources": [
+          {
+            "id": "c762336e-9d63-3324-ad72-dbb12a7eb4ce",
+            "source": "docs/knowledge/invoice-warranty.md",
+            "type": "policy",
+            "content": "# AI-Mall 发票与保修服务说明\n\n发票类型：平台支持开具电子普通发票与增值税专用发票。电子普通发票在订单完成后自动开具并发送至下单邮箱，也可在订单详情页手动申请重发；增值税专用发票需在提交订单时选择并填写完整的公司名称、纳税人识别号、开户行与账号、注册地址与电话，审核通过后三个工作日内开具并邮寄。\n\n开票时间：订单支付完成后即可申请开票；订单发生退款时，发票将同步冲红作废。已开具的发票如需更换，请在开票后三十天内提交更换申请，注明更换原因并提供正确的抬头信息；跨月换开需要先作废原发票，周期约为三到五个工作日。\n\n保修期限：手机、平板、笔记本等主机…",
+            "score": 1.0,
+            "retrievalSource": "bm25",
+            "version": "cbfea9362ec5d81543e2b968e5c52d186904ef22f87af954cee26de3e40e8470",
+            "contentHash": "80acb22613b174b025fbadc897ae1ff3e87c91f35cdc01a420c210f4bc4b1efe",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "438f1006-20ae-3272-bbf3-edbd2886fb29",
+            "source": "docs/knowledge/account-security.md",
+            "type": "policy",
+            "content": "# AI-Mall 会员账号与信息安全说明\n\n账号注册与登录：会员账号支持手机号注册与登录，注册时需完成短信验证码校验。为保障账号安全，登录密码要求八位以上并包含字母与数字；连续五次输入错误密码账号将被临时锁定三十分钟，可通过短信验证码快速解锁。建议开启登录保护，开启后在陌生设备登录需要额外短信验证。\n\n密码找回：忘记密码时，在登录页选择\"忘记密码\"，通过注册手机号接收验证码后重置。若手机号已停用，可联系人工客服并提供最近一笔订单的订单号、收货人姓名与下单时间进行身份核验，核验通过后协助更换绑定手机号。为保护账号安全，客服不会索要您的登录密码与短信验证码…",
+            "score": 0.937275819496213,
+            "retrievalSource": "bm25",
+            "version": "8e2f7eb79c4906f2585355ead29bed1bb3a7b8cb72d316c5fb9f119c341e3bb8",
+            "contentHash": "0f7fe1bbefe5a7a6699bcf0ace4f8ce654af6847e64b095b9fc39b8a26d1922b",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "52b96d07-8f9b-356e-a9a8-97e3499fe236",
+            "source": "docs/knowledge/refund-policy.md",
+            "type": "policy",
+            "content": "# AI-Mall 退货退款政策\n\n订单签收后七日内，支持无理由退货退款。退回商品需保持完好、吊牌未剪、不影响二次销售；食品、贴身衣物与定制类商品不支持无理由退货。\n退款金额以实际支付金额为准，不含运费。符合退货条件的订单，在申请审核通过后一到三个工作日内退款至原支付账户。\n退货运费规则：商品存在质量问题或发错货时，退货运费由平台承担；非质量问题的七天无理由退货，退回运费由买家承担。\n退货操作路径：进入智能客服或会员中心选择对应订单，提交退货原因与说明，等待平台审核即可。发票、赠品需随商品一并退回。",
+            "score": 0.6910338900958578,
+            "retrievalSource": "bm25",
+            "version": "d3ddbfb6f1880c62efb47e624457318d05ae80a0e0fe295f32a4860d4b21d707",
+            "contentHash": "d67585a2cbc375bcb82c64974878f01ca80c3d62b82f351b81b88193eceedb35",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          }
+        ],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据充分（知识库命中）",
+        "evidenceScore": 0.6,
+        "retrievalRoute": "exact",
+        "reranker": "feature",
+        "correctionCount": 1,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "29ebe8a767650a91f1ca034cb7c3406a",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "success"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 9,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 65,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 1018,
+              "outcome": "success"
+            },
+            {
+              "name": "tool",
+              "durationMs": 15,
+              "outcome": "failure"
+            },
+            {
+              "name": "llm",
+              "durationMs": 873,
+              "outcome": "success"
+            },
+            {
+              "name": "llm",
+              "durationMs": 158,
+              "outcome": "success"
+            },
+            {
+              "name": "chat",
+              "durationMs": 2306,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 3,
+          "inputTokens": 5169,
+          "outputTokens": 321
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 1,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "不在知识库中提到相关信息，建议您联系人工客服进一步确认。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 2328.06,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1858
+      }
+    },
+    {
+      "id": "bitext-track_order-0-zh-adapted",
+      "intent": "track_order",
+      "trial": 1,
+      "request": {
+        "message": "帮我查订单AM-DEMO-PUBLIC-001的位置",
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-track_order-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1858
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-track_order-0-zh-adapted",
+        "message": "帮我查订单AM-DEMO-PUBLIC-001的位置",
+        "answer": "该操作需要登录后才能进行，请先登录",
+        "intent": "order_task",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 21,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 实时业务数据（工具直查）",
+        "evidenceScore": null,
+        "retrievalRoute": "tool-or-cache",
+        "reranker": null,
+        "correctionCount": 0,
+        "knowledgeVersion": null,
+        "trace": {
+          "traceId": "9f4b712753dbadc748a1b814f806b081",
+          "stages": [
+            {
+              "name": "chat",
+              "durationMs": 21,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 0,
+          "unsupportedNumericClaims": 0,
+          "claims": [],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 53.46,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1875
+      }
+    },
+    {
+      "id": "bitext-cancel_order-0-zh-adapted",
+      "intent": "cancel_order",
+      "trial": 1,
+      "request": {
+        "message": "取消订单AM-DEMO-PUBLIC-001时遇到问题",
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-cancel_order-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1875
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-cancel_order-0-zh-adapted",
+        "message": "取消订单AM-DEMO-PUBLIC-001时遇到问题",
+        "answer": "该操作需要登录后才能进行，请先登录",
+        "intent": "order_task",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 15,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 实时业务数据（工具直查）",
+        "evidenceScore": null,
+        "retrievalRoute": "tool-or-cache",
+        "reranker": null,
+        "correctionCount": 0,
+        "knowledgeVersion": null,
+        "trace": {
+          "traceId": "1f5d3833a78dfe689860052d2473f156",
+          "stages": [
+            {
+              "name": "chat",
+              "durationMs": 15,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 0,
+          "unsupportedNumericClaims": 0,
+          "claims": [],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 36.85,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1884
+      }
+    },
+    {
+      "id": "bitext-get_refund-0-zh-adapted",
+      "intent": "get_refund",
+      "trial": 1,
+      "request": {
+        "message": "我要申请退款",
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-get_refund-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1884
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-get_refund-0-zh-adapted",
+        "message": "我要申请退款",
+        "answer": "请提供需要申请售后的订单编号（例如：202609300001），我来帮您创建售后工单。",
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 9,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 实时业务数据（工具直查）",
+        "evidenceScore": null,
+        "retrievalRoute": "tool-or-cache",
+        "reranker": null,
+        "correctionCount": 0,
+        "knowledgeVersion": null,
+        "trace": {
+          "traceId": "61f6e80db7ab7ef5415e9777e0b47e71",
+          "stages": [
+            {
+              "name": "chat",
+              "durationMs": 9,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 0,
+          "unsupportedNumericClaims": 0,
+          "claims": [],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 14.97,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1884
+      }
+    },
+    {
+      "id": "bitext-contact_human_agent-0-zh-adapted",
+      "intent": "contact_human_agent",
+      "trial": 1,
+      "request": {
+        "message": "帮我联系真人客服",
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-contact_human_agent-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1884
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-contact_human_agent-0-zh-adapted",
+        "message": "帮我联系真人客服",
+        "answer": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。建议您联系人工客服；当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+        "intent": "general",
+        "resolutionStatus": "HANDOFF_RECOMMENDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 252,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据不足，建议联系人工客服（证据强度 0.00）",
+        "evidenceScore": 0.0,
+        "retrievalRoute": "exact",
+        "reranker": "feature",
+        "correctionCount": 1,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "b0e368bbe2611fe47b21345fd1e38e8b",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "success"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 11,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 109,
+              "outcome": "refusal"
+            },
+            {
+              "name": "chat",
+              "durationMs": 252,
+              "outcome": "refusal"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 3,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "建议您联系人工客服；",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 280.94,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1851
+      }
+    },
+    {
+      "id": "bitext-payment_issue-0-zh-adapted",
+      "intent": "payment_issue",
+      "trial": 1,
+      "request": {
+        "message": "我不知道怎么反馈支付时遇到的问题",
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-payment_issue-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1851
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-0-bitext-payment_issue-0-zh-adapted",
+        "message": "我不知道怎么反馈支付时遇到的问题",
+        "answer": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。建议您联系人工客服；当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+        "intent": "general",
+        "resolutionStatus": "HANDOFF_RECOMMENDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 157,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据不足，建议联系人工客服（证据强度 0.00）",
+        "evidenceScore": 0.0,
+        "retrievalRoute": "exact",
+        "reranker": "feature",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "36a001b18428c17b3d66a4430c079e02",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 10,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 61,
+              "outcome": "refusal"
+            },
+            {
+              "name": "chat",
+              "durationMs": 157,
+              "outcome": "refusal"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 3,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "建议您联系人工客服；",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": false
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 178.25,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1886
+      }
+    },
+    {
+      "id": "bitext-check_refund_policy-0-zh-adapted",
+      "intent": "check_refund_policy",
+      "trial": 2,
+      "request": {
+        "message": "帮我查一下你们的退款政策",
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-check_refund_policy-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1886
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-check_refund_policy-0-zh-adapted",
+        "message": "帮我查一下你们的退款政策",
+        "answer": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。建议您联系人工客服；当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+        "intent": "general",
+        "resolutionStatus": "HANDOFF_RECOMMENDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 190,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据不足，建议联系人工客服（证据强度 0.00）",
+        "evidenceScore": 0.0,
+        "retrievalRoute": "exact",
+        "reranker": "feature",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "3d743e3e357bd780485e361836469aaf",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 13,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 68,
+              "outcome": "refusal"
+            },
+            {
+              "name": "chat",
+              "durationMs": 190,
+              "outcome": "refusal"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 3,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "建议您联系人工客服；",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": false
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 195.89,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1874
+      }
+    },
+    {
+      "id": "bitext-check_payment_methods-0-zh-adapted",
+      "intent": "check_payment_methods",
+      "trial": 2,
+      "request": {
+        "message": "怎么查看你们支持哪些付款方式",
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-check_payment_methods-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1872
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-check_payment_methods-0-zh-adapted",
+        "message": "怎么查看你们支持哪些付款方式",
+        "answer": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。建议您联系人工客服；当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+        "intent": "general",
+        "resolutionStatus": "HANDOFF_RECOMMENDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 167,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据不足，建议联系人工客服（证据强度 0.00）",
+        "evidenceScore": 0.0,
+        "retrievalRoute": "exact",
+        "reranker": "feature",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "c2fb1fc0e6a47aa4d2039e8c4c4c514c",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 8,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 61,
+              "outcome": "refusal"
+            },
+            {
+              "name": "chat",
+              "durationMs": 167,
+              "outcome": "refusal"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 3,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "建议您联系人工客服；",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": false
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 196.73,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1862
+      }
+    },
+    {
+      "id": "bitext-delivery_period-0-zh-adapted",
+      "intent": "delivery_period",
+      "trial": 2,
+      "request": {
+        "message": "想查一下买的东西多久送到",
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-delivery_period-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1863
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-delivery_period-0-zh-adapted",
+        "message": "想查一下买的东西多久送到",
+        "answer": "我无法提供具体的配送时间，建议您先登录平台，然后查看您的订单详情或联系客服获取更详细的信息。",
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 26,
+        "sources": [
+          {
+            "id": "86d4a27a-189c-334e-913a-d26910221a96",
+            "source": "docs/knowledge/shipping-policy.md",
+            "type": "policy",
+            "content": "# AI-Mall 配送与运费规则\n\n运费门槛：全场实付金额满九十九元免基础运费；不足九十九元时，普通地区收取八元运费，偏远地区（新疆、西藏、内蒙古部分地区）收取十五元。包邮门槛按优惠后的实付金额计算，不包含运费与税费。\n发货时效：现货商品在付款后二十四小时内出库；预售商品按商品页面承诺的时间发货。遇大促期间时效顺延，请您理解。\n配送时效：同城订单支持半日达，最快四小时送达；省内一般一到两天，外省二到四天，偏远地区三到五天。\n物流跟踪：发货后可在订单详情查看物流轨迹，也可以让智能客服查询订单的物流单号与配送公司。",
+            "score": 1.0,
+            "retrievalSource": "bm25",
+            "version": "fc6fbc7b165c6378579938a1864798c0bb366ce738d2b13a7ff06102b28eb6bf",
+            "contentHash": "339b38fcbfcb24401a8ae3d1888dea04d77eaa9237b65263d2937eade3e7c677",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "438f1006-20ae-3272-bbf3-edbd2886fb29",
+            "source": "docs/knowledge/account-security.md",
+            "type": "policy",
+            "content": "# AI-Mall 会员账号与信息安全说明\n\n账号注册与登录：会员账号支持手机号注册与登录，注册时需完成短信验证码校验。为保障账号安全，登录密码要求八位以上并包含字母与数字；连续五次输入错误密码账号将被临时锁定三十分钟，可通过短信验证码快速解锁。建议开启登录保护，开启后在陌生设备登录需要额外短信验证。\n\n密码找回：忘记密码时，在登录页选择\"忘记密码\"，通过注册手机号接收验证码后重置。若手机号已停用，可联系人工客服并提供最近一笔订单的订单号、收货人姓名与下单时间进行身份核验，核验通过后协助更换绑定手机号。为保护账号安全，客服不会索要您的登录密码与短信验证码…",
+            "score": 0.0,
+            "retrievalSource": "bm25",
+            "version": "8e2f7eb79c4906f2585355ead29bed1bb3a7b8cb72d316c5fb9f119c341e3bb8",
+            "contentHash": "0f7fe1bbefe5a7a6699bcf0ace4f8ce654af6847e64b095b9fc39b8a26d1922b",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          }
+        ],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据充分（知识库命中）",
+        "evidenceScore": null,
+        "retrievalRoute": "tool-or-cache",
+        "reranker": null,
+        "correctionCount": 0,
+        "knowledgeVersion": null,
+        "trace": {
+          "traceId": "c9faf49181081b92e50fd00c673d8a9b",
+          "stages": [
+            {
+              "name": "chat",
+              "durationMs": 26,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 1,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "我无法提供具体的配送时间，建议您先登录平台，然后查看您的订单详情或联系客服获取更详细的信息。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 51.19,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1864
+      }
+    },
+    {
+      "id": "bitext-delivery_options-0-zh-adapted",
+      "intent": "delivery_options",
+      "trial": 2,
+      "request": {
+        "message": "查一下配送方式",
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-delivery_options-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1864
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-delivery_options-0-zh-adapted",
+        "message": "查一下配送方式",
+        "answer": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。建议您联系人工客服；当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+        "intent": "general",
+        "resolutionStatus": "HANDOFF_RECOMMENDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 119,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据不足，建议联系人工客服（证据强度 0.00）",
+        "evidenceScore": 0.0,
+        "retrievalRoute": "exact",
+        "reranker": "feature",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "88a6861a07fbfba687a77b65e0cdd247",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 4,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 29,
+              "outcome": "refusal"
+            },
+            {
+              "name": "chat",
+              "durationMs": 119,
+              "outcome": "refusal"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 3,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "建议您联系人工客服；",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": false
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 138.01,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1876
+      }
+    },
+    {
+      "id": "bitext-get_invoice-0-zh-adapted",
+      "intent": "get_invoice",
+      "trial": 2,
+      "request": {
+        "message": "帮我获取我的发票",
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-get_invoice-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1876
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-get_invoice-0-zh-adapted",
+        "message": "帮我获取我的发票",
+        "answer": "不在知识库中提到相关信息，建议您联系人工客服进一步确认。",
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 24,
+        "sources": [
+          {
+            "id": "c762336e-9d63-3324-ad72-dbb12a7eb4ce",
+            "source": "docs/knowledge/invoice-warranty.md",
+            "type": "policy",
+            "content": "# AI-Mall 发票与保修服务说明\n\n发票类型：平台支持开具电子普通发票与增值税专用发票。电子普通发票在订单完成后自动开具并发送至下单邮箱，也可在订单详情页手动申请重发；增值税专用发票需在提交订单时选择并填写完整的公司名称、纳税人识别号、开户行与账号、注册地址与电话，审核通过后三个工作日内开具并邮寄。\n\n开票时间：订单支付完成后即可申请开票；订单发生退款时，发票将同步冲红作废。已开具的发票如需更换，请在开票后三十天内提交更换申请，注明更换原因并提供正确的抬头信息；跨月换开需要先作废原发票，周期约为三到五个工作日。\n\n保修期限：手机、平板、笔记本等主机…",
+            "score": 1.0,
+            "retrievalSource": "bm25",
+            "version": "cbfea9362ec5d81543e2b968e5c52d186904ef22f87af954cee26de3e40e8470",
+            "contentHash": "80acb22613b174b025fbadc897ae1ff3e87c91f35cdc01a420c210f4bc4b1efe",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "438f1006-20ae-3272-bbf3-edbd2886fb29",
+            "source": "docs/knowledge/account-security.md",
+            "type": "policy",
+            "content": "# AI-Mall 会员账号与信息安全说明\n\n账号注册与登录：会员账号支持手机号注册与登录，注册时需完成短信验证码校验。为保障账号安全，登录密码要求八位以上并包含字母与数字；连续五次输入错误密码账号将被临时锁定三十分钟，可通过短信验证码快速解锁。建议开启登录保护，开启后在陌生设备登录需要额外短信验证。\n\n密码找回：忘记密码时，在登录页选择\"忘记密码\"，通过注册手机号接收验证码后重置。若手机号已停用，可联系人工客服并提供最近一笔订单的订单号、收货人姓名与下单时间进行身份核验，核验通过后协助更换绑定手机号。为保护账号安全，客服不会索要您的登录密码与短信验证码…",
+            "score": 0.937275819496213,
+            "retrievalSource": "bm25",
+            "version": "8e2f7eb79c4906f2585355ead29bed1bb3a7b8cb72d316c5fb9f119c341e3bb8",
+            "contentHash": "0f7fe1bbefe5a7a6699bcf0ace4f8ce654af6847e64b095b9fc39b8a26d1922b",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          },
+          {
+            "id": "52b96d07-8f9b-356e-a9a8-97e3499fe236",
+            "source": "docs/knowledge/refund-policy.md",
+            "type": "policy",
+            "content": "# AI-Mall 退货退款政策\n\n订单签收后七日内，支持无理由退货退款。退回商品需保持完好、吊牌未剪、不影响二次销售；食品、贴身衣物与定制类商品不支持无理由退货。\n退款金额以实际支付金额为准，不含运费。符合退货条件的订单，在申请审核通过后一到三个工作日内退款至原支付账户。\n退货运费规则：商品存在质量问题或发错货时，退货运费由平台承担；非质量问题的七天无理由退货，退回运费由买家承担。\n退货操作路径：进入智能客服或会员中心选择对应订单，提交退货原因与说明，等待平台审核即可。发票、赠品需随商品一并退回。",
+            "score": 0.6910338900958578,
+            "retrievalSource": "bm25",
+            "version": "d3ddbfb6f1880c62efb47e624457318d05ae80a0e0fe295f32a4860d4b21d707",
+            "contentHash": "d67585a2cbc375bcb82c64974878f01ca80c3d62b82f351b81b88193eceedb35",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          }
+        ],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据充分（知识库命中）",
+        "evidenceScore": null,
+        "retrievalRoute": "tool-or-cache",
+        "reranker": null,
+        "correctionCount": 0,
+        "knowledgeVersion": null,
+        "trace": {
+          "traceId": "98eacedab5fd04925a6a9aeadb9ab245",
+          "stages": [
+            {
+              "name": "chat",
+              "durationMs": 24,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 1,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "不在知识库中提到相关信息，建议您联系人工客服进一步确认。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 53.15,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1876
+      }
+    },
+    {
+      "id": "bitext-track_order-0-zh-adapted",
+      "intent": "track_order",
+      "trial": 2,
+      "request": {
+        "message": "帮我查订单AM-DEMO-PUBLIC-001的位置",
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-track_order-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1876
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-track_order-0-zh-adapted",
+        "message": "帮我查订单AM-DEMO-PUBLIC-001的位置",
+        "answer": "该操作需要登录后才能进行，请先登录",
+        "intent": "order_task",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 15,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 实时业务数据（工具直查）",
+        "evidenceScore": null,
+        "retrievalRoute": "tool-or-cache",
+        "reranker": null,
+        "correctionCount": 0,
+        "knowledgeVersion": null,
+        "trace": {
+          "traceId": "0778ca45414f218b79c0763b9e4cbc6e",
+          "stages": [
+            {
+              "name": "chat",
+              "durationMs": 15,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 0,
+          "unsupportedNumericClaims": 0,
+          "claims": [],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 23.27,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1876
+      }
+    },
+    {
+      "id": "bitext-cancel_order-0-zh-adapted",
+      "intent": "cancel_order",
+      "trial": 2,
+      "request": {
+        "message": "取消订单AM-DEMO-PUBLIC-001时遇到问题",
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-cancel_order-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1876
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-cancel_order-0-zh-adapted",
+        "message": "取消订单AM-DEMO-PUBLIC-001时遇到问题",
+        "answer": "该操作需要登录后才能进行，请先登录",
+        "intent": "order_task",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 14,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 实时业务数据（工具直查）",
+        "evidenceScore": null,
+        "retrievalRoute": "tool-or-cache",
+        "reranker": null,
+        "correctionCount": 0,
+        "knowledgeVersion": null,
+        "trace": {
+          "traceId": "15e43d406b017ffad0da809c5efbb807",
+          "stages": [
+            {
+              "name": "chat",
+              "durationMs": 14,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 0,
+          "unsupportedNumericClaims": 0,
+          "claims": [],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 39.4,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1876
+      }
+    },
+    {
+      "id": "bitext-get_refund-0-zh-adapted",
+      "intent": "get_refund",
+      "trial": 2,
+      "request": {
+        "message": "我要申请退款",
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-get_refund-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1876
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-get_refund-0-zh-adapted",
+        "message": "我要申请退款",
+        "answer": "请提供需要申请售后的订单编号（例如：202609300001），我来帮您创建售后工单。",
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 9,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 实时业务数据（工具直查）",
+        "evidenceScore": null,
+        "retrievalRoute": "tool-or-cache",
+        "reranker": null,
+        "correctionCount": 0,
+        "knowledgeVersion": null,
+        "trace": {
+          "traceId": "e64850ca0753e678b56c7b4f4754880b",
+          "stages": [
+            {
+              "name": "chat",
+              "durationMs": 9,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 0,
+          "unsupportedNumericClaims": 0,
+          "claims": [],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 14.36,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1876
+      }
+    },
+    {
+      "id": "bitext-contact_human_agent-0-zh-adapted",
+      "intent": "contact_human_agent",
+      "trial": 2,
+      "request": {
+        "message": "帮我联系真人客服",
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-contact_human_agent-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1876
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-contact_human_agent-0-zh-adapted",
+        "message": "帮我联系真人客服",
+        "answer": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。建议您联系人工客服；当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+        "intent": "general",
+        "resolutionStatus": "HANDOFF_RECOMMENDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 217,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据不足，建议联系人工客服（证据强度 0.00）",
+        "evidenceScore": 0.0,
+        "retrievalRoute": "exact",
+        "reranker": "feature",
+        "correctionCount": 1,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "8687ca760b350dbf167f2e2d4843be21",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "success"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 12,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 109,
+              "outcome": "refusal"
+            },
+            {
+              "name": "chat",
+              "durationMs": 217,
+              "outcome": "refusal"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 3,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "建议您联系人工客服；",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": true,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": true,
+        "noForbiddenClaims": true,
+        "sourceHit": true
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 224.44,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1851
+      }
+    },
+    {
+      "id": "bitext-payment_issue-0-zh-adapted",
+      "intent": "payment_issue",
+      "trial": 2,
+      "request": {
+        "message": "我不知道怎么反馈支付时遇到的问题",
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-payment_issue-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 88,
+        "availableMB": 1851
+      },
+      "response": {
+        "sessionId": "product-eval-51c39479ec9e-1-bitext-payment_issue-0-zh-adapted",
+        "message": "我不知道怎么反馈支付时遇到的问题",
+        "answer": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。建议您联系人工客服；当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+        "intent": "general",
+        "resolutionStatus": "HANDOFF_RECOMMENDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 161,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据不足，建议联系人工客服（证据强度 0.00）",
+        "evidenceScore": 0.0,
+        "retrievalRoute": "exact",
+        "reranker": "feature",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "023b64606772492a9baf0f6f19ca17e2",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 10,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 61,
+              "outcome": "refusal"
+            },
+            {
+              "name": "chat",
+              "durationMs": 161,
+              "outcome": "refusal"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 3,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "建议您联系人工客服；",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      },
+      "passed": false,
+      "checks": {
+        "nonempty": true,
+        "requiredConcepts": false,
+        "noForbiddenClaims": true,
+        "sourceHit": false
+      },
+      "grader": "deterministic lexical/source proxy; not semantic correctness or actual business-state verification",
+      "latencyMs": 167.75,
+      "memoryAfter": {
+        "usedPercent": 88,
+        "availableMB": 1837
+      }
+    }
+  ]
+}

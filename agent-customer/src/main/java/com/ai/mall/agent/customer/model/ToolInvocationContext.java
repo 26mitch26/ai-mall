@@ -30,6 +30,11 @@ public class ToolInvocationContext {
      */
     private String userToken;
 
+    /** Server-created, frozen operation identity. Never copied from a model-generated context. */
+    private String operationId;
+    private String operationHash;
+    private boolean writeApproved;
+
     /**
      * 构造匿名上下文（未登录用户）
      */

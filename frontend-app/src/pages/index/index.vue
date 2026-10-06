@@ -1,5 +1,8 @@
 <template>
-  <view class="container">
+  <view class="container pc-storefront-page">
+    <!-- #ifdef H5 -->
+    <pc-storefront-nav active="home" />
+    <!-- #endif -->
     <!-- 小程序头部兼容 -->
     <!-- #ifdef MP -->
     <view class="mp-search-box">
@@ -15,18 +18,43 @@
       <view class="titleNview-placing"></view>
       <!-- 背景色区域 -->
       <view class="titleNview-background" :style="{ backgroundColor: titleNViewBackground }"></view>
-      <swiper class="carousel" circular @change="handleSwiperChange">
+      <swiper v-if="advertiseList.length" class="carousel" circular @change="handleSwiperChange">
         <swiper-item
           v-for="(item, index) in advertiseList"
           :key="index"
           class="carousel-item"
           @click="handleNavToAdvertisePage(item)"
         >
-          <image :src="item.pic" mode="aspectFill" />
+          <image
+            v-if="!failedAdvertiseIds[item.id]"
+            :src="item.pic"
+            mode="aspectFill"
+            @error="handleAdvertiseImageError(item)"
+          />
+          <view v-else class="banner-fallback banner-fallback--slide">
+            <text class="banner-kicker">AI-MALL · SHOPPING GUIDE</text>
+            <text class="banner-title">发现适合你的好物</text>
+            <text class="banner-copy">从精选分类开始，或让智能客服帮你快速挑选。</text>
+            <view class="banner-actions">
+              <view class="banner-action banner-action--primary" @click.stop="handleNavToCategory">逛逛分类</view>
+              <view class="banner-action" @click.stop="handleNavToCustomerService">问智能客服</view>
+            </view>
+            <view class="banner-art" aria-hidden="true"><view class="banner-art-card"></view></view>
+          </view>
         </swiper-item>
       </swiper>
+      <view v-else class="carousel-fallback banner-fallback">
+        <text class="banner-kicker">AI-MALL · SHOPPING GUIDE</text>
+        <text class="banner-title">发现适合你的好物</text>
+        <text class="banner-copy">从精选分类开始，或让智能客服帮你快速挑选。</text>
+        <view class="banner-actions">
+          <view class="banner-action banner-action--primary" @click="handleNavToCategory">逛逛分类</view>
+          <view class="banner-action" @click="handleNavToCustomerService">问智能客服</view>
+        </view>
+        <view class="banner-art" aria-hidden="true"><view class="banner-art-card"></view></view>
+      </view>
       <!-- 自定义swiper指示器 -->
-      <view class="swiper-dots">
+      <view v-if="advertiseList.length" class="swiper-dots">
         <text class="num">{{ swiperCurrent + 1 }}</text>
         <text class="sign">/</text>
         <text class="num">{{ swiperLength }}</text>
@@ -225,6 +253,7 @@
 </template>
 
 <script setup lang="ts">
+import PcStorefrontNav from '@/components/pc-storefront-nav.vue'
 import { ref, computed } from 'vue'
 import {
   onLoad,
@@ -258,6 +287,7 @@ const isScrolled = ref(false)
 
 // 轮播广告
 const advertiseList = ref<SmsHomeAdvertise[]>([])
+const failedAdvertiseIds = ref<Record<number, boolean>>({})
 // 品牌制造商直供
 const brandList = ref<PmsBrand[]>([])
 // 秒杀专区
@@ -304,7 +334,8 @@ const loadData = async () => {
   try {
     const res = await getHomeContentAPI()
     const data = res.data
-    advertiseList.value = data?.advertiseList || []
+    advertiseList.value = (data?.advertiseList || []).filter((item) => item.pic?.trim())
+    failedAdvertiseIds.value = {}
     brandList.value = data?.brandList || []
     homeFlashPromotion.value = data?.homeFlashPromotion || null
     newProductList.value = data?.newProductList || []
@@ -476,6 +507,14 @@ const handleNavToTopicPage = () => {
 
 const handleNavToCustomerService = () => {
   uni.navigateTo({ url: '/pages/agent/customer' })
+}
+
+const handleAdvertiseImageError = (item: SmsHomeAdvertise) => {
+  failedAdvertiseIds.value[item.id] = true
+}
+
+const handleNavToCategory = () => {
+  uni.switchTab({ url: '/pages/category/category' })
 }
 
 // 跳转帮助中心（知识库政策原文）
@@ -700,6 +739,137 @@ page {
     height: 100%;
     border-radius: 10rpx;
   }
+}
+
+.carousel-fallback,
+.banner-fallback--slide {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: 30rpx 36rpx;
+  border-radius: 10rpx;
+  color: #fff;
+  background:
+    radial-gradient(circle at 86% 20%, rgba(126, 228, 215, 0.38), transparent 27%),
+    linear-gradient(112deg, #1d2b5b 0%, #3458a6 54%, #3a9f9a 100%);
+}
+
+.carousel-fallback {
+  width: calc(100% - 56rpx);
+  height: 350rpx;
+  margin: 0 28rpx;
+}
+
+.banner-fallback--slide {
+  width: 100%;
+  height: 100%;
+}
+
+.banner-kicker,
+.banner-title,
+.banner-copy {
+  position: relative;
+  z-index: 1;
+  display: block;
+  max-width: 68%;
+}
+
+.banner-kicker {
+  color: #b9e9e2;
+  font-size: 18rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+}
+
+.banner-title {
+  margin-top: 12rpx;
+  font-size: 40rpx;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.banner-copy {
+  margin-top: 10rpx;
+  color: rgba(255, 255, 255, 0.83);
+  font-size: 22rpx;
+  line-height: 1.6;
+}
+
+.banner-actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 20rpx;
+}
+
+.banner-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 54rpx;
+  padding: 0 20rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.5);
+  border-radius: 999rpx;
+  color: #fff;
+  font-size: 20rpx;
+  font-weight: 650;
+}
+
+.banner-action--primary {
+  border-color: #fff;
+  color: #2e4c8e;
+  background: #fff;
+}
+
+.banner-art {
+  position: absolute;
+  top: 50%;
+  right: 5%;
+  width: 30%;
+  height: 76%;
+  transform: translateY(-50%);
+  border: 1rpx solid rgba(255, 255, 255, 0.14);
+  border-radius: 40rpx;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.banner-art-card {
+  position: absolute;
+  top: 14%;
+  right: 17%;
+  width: 58%;
+  height: 72%;
+  border: 1rpx solid rgba(255, 255, 255, 0.7);
+  border-radius: 24rpx;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(207, 236, 233, 0.78));
+  box-shadow: 0 20rpx 38rpx rgba(11, 24, 61, 0.22);
+  transform: rotate(8deg);
+}
+
+.banner-art-card::before,
+.banner-art-card::after {
+  position: absolute;
+  right: 18%;
+  left: 18%;
+  height: 9%;
+  border-radius: 999rpx;
+  background: rgba(51, 79, 145, 0.18);
+  content: '';
+}
+
+.banner-art-card::before {
+  top: 28%;
+}
+
+.banner-art-card::after {
+  top: 46%;
+  right: 34%;
 }
 
 .swiper-dots {
@@ -1119,6 +1289,291 @@ page {
     display: flex;
     flex-direction: column;
     padding-left: 40rpx;
+  }
+}
+
+@media screen and (min-width: 769px) {
+  .container {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(280px, 0.8fr);
+    column-gap: 24px;
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 0 32px 48px;
+  }
+
+  .carousel-section {
+    grid-column: 1;
+    grid-row: 1;
+    padding-top: 0;
+    overflow: hidden;
+    border-radius: 22px;
+
+    .titleNview-placing,
+    .titleNview-background {
+      display: none;
+    }
+  }
+
+  .carousel {
+    height: 380px;
+    padding: 0;
+
+    image {
+      border-radius: 22px;
+    }
+  }
+
+  .carousel-fallback {
+    width: 100%;
+    height: 380px;
+    margin: 0;
+    padding: 42px 48px;
+    border-radius: 22px;
+  }
+
+  .banner-fallback--slide {
+    padding: 42px 48px;
+    border-radius: 22px;
+  }
+
+  .banner-kicker {
+    font-size: 12px;
+    letter-spacing: 2px;
+  }
+
+  .banner-title {
+    margin-top: 18px;
+    font-size: 36px;
+  }
+
+  .banner-copy {
+    margin-top: 12px;
+    font-size: 15px;
+  }
+
+  .banner-actions {
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .banner-action {
+    min-height: 42px;
+    padding: 0 18px;
+    border-width: 1px;
+    font-size: 13px;
+  }
+
+  .banner-art {
+    border-width: 1px;
+    border-radius: 40px;
+  }
+
+  .banner-art-card {
+    border-width: 1px;
+    border-radius: 24px;
+  }
+
+  .swiper-dots {
+    left: auto;
+    right: 24px;
+    bottom: 22px;
+  }
+
+  .cate-section {
+    grid-column: 1 / -1;
+    margin-top: 20px;
+    padding: 22px 28px;
+    border: 1px solid #edf0f6;
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(31, 48, 94, 0.04);
+
+    .cate-item {
+      flex-direction: row;
+      gap: 10px;
+      padding: 4px 18px;
+      font-size: 15px;
+    }
+
+    image {
+      width: 42px;
+      height: 42px;
+      margin: 0;
+    }
+  }
+
+  .agent-entry {
+    grid-column: 2;
+    grid-row: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 18px;
+    min-height: 380px;
+    margin: 0;
+    padding: 30px;
+    border-radius: 18px;
+    cursor: pointer;
+  }
+
+  .agent-entry-icon {
+    width: 54px;
+    height: 54px;
+    margin-right: 0;
+    border-radius: 16px;
+    font-size: 19px;
+  }
+
+  .agent-entry-title {
+    font-size: 18px;
+  }
+
+  .agent-entry-subtitle {
+    margin-top: 6px;
+    font-size: 13px;
+  }
+
+  .help-entry {
+    grid-column: 1 / -1;
+    margin-right: 0;
+    margin-left: 0;
+    padding: 20px 24px;
+    border-radius: 16px;
+  }
+
+  .guess-section {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+    padding: 0;
+    background: transparent;
+
+    .guess-item {
+      width: auto;
+      min-width: 0;
+      margin: 0 !important;
+      padding: 14px;
+      border: 1px solid #edf0f6;
+      border-radius: 16px;
+      background: #fff;
+      box-shadow: 0 6px 20px rgba(31, 48, 94, 0.04);
+    }
+
+    .image-wrapper {
+      height: 220px;
+      border-radius: 10px;
+      background: #f7f8fb;
+    }
+
+    .image-wrapper-brand {
+      height: 110px;
+      background: #f7f8fb;
+    }
+
+    .title {
+      margin-top: 10px;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .title2 {
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .price {
+      margin-top: 8px;
+      font-size: 17px;
+    }
+  }
+
+  .f-header {
+    grid-column: 1 / -1;
+    margin-top: 30px;
+    padding: 0 0 14px;
+
+    .tit {
+      font-size: 20px;
+    }
+
+    .tit2 {
+      font-size: 13px;
+    }
+  }
+
+  .seckill-section .floor-list {
+    height: auto;
+  }
+
+  .seckill-section .scoll-wrapper {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  .seckill-section .floor-item {
+    width: auto;
+    height: auto;
+    margin: 0;
+    padding: 14px;
+    border: 1px solid #edf0f6;
+    border-radius: 16px;
+    background: #fff;
+  }
+
+  .seckill-section .floor-item image {
+    width: 100%;
+    height: 200px;
+    border-radius: 10px;
+  }
+
+  .hot-section {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    padding: 0;
+    background: transparent;
+
+    .guess-item {
+      align-items: center;
+      gap: 18px;
+      padding: 14px;
+      border: 1px solid #edf0f6;
+      border-radius: 16px;
+      background: #fff;
+    }
+
+    .image-wrapper {
+      width: 130px;
+      height: 130px;
+      flex: 0 0 130px;
+      background: #f7f8fb;
+    }
+
+    .txt {
+      width: auto;
+      min-width: 0;
+      padding-left: 0;
+    }
+
+    .title {
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .title2 {
+      height: auto;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .price {
+      margin-top: 8px;
+      font-size: 17px;
+      line-height: 1.5;
+    }
   }
 }
 </style>

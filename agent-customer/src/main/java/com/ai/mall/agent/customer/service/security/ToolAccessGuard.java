@@ -95,6 +95,9 @@ public class ToolAccessGuard {
                 log.warn("写操作工具[{}]缺少用户令牌，拒绝调用, memberId={}", toolName, context.getMemberId());
                 return Decision.deny("该操作需要有效的登录凭证");
             }
+            if (!context.isWriteApproved() || context.getOperationId() == null || context.getOperationId().isBlank()) {
+                return Decision.deny("写操作需要先确认具体草稿");
+            }
         }
 
         return Decision.allow();

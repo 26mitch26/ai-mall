@@ -8,6 +8,7 @@
       type="number"
       :disabled="disabled"
       :value="inputValue"
+      @input="_onInput"
       @blur="_onBlur"
     />
     <view class="uni-numbox-plus" @click="_calcValue('add')">
@@ -17,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 const props = defineProps<{
   isMax?: boolean
@@ -34,93 +35,55 @@ const emit = defineEmits<{
   eventChange: [{ number: number; index: number }]
 }>()
 
-const inputValue = ref(props.value || 0)
-const minDisabled = ref(false)
-const maxDisabled = ref(false)
+const numericValue = ref(0)
+const inputValue = ref('0')
+const minDisabled = computed(() => Boolean(props.isMin) || numericValue.value <= (props.min ?? -Infinity))
+const maxDisabled = computed(() => Boolean(props.isMax) || numericValue.value >= (props.max ?? Infinity))
 
-watch(
-  () => props.isMax,
-  (val) => {
-    maxDisabled.value = val || false
-  },
-  { immediate: true },
-)
-
-watch(
-  () => props.isMin,
-  (val) => {
-    minDisabled.value = val || false
-  },
-  { immediate: true },
-)
-
-watch(inputValue, (number) => {
-  const data = {
-    number,
-    index: props.index || 0,
-  }
-  emit('eventChange', data)
-})
-
-const _calcValue = (type: 'subtract' | 'add') => {
-  const scale = _getDecimalScale()
-  let value = inputValue.value * scale
-  let newValue = 0
-  const step = (props.step || 1) * scale
-
-  if (type === 'subtract') {
-    newValue = value - step
-    if (newValue <= (props.min ?? -Infinity)) {
-      minDisabled.value = true
-    }
-    if (newValue < (props.min ?? -Infinity)) {
-      newValue = props.min ?? -Infinity
-    }
-    if (newValue < (props.max ?? Infinity) && maxDisabled.value === true) {
-      maxDisabled.value = false
-    }
-  } else if (type === 'add') {
-    newValue = value + step
-    if (newValue >= (props.max ?? Infinity)) {
-      maxDisabled.value = true
-    }
-    if (newValue > (props.max ?? Infinity)) {
-      newValue = props.max ?? Infinity
-    }
-    if (newValue > (props.min ?? -Infinity) && minDisabled.value === true) {
-      minDisabled.value = false
-    }
-  }
-
-  if (newValue === value) {
-    return
-  }
-  inputValue.value = newValue / scale
+const clampValue = (value: number) => Math.min(props.max ?? Infinity, Math.max(props.min ?? -Infinity, value))
+const setValue = (value: number, notify: boolean) => {
+  const nextValue = clampValue(value)
+  if (!Number.isFinite(nextValue)) return
+  const changed = nextValue !== numericValue.value
+  numericValue.value = nextValue
+  inputValue.value = String(nextValue)
+  if (notify && changed) emit('eventChange', { number: nextValue, index: props.index ?? 0 })
 }
 
-const _getDecimalScale = () => {
-  let scale = 1
-  const step = props.step || 1
-  // 浮点型
-  if (~~step !== step) {
-    scale = Math.pow(10, (step + '').split('.')[1].length)
-  }
-  return scale
+watch(() => props.value, (value) => {
+  setValue(typeof value === 'number' && Number.isFinite(value) ? value : props.min ?? 0, false)
+}, { immediate: true })
+
+const _calcValue = (type: 'subtract' | 'add') => {
+  if (props.disabled) return
+  const step = typeof props.step === 'number' && Number.isFinite(props.step) && props.step > 0 ? props.step : 1
+  const scale = decimalScale([numericValue.value, step, props.min, props.max])
+  const currentUnits = Math.round(numericValue.value * scale)
+  const stepUnits = Math.round(step * scale)
+  const next = (currentUnits + (type === 'add' ? stepUnits : -stepUnits)) / scale
+  setValue(next, true)
+}
+
+const decimalScale = (values: Array<number | undefined>) => {
+  const places = values.filter((value): value is number => typeof value === 'number' && Number.isFinite(value)).map((value) => {
+    const [coefficient, exponentText] = value.toString().toLowerCase().split('e')
+    const fractionLength = coefficient.split('.')[1]?.length ?? 0
+    return Math.max(0, fractionLength - Number(exponentText || 0))
+  })
+  return 10 ** Math.min(12, Math.max(0, ...places))
+}
+
+const _onInput = (event: { detail: { value: string } }) => {
+  inputValue.value = event.detail.value
 }
 
 const _onBlur = (event: { detail: { value: string } }) => {
-  let value = event.detail.value
-  if (!value) {
-    inputValue.value = 0
-    return
-  }
-  value = +value
-  if (value > (props.max ?? Infinity)) {
-    value = props.max ?? Infinity
-  } else if (value < (props.min ?? -Infinity)) {
-    value = props.min ?? -Infinity
-  }
-  inputValue.value = value
+  const rawValue = event.detail.value.trim()
+  // An empty or invalid edit restores the last committed numeric value.
+  if (!rawValue) { inputValue.value = String(numericValue.value); return }
+  const parsed = Number(rawValue)
+  if (!Number.isFinite(parsed)) { inputValue.value = String(numericValue.value); return }
+  setValue(parsed, true)
 }
 </script>
 

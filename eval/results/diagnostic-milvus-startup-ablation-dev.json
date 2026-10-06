@@ -1,0 +1,373 @@
+{
+  "generatedAt": "2026-10-06T12:08:46.400003+00:00",
+  "runId": "4803ddd79c89",
+  "dataSha256": "1f90ab627c18df9a2d60515c4fe986e47efa9defe89ac2061fdf8999839560cd",
+  "split": "dev",
+  "language": "zh-adapted",
+  "label": "low-memory-ablation-no-cache",
+  "trialsPerTask": 2,
+  "maxHttpCalls": 40,
+  "scheduledAttempts": 20,
+  "complete": false,
+  "maxMemoryPercent": 90,
+  "baseUrl": "http://localhost:8083",
+  "model": "ai-mall-eval-qwen3:0.6b",
+  "externalApiSpend": 0,
+  "costNote": "Local compute/electricity costs not measured; no cloud judge calls. Cache must be disabled for independent-trial comparison.",
+  "metrics": {
+    "attempts": 16,
+    "passed": 0,
+    "taskProxyPassRate": 0,
+    "infraErrors": 16,
+    "p50Ms": 4086.535,
+    "p95Ms": 4111.96,
+    "modelCalls": null,
+    "inputTokens": null,
+    "outputTokens": null,
+    "semanticCorrectness": null,
+    "businessOutcomeSuccess": null,
+    "humanReviewed": false,
+    "reliability": [
+      {
+        "k": 1,
+        "eligibleTasks": 10,
+        "passAtK": 0.0,
+        "passPowerK": 0.0
+      },
+      {
+        "k": 2,
+        "eligibleTasks": 6,
+        "passAtK": 0.0,
+        "passPowerK": 0.0
+      },
+      {
+        "k": 3,
+        "eligibleTasks": 0,
+        "passAtK": null,
+        "passPowerK": null
+      }
+    ]
+  },
+  "trials": [
+    {
+      "id": "bitext-check_refund_policy-0-zh-adapted",
+      "intent": "check_refund_policy",
+      "trial": 1,
+      "request": {
+        "message": "帮我查一下你们的退款政策",
+        "sessionId": "product-eval-4803ddd79c89-0-bitext-check_refund_policy-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 82,
+        "availableMB": 2811
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4094.42,
+      "memoryAfter": {
+        "usedPercent": 84,
+        "availableMB": 2547
+      }
+    },
+    {
+      "id": "bitext-check_payment_methods-0-zh-adapted",
+      "intent": "check_payment_methods",
+      "trial": 1,
+      "request": {
+        "message": "怎么查看你们支持哪些付款方式",
+        "sessionId": "product-eval-4803ddd79c89-0-bitext-check_payment_methods-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 84,
+        "availableMB": 2547
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4069.61,
+      "memoryAfter": {
+        "usedPercent": 84,
+        "availableMB": 2462
+      }
+    },
+    {
+      "id": "bitext-delivery_period-0-zh-adapted",
+      "intent": "delivery_period",
+      "trial": 1,
+      "request": {
+        "message": "想查一下买的东西多久送到",
+        "sessionId": "product-eval-4803ddd79c89-0-bitext-delivery_period-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 84,
+        "availableMB": 2462
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4083.07,
+      "memoryAfter": {
+        "usedPercent": 84,
+        "availableMB": 2561
+      }
+    },
+    {
+      "id": "bitext-delivery_options-0-zh-adapted",
+      "intent": "delivery_options",
+      "trial": 1,
+      "request": {
+        "message": "查一下配送方式",
+        "sessionId": "product-eval-4803ddd79c89-0-bitext-delivery_options-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 84,
+        "availableMB": 2561
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4084.4,
+      "memoryAfter": {
+        "usedPercent": 84,
+        "availableMB": 2509
+      }
+    },
+    {
+      "id": "bitext-get_invoice-0-zh-adapted",
+      "intent": "get_invoice",
+      "trial": 1,
+      "request": {
+        "message": "帮我获取我的发票",
+        "sessionId": "product-eval-4803ddd79c89-0-bitext-get_invoice-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 84,
+        "availableMB": 2509
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4107.47,
+      "memoryAfter": {
+        "usedPercent": 85,
+        "availableMB": 2342
+      }
+    },
+    {
+      "id": "bitext-track_order-0-zh-adapted",
+      "intent": "track_order",
+      "trial": 1,
+      "request": {
+        "message": "帮我查订单AM-DEMO-PUBLIC-001的位置",
+        "sessionId": "product-eval-4803ddd79c89-0-bitext-track_order-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 85,
+        "availableMB": 2342
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4065.52,
+      "memoryAfter": {
+        "usedPercent": 85,
+        "availableMB": 2295
+      }
+    },
+    {
+      "id": "bitext-cancel_order-0-zh-adapted",
+      "intent": "cancel_order",
+      "trial": 1,
+      "request": {
+        "message": "取消订单AM-DEMO-PUBLIC-001时遇到问题",
+        "sessionId": "product-eval-4803ddd79c89-0-bitext-cancel_order-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 85,
+        "availableMB": 2290
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4098.42,
+      "memoryAfter": {
+        "usedPercent": 81,
+        "availableMB": 3049
+      }
+    },
+    {
+      "id": "bitext-get_refund-0-zh-adapted",
+      "intent": "get_refund",
+      "trial": 1,
+      "request": {
+        "message": "我要申请退款",
+        "sessionId": "product-eval-4803ddd79c89-0-bitext-get_refund-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 81,
+        "availableMB": 3049
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4083.81,
+      "memoryAfter": {
+        "usedPercent": 67,
+        "availableMB": 5262
+      }
+    },
+    {
+      "id": "bitext-contact_human_agent-0-zh-adapted",
+      "intent": "contact_human_agent",
+      "trial": 1,
+      "request": {
+        "message": "帮我联系真人客服",
+        "sessionId": "product-eval-4803ddd79c89-0-bitext-contact_human_agent-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 67,
+        "availableMB": 5262
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4076.36,
+      "memoryAfter": {
+        "usedPercent": 70,
+        "availableMB": 4812
+      }
+    },
+    {
+      "id": "bitext-payment_issue-0-zh-adapted",
+      "intent": "payment_issue",
+      "trial": 1,
+      "request": {
+        "message": "我不知道怎么反馈支付时遇到的问题",
+        "sessionId": "product-eval-4803ddd79c89-0-bitext-payment_issue-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 70,
+        "availableMB": 4815
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4108.8,
+      "memoryAfter": {
+        "usedPercent": 71,
+        "availableMB": 4627
+      }
+    },
+    {
+      "id": "bitext-check_refund_policy-0-zh-adapted",
+      "intent": "check_refund_policy",
+      "trial": 2,
+      "request": {
+        "message": "帮我查一下你们的退款政策",
+        "sessionId": "product-eval-4803ddd79c89-1-bitext-check_refund_policy-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 71,
+        "availableMB": 4626
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4069.85,
+      "memoryAfter": {
+        "usedPercent": 70,
+        "availableMB": 4810
+      }
+    },
+    {
+      "id": "bitext-check_payment_methods-0-zh-adapted",
+      "intent": "check_payment_methods",
+      "trial": 2,
+      "request": {
+        "message": "怎么查看你们支持哪些付款方式",
+        "sessionId": "product-eval-4803ddd79c89-1-bitext-check_payment_methods-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 70,
+        "availableMB": 4810
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4090.82,
+      "memoryAfter": {
+        "usedPercent": 70,
+        "availableMB": 4699
+      }
+    },
+    {
+      "id": "bitext-delivery_period-0-zh-adapted",
+      "intent": "delivery_period",
+      "trial": 2,
+      "request": {
+        "message": "想查一下买的东西多久送到",
+        "sessionId": "product-eval-4803ddd79c89-1-bitext-delivery_period-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 70,
+        "availableMB": 4699
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4088.67,
+      "memoryAfter": {
+        "usedPercent": 71,
+        "availableMB": 4589
+      }
+    },
+    {
+      "id": "bitext-delivery_options-0-zh-adapted",
+      "intent": "delivery_options",
+      "trial": 2,
+      "request": {
+        "message": "查一下配送方式",
+        "sessionId": "product-eval-4803ddd79c89-1-bitext-delivery_options-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 71,
+        "availableMB": 4589
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4111.96,
+      "memoryAfter": {
+        "usedPercent": 65,
+        "availableMB": 5511
+      }
+    },
+    {
+      "id": "bitext-get_invoice-0-zh-adapted",
+      "intent": "get_invoice",
+      "trial": 2,
+      "request": {
+        "message": "帮我获取我的发票",
+        "sessionId": "product-eval-4803ddd79c89-1-bitext-get_invoice-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 65,
+        "availableMB": 5509
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4093.01,
+      "memoryAfter": {
+        "usedPercent": 64,
+        "availableMB": 5680
+      }
+    },
+    {
+      "id": "bitext-track_order-0-zh-adapted",
+      "intent": "track_order",
+      "trial": 2,
+      "request": {
+        "message": "帮我查订单AM-DEMO-PUBLIC-001的位置",
+        "sessionId": "product-eval-4803ddd79c89-1-bitext-track_order-0-zh-adapted"
+      },
+      "memoryBefore": {
+        "usedPercent": 64,
+        "availableMB": 5680
+      },
+      "passed": false,
+      "error": "URLError",
+      "latencyMs": 4073.74,
+      "memoryAfter": {
+        "usedPercent": 71,
+        "availableMB": 4659
+      }
+    }
+  ]
+}

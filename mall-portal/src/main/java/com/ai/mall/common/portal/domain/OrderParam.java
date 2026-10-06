@@ -23,6 +23,6 @@ public class OrderParam {
     private Integer payType;
     @Schema(title = "被选中的购物车商品ID")
     private List<Long> cartIds;
-    @Schema(title = "幂等token，防重复提交，从 GET /order/token 获取")
+    @Schema(title = "稳定幂等键；同一会员使用相同键重试会返回首次下单结果")
     private String idempotencyToken;
 }

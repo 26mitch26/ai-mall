@@ -403,6 +403,7 @@ class OmsPortalOrderServiceImplTest {
         timeoutOrder.setId(1L);
         timeoutOrder.setCouponId(100L);
         timeoutOrder.setMemberId(1L);
+        timeoutOrder.setOrderItemList(List.of());
 
         when(orderSettingMapper.selectByPrimaryKey(1L)).thenReturn(setting);
         when(portalOrderDao.getTimeOutOrders(60)).thenReturn(List.of(timeoutOrder));

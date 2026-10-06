@@ -1,5 +1,8 @@
 <template>
-  <view class="content">
+  <view class="content pc-storefront-page">
+    <!-- #ifdef H5 -->
+    <pc-storefront-nav active="category" />
+    <!-- #endif -->
     <scroll-view scroll-y class="left-aside">
       <view
         v-for="item in topCateList"
@@ -33,6 +36,7 @@
 </template>
 
 <script setup lang="ts">
+import PcStorefrontNav from '@/components/pc-storefront-nav.vue'
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { getProductCateListAPI } from '@/apis/home'
@@ -89,6 +93,63 @@ const handleNavToList = (sid: number) => {
   })
 }
 </script>
+
+<style lang="scss" scoped>
+@media screen and (min-width: 769px) {
+  .content {
+    display: flex;
+    align-items: stretch;
+    gap: 24px;
+    width: min(1240px, calc(100% - 64px));
+    height: auto;
+    min-height: calc(100vh - 80px);
+    margin: 0 auto;
+    padding: 24px 0 40px;
+    box-sizing: border-box;
+  }
+
+  .left-aside {
+    flex: 0 0 220px;
+    height: auto;
+    border: 1px solid #edf0f6;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 6px 20px rgba(31, 48, 94, 0.04);
+  }
+
+  .right-aside {
+    flex: 1;
+    height: auto;
+    padding: 22px;
+    border: 1px solid #edf0f6;
+    border-radius: 16px;
+    background: #fff;
+  }
+
+  .s-list {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 18px;
+    width: 100%;
+  }
+
+  .s-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: auto;
+    padding: 14px 8px;
+    border-radius: 12px;
+    background: #f8f9fc;
+  }
+
+  .s-item image {
+    width: 78px;
+    height: 78px;
+  }
+}
+</style>
 
 <style lang="scss">
 page {

@@ -35,6 +35,16 @@ class ChatControllerTest {
     @MockitoBean
     private ChatService chatService;
 
+    @MockitoBean
+    private com.ai.mall.agent.customer.service.security.MemberIdentityResolver memberIdentityResolver;
+
+    @org.junit.jupiter.api.BeforeEach
+    void verifiedIdentity() {
+        when(memberIdentityResolver.resolve(any(), any())).thenAnswer(invocation ->
+                com.ai.mall.agent.customer.model.ToolInvocationContext.anonymous(
+                        invocation.getArgument(0) == null ? "new-session-id" : invocation.getArgument(0)));
+    }
+
     @Test
     void testChatEndpointReturnsProperResponse() throws Exception {
         ChatRequest request = new ChatRequest();
@@ -92,7 +102,7 @@ class ChatControllerTest {
         mockMvc.perform(delete("/api/v1/chat/session/session-1"))
                 .andExpect(status().isOk());
 
-        verify(chatService).clearSession("session-1");
+        verify(chatService).clearSession("anon_session-1");
     }
 
     @Test

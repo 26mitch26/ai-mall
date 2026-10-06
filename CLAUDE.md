@@ -62,7 +62,7 @@ ai-mall/
 ├── ai-gateway/                      ← Unified API gateway
 ├── agent-customer/                  ← Smart customer service Agent
 ├── agent-ops/                       ← Smart operations Agent
-├── agent-test/                      ← Automated testing Agent
+├── agent-test/                      ← Automated testing Agent (REST + MCP, credentialed)
 ├── infra/                           ← Docker Compose infrastructure
 └── docs/                            ← Interview materials
 ```
@@ -73,3 +73,18 @@ ai-mall/
 - Maven multi-module architecture
 - Docker Compose for infrastructure
 - JUnit 5 + Testcontainers for testing
+
+## Driving the testing agent from an external agent
+
+`agent-test` exposes an MCP endpoint (`POST /mcp`, Streamable HTTP JSON-only, protocol `2025-06-18`) so
+CodeBuddy / Claude Code can call a regression run as a tool: `list_test_modules` → `run_tests` (returns a
+`runId` immediately) → `get_run_status` → `get_test_report`. A run with failures is a normal result, not a
+tool error.
+
+Two rules when working on this module:
+
+- **Never make an entrypoint anonymous.** `/api/v1/test/**` and `/mcp` are intercepted by
+  `TestAccessInterceptor`; credentials are a user JWT (same secret as the gateway) or the internal
+  `X-Test-Agent-Token`. Adding a new controller under those paths inherits the guard automatically.
+- **Never trust an arbitrary `module` string.** It must pass `TestAccessGuard#validateModule`
+  (whitelist = `test.agent.modules`); otherwise this service becomes a scanner for internal systems.

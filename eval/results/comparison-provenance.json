@@ -1,0 +1,8 @@
+{
+  "baselineCorpus": "eval/public/archives/bitext-cases-v1.jsonl",
+  "candidateCorpus": "eval/public/bitext-cases.jsonl",
+  "baselineSelectedTasksSha256": "29ee31f08b41b646a8fb20264f15d8d715fcf9ee0593f91cff8d7ea1844d1c6c",
+  "candidateSelectedTasksSha256": "29ee31f08b41b646a8fb20264f15d8d715fcf9ee0593f91cff8d7ea1844d1c6c",
+  "identicalDevelopmentTasks": true,
+  "correctionBeforeTestExecution": true
+}

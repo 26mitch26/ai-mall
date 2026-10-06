@@ -1,8 +1,10 @@
 package com.ai.mall.agent.ops.service.agent;
 
 import com.ai.mall.agent.ops.model.ChangeDecision;
+import com.ai.mall.agent.ops.model.GateRecord;
 import com.ai.mall.agent.ops.model.HealAction;
 import com.ai.mall.agent.ops.model.HealLevel;
+import com.ai.mall.agent.ops.service.audit.GateDecisionStore;
 import com.ai.mall.agent.ops.service.event.EventBus;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,11 @@ import java.util.*;
  * - 0.3 <= riskScore < 0.6: 值班工程师审批
  * - 0.6 <= riskScore < 0.8: 团队负责人审批
  * - riskScore >= 0.8: CTO审批
+ *
+ * <p><b>门控闭环</b>：需要审批的门控会生成可查询的审批单（{@link GateRecord} 落盘），
+ * 由 {@code OpsControlController} 提供批准/驳回接口。批准后触发模拟执行并回写历史成功率——
+ * 此前 {@link #updateSuccessRate} 没有任何调用方，导致风险评分里的"历史成功率"因子恒为默认 0.5，
+ * 是一块纯装饰。
  */
 @Slf4j
 @Service
@@ -30,6 +37,7 @@ import java.util.*;
 public class ChangeAgent {
 
     private final EventBus eventBus;
+    private final GateDecisionStore gateStore;
 
     /**
      * 事件驱动入口：消费 aiops.commands 上的处置动作，产出管控决策发布到 aiops.audit。
@@ -78,10 +86,64 @@ public class ChangeAgent {
                 .reason(generateReason(healAction, riskScore, status, gateDecision.reason))
                 .build();
 
+        // 审批单落盘：让"需人工审批"不再是死路（可查询、可批准、可驳回）
+        gateStore.save(GateRecord.builder()
+                .id(decision.getId())
+                .alertId(healAction.getAlertId())
+                .healActionId(healAction.getId())
+                .playbook(healAction.getPlaybook())
+                .riskScore(riskScore)
+                .approver(approver)
+                .status(status)
+                .reason(decision.getReason())
+                .createdAt(LocalDateTime.now())
+                .build());
+
         eventBus.publish("aiops.audit", decision);
         log.info("Change decision: riskScore={}, approver={}, status={}",
                 formatDouble(riskScore), approver, status);
         return decision;
+    }
+
+    /**
+     * 批准待审批门控：更新审批单状态并重新发布决策，使 incident 推进到已解决。
+     *
+     * @param executionSummary 模拟执行结果摘要，可为空
+     * @return 更新后的审批单；不存在时返回 null
+     */
+    public GateRecord approve(String gateId, String approver, String executionSummary) {
+        GateRecord updated = gateStore.decide(gateId, "approved", approver, executionSummary);
+        if (updated == null) {
+            return null;
+        }
+        republish(updated, "approved");
+        return updated;
+    }
+
+    /** 驳回待审批门控：incident 停在待审批，不做任何处置。 */
+    public GateRecord reject(String gateId, String approver, String reason) {
+        GateRecord updated = gateStore.decide(gateId, "rejected", approver, reason);
+        if (updated == null) {
+            return null;
+        }
+        republish(updated, "rejected");
+        return updated;
+    }
+
+    /** 审批结论重新过一遍事件总线，让 Orchestrator 汇聚到新的状态。 */
+    private void republish(GateRecord record, String status) {
+        ChangeDecision decision = ChangeDecision.builder()
+                .id(record.getId())
+                .alertId(record.getAlertId())
+                .healActionId(record.getHealActionId())
+                .riskScore(record.getRiskScore())
+                .approver(record.getApprover())
+                .status(status)
+                .timestamp(LocalDateTime.now())
+                .reason("人工审批：" + status + " by " + record.getDecidedBy()
+                        + (record.getExecutionSummary() == null ? "" : " | " + record.getExecutionSummary()))
+                .build();
+        eventBus.publish("aiops.audit", decision);
     }
 
     /**

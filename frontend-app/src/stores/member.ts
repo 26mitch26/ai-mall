@@ -28,7 +28,7 @@ export const useMemberStore = defineStore(
       const token = `${loginData.tokenHead}${loginData.token}`
       uni.setStorageSync('token', token)
       uni.setStorageSync('username', username)
-      uni.setStorageSync('password', password)
+      uni.removeStorageSync('password')
 
       // 3. 获取用户信息
       const memberRes = await getMemberInfoAPI()
@@ -41,6 +41,7 @@ export const useMemberStore = defineStore(
     const memberLogout = () => {
       memberInfo.value = undefined
       uni.removeStorageSync('token')
+      uni.removeStorageSync('password')
     }
 
     return {

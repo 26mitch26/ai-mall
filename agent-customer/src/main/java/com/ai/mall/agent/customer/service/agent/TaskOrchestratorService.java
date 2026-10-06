@@ -4,7 +4,9 @@ import com.ai.mall.agent.customer.model.ChatMessage;
 import com.ai.mall.agent.customer.model.TaskRequest;
 import com.ai.mall.agent.customer.model.TaskResponse;
 import com.ai.mall.agent.customer.model.ToolInvocationContext;
+import com.ai.mall.agent.customer.model.workflow.AfterSaleWorkflowState;
 import com.ai.mall.agent.customer.service.memory.MemoryService;
+import com.ai.mall.agent.customer.service.workflow.AfterSaleWorkflowService;
 import com.ai.mall.agent.customer.service.tool.ToolRegistry;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -29,12 +31,21 @@ public class TaskOrchestratorService {
     private final ToolRegistry toolRegistry;
     private final MemoryService memoryService;
     private final ObjectMapper objectMapper;
+    private final AfterSaleWorkflowService afterSaleWorkflowService;
 
     public TaskResponse execute(TaskRequest request) {
+        return execute(request, ToolInvocationContext.anonymous(request == null ? null : request.getSessionId()));
+    }
+
+    public TaskResponse execute(TaskRequest request, ToolInvocationContext context) {
+        if (request == null) throw new IllegalArgumentException("请求不能为空");
         String sessionId = request.getSessionId() == null || request.getSessionId().isBlank()
-                ? UUID.randomUUID().toString() : request.getSessionId();
+                ? context.getSessionId() : request.getSessionId();
+        if (sessionId == null || sessionId.isBlank()) sessionId = UUID.randomUUID().toString();
+        // Keep conversational state isolated per verified member and external session.
+        String memorySessionId = (context != null && context.isAuthenticated() ? "member_" + context.getMemberId() : "anon") + "_" + sessionId;
         String message = request.getMessage() == null ? "" : request.getMessage().trim();
-        List<ChatMessage> history = memoryService.getShortTermMemory(sessionId);
+        List<ChatMessage> history = memoryService.getShortTermMemory(memorySessionId);
         String task = detectTask(message, history);
         Map<String, Object> slots = extractSlots(message, task, history);
         List<String> missing = missingSlots(task, slots);
@@ -58,23 +69,39 @@ public class TaskOrchestratorService {
             action = "ASK_SLOT";
             nextPrompt = "还需要补充：" + String.join("、", missing);
         } else {
-            action = "CALL_API";
-            apiCall = apiFor(task);
-            result = toolRegistry.executeTool(task, toJson(task, slots), ToolInvocationContext.builder()
-                    .sessionId(sessionId)
-                    .memberId(request.getUserId())
-                    .userToken(request.getUserToken())
-                    .build());
-            completed = result != null
-                    && !result.contains("\"blocked\": true")
-                    && !result.contains("\"error\"")
-                    && !result.contains("\"code\":401")
-                    && !result.contains("\"code\":500");
-            nextPrompt = completed ? "任务已完成，可以继续追问或发起下一项任务。" : "接口未执行成功，请检查登录状态或补充参数。";
+            if ("create_after_sale".equals(task)) {
+                if (context == null || !context.isAuthenticated()) {
+                    action = "AUTH_REQUIRED";
+                    nextPrompt = "请先登录，再准备售后申请。";
+                } else {
+                    action = "PREPARE_CONFIRMATION";
+                    apiCall = "POST /api/v1/workflows/after-sale → order + after-sale policy";
+                    AfterSaleWorkflowState workflow = afterSaleWorkflowService.prepare(context,
+                            String.valueOf(slots.get("order_sn")), String.valueOf(slots.get("reason")),
+                            String.valueOf(slots.get("description")));
+                    result = toJson(workflow);
+                    nextPrompt = workflow.getDraft() + "\n任务编号：" + workflow.getTaskId() + "；确认提交请调用售后工作流确认接口。";
+                }
+            } else {
+                action = "CALL_API";
+                apiCall = apiFor(task);
+                ToolInvocationContext safeContext = ToolInvocationContext.builder()
+                        .sessionId(sessionId)
+                        .memberId(context == null ? null : context.getMemberId())
+                        .userToken(context == null ? null : context.getUserToken())
+                        .build();
+                result = toolRegistry.executeTool(task, toJson(task, slots), safeContext);
+                completed = result != null
+                        && !result.contains("\"blocked\": true")
+                        && !result.contains("\"error\"")
+                        && !result.contains("\"code\":401")
+                        && !result.contains("\"code\":500");
+                nextPrompt = completed ? "任务已完成，可以继续追问或发起下一项任务。" : "接口未执行成功，请检查登录状态或补充参数。";
+            }
         }
 
-        memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "user", message));
-        memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "assistant",
+        memoryService.addMessage(memorySessionId, memoryService.createMessage(memorySessionId, "user", message));
+        memoryService.addMessage(memorySessionId, memoryService.createMessage(memorySessionId, "assistant",
                 "TASK=" + task + "；DPM=" + action + "；" + nextPrompt));
 
         return TaskResponse.builder()
@@ -138,6 +165,10 @@ public class TaskOrchestratorService {
         } catch (Exception e) {
             return "{}";
         }
+    }
+
+    private String toJson(Object value) {
+        try { return objectMapper.writeValueAsString(value); } catch (Exception e) { return "{}"; }
     }
 
     private String apiFor(String task) {

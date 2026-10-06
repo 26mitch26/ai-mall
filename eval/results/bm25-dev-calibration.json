@@ -1,0 +1,328 @@
+{
+  "split": "dev",
+  "mode": "lexical-only",
+  "humanReviewed": false,
+  "observations": [
+    {
+      "id": "shipping-001",
+      "expectedRefusal": false,
+      "score": 8.43602851280089,
+      "hasEvidence": true
+    },
+    {
+      "id": "shipping-002",
+      "expectedRefusal": false,
+      "score": 5.895955816818509,
+      "hasEvidence": true
+    },
+    {
+      "id": "shipping-003",
+      "expectedRefusal": false,
+      "score": 26.3824276780133,
+      "hasEvidence": true
+    },
+    {
+      "id": "shipping-004",
+      "expectedRefusal": false,
+      "score": 5.084453457048957,
+      "hasEvidence": true
+    },
+    {
+      "id": "shipping-005",
+      "expectedRefusal": false,
+      "score": 2.1726184936567505,
+      "hasEvidence": true
+    },
+    {
+      "id": "shipping-011",
+      "expectedRefusal": false,
+      "score": 34.47127566730917,
+      "hasEvidence": true
+    },
+    {
+      "id": "refund-004",
+      "expectedRefusal": false,
+      "score": 1.9533608387762884,
+      "hasEvidence": true
+    },
+    {
+      "id": "refund-005",
+      "expectedRefusal": false,
+      "score": 0.336886890799719,
+      "hasEvidence": true
+    },
+    {
+      "id": "refund-008",
+      "expectedRefusal": false,
+      "score": 0.8237354598293138,
+      "hasEvidence": true
+    },
+    {
+      "id": "refund-009",
+      "expectedRefusal": false,
+      "score": 14.50265055122438,
+      "hasEvidence": true
+    },
+    {
+      "id": "refund-011",
+      "expectedRefusal": false,
+      "score": 0.0,
+      "hasEvidence": true
+    },
+    {
+      "id": "promotion-001",
+      "expectedRefusal": false,
+      "score": 14.227245176578478,
+      "hasEvidence": true
+    },
+    {
+      "id": "promotion-002",
+      "expectedRefusal": false,
+      "score": 5.089215081869561,
+      "hasEvidence": true
+    },
+    {
+      "id": "promotion-003",
+      "expectedRefusal": false,
+      "score": 14.227245176578478,
+      "hasEvidence": true
+    },
+    {
+      "id": "promotion-004",
+      "expectedRefusal": false,
+      "score": 1.55953137967751,
+      "hasEvidence": true
+    },
+    {
+      "id": "promotion-005",
+      "expectedRefusal": false,
+      "score": 14.17621901116353,
+      "hasEvidence": true
+    },
+    {
+      "id": "promotion-010",
+      "expectedRefusal": false,
+      "score": 12.847537673195403,
+      "hasEvidence": true
+    },
+    {
+      "id": "payment-001",
+      "expectedRefusal": false,
+      "score": 4.0282376594511975,
+      "hasEvidence": true
+    },
+    {
+      "id": "payment-002",
+      "expectedRefusal": false,
+      "score": 1.7846838130219647,
+      "hasEvidence": true
+    },
+    {
+      "id": "payment-004",
+      "expectedRefusal": false,
+      "score": 6.876430949210781,
+      "hasEvidence": true
+    },
+    {
+      "id": "payment-006",
+      "expectedRefusal": false,
+      "score": 8.21975712739821,
+      "hasEvidence": true
+    },
+    {
+      "id": "payment-009",
+      "expectedRefusal": false,
+      "score": 5.195922726532868,
+      "hasEvidence": true
+    },
+    {
+      "id": "benefits-001",
+      "expectedRefusal": false,
+      "score": 8.442677046288221,
+      "hasEvidence": true
+    },
+    {
+      "id": "benefits-002",
+      "expectedRefusal": false,
+      "score": 6.9937499173294055,
+      "hasEvidence": true
+    },
+    {
+      "id": "benefits-006",
+      "expectedRefusal": false,
+      "score": 7.731428136361547,
+      "hasEvidence": true
+    },
+    {
+      "id": "invoice-001",
+      "expectedRefusal": false,
+      "score": 0.8069963159507808,
+      "hasEvidence": true
+    },
+    {
+      "id": "invoice-002",
+      "expectedRefusal": false,
+      "score": 3.4389525565167145,
+      "hasEvidence": true
+    },
+    {
+      "id": "invoice-003",
+      "expectedRefusal": false,
+      "score": 7.2619435787121125,
+      "hasEvidence": true
+    },
+    {
+      "id": "invoice-004",
+      "expectedRefusal": false,
+      "score": 20.07053839012103,
+      "hasEvidence": true
+    },
+    {
+      "id": "invoice-007",
+      "expectedRefusal": false,
+      "score": 14.013448198729584,
+      "hasEvidence": true
+    },
+    {
+      "id": "invoice-010",
+      "expectedRefusal": false,
+      "score": 10.044755540223576,
+      "hasEvidence": true
+    },
+    {
+      "id": "invoice-011",
+      "expectedRefusal": false,
+      "score": 13.855842929036939,
+      "hasEvidence": true
+    },
+    {
+      "id": "inspection-001",
+      "expectedRefusal": false,
+      "score": 2.1706049636941245,
+      "hasEvidence": true
+    },
+    {
+      "id": "inspection-002",
+      "expectedRefusal": false,
+      "score": 6.213565681896623,
+      "hasEvidence": true
+    },
+    {
+      "id": "inspection-003",
+      "expectedRefusal": false,
+      "score": 9.032769375635468,
+      "hasEvidence": true
+    },
+    {
+      "id": "inspection-005",
+      "expectedRefusal": false,
+      "score": 4.874605385465799,
+      "hasEvidence": true
+    },
+    {
+      "id": "inspection-007",
+      "expectedRefusal": false,
+      "score": 12.976821341758342,
+      "hasEvidence": true
+    },
+    {
+      "id": "aftersale-002",
+      "expectedRefusal": false,
+      "score": 1.4511936524339044,
+      "hasEvidence": true
+    },
+    {
+      "id": "aftersale-003",
+      "expectedRefusal": false,
+      "score": 10.844203165997751,
+      "hasEvidence": true
+    },
+    {
+      "id": "aftersale-004",
+      "expectedRefusal": false,
+      "score": 6.995369322162354,
+      "hasEvidence": true
+    },
+    {
+      "id": "aftersale-009",
+      "expectedRefusal": false,
+      "score": 10.008899327984924,
+      "hasEvidence": true
+    },
+    {
+      "id": "aftersale-010",
+      "expectedRefusal": false,
+      "score": 9.973723553688973,
+      "hasEvidence": true
+    },
+    {
+      "id": "account-001",
+      "expectedRefusal": false,
+      "score": 3.3425915020079864,
+      "hasEvidence": true
+    },
+    {
+      "id": "account-002",
+      "expectedRefusal": false,
+      "score": 6.157193414752788,
+      "hasEvidence": true
+    },
+    {
+      "id": "account-003",
+      "expectedRefusal": false,
+      "score": 11.276169076365719,
+      "hasEvidence": true
+    },
+    {
+      "id": "account-004",
+      "expectedRefusal": false,
+      "score": 8.999873649178964,
+      "hasEvidence": true
+    },
+    {
+      "id": "account-010",
+      "expectedRefusal": false,
+      "score": 2.9955426268427936,
+      "hasEvidence": true
+    }
+  ],
+  "thresholds": [
+    {
+      "threshold": 1,
+      "answerable": 47,
+      "unanswerable": 0,
+      "acceptedAnswerable": 43,
+      "falseAccepts": 0
+    },
+    {
+      "threshold": 1.5,
+      "answerable": 47,
+      "unanswerable": 0,
+      "acceptedAnswerable": 42,
+      "falseAccepts": 0
+    },
+    {
+      "threshold": 2,
+      "answerable": 47,
+      "unanswerable": 0,
+      "acceptedAnswerable": 39,
+      "falseAccepts": 0
+    },
+    {
+      "threshold": 2.5,
+      "answerable": 47,
+      "unanswerable": 0,
+      "acceptedAnswerable": 37,
+      "falseAccepts": 0
+    },
+    {
+      "threshold": 3,
+      "answerable": 47,
+      "unanswerable": 0,
+      "acceptedAnswerable": 36,
+      "falseAccepts": 0
+    }
+  ],
+  "recommendation": null,
+  "note": "Development evidence calibration only. No recommendation without negative examples. Test split and semantic correctness are not used for tuning."
+}

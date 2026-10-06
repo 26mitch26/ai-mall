@@ -12,8 +12,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.ZSetOperations;
+import com.ai.mall.agent.customer.service.telemetry.AgentTelemetry;
+import com.ai.mall.agent.customer.service.graph.GraphEvidenceContext;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -28,11 +34,56 @@ import java.util.Set;
 import java.util.UUID;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.security.MessageDigest;
+import java.util.HexFormat;
+import java.time.Clock;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class RagService {
+
+    @Autowired(required = false)
+    private NeuralReranker neuralReranker;
+
+    @Autowired(required = false)
+    private SemanticAnswerCacheService semanticAnswerCacheService;
+
+    @Value("${ai.rag.reranker.enabled:false}")
+    private boolean neuralRerankerEnabled;
+
+    @Value("${ai.rag.retrieval.strategy:auto}")
+    private String retrievalStrategy;
+
+    @Value("${ai.rag.retrieval.vector-fallback-enabled:true}")
+    private boolean vectorFallbackEnabled = true;
+
+    @Value("${ai.rag.reranker.semantic-feature-enabled:true}")
+    private boolean semanticFeatureEnabled = true;
+
+    private final Map<String, float[]> featureEmbeddingCache = Collections.synchronizedMap(
+            new LinkedHashMap<>(128, 0.75f, true) {
+                @Override protected boolean removeEldestEntry(Map.Entry<String, float[]> entry) {
+                    return size() > 128;
+                }
+            });
+
+    private float[] featureEmbedding(String text) {
+        String key = sha256(text);
+        float[] cached = featureEmbeddingCache.get(key);
+        if (cached != null) return cached;
+        float[] encoded = embeddingModel.embed(text);
+        featureEmbeddingCache.put(key, encoded);
+        return encoded;
+    }
+
+    @Value("${ai.rag.retrieval.scope:public}")
+    private String retrievalScope = "public";
+
+    @Autowired(required = false)
+    private Clock clock = Clock.systemUTC();
 
     private final AgentLlmClient agentLlmClient;
     private final InputSanitizer inputSanitizer;
@@ -50,7 +101,7 @@ public class RagService {
      * UNSOURCED_FACT 规则配合，形成"生成前拒答 + 生成后拦截"的双保险。
      */
     public static final String NO_CONTEXT_ANSWER =
-            "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复，已为您转接人工客服。";
+            "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。建议您联系人工客服；当前演示环境尚未接入人工客服，未转接会话或创建工单。";
 
     /**
      * 检索证据阈值：top-1 语义相似度低于该值、且没有任何 BM25 强命中时，
@@ -85,6 +136,121 @@ public class RagService {
         return UUID.nameUUIDFromBytes(stableSource.getBytes(StandardCharsets.UTF_8)).toString();
     }
 
+    private String stringMeta(org.springframework.ai.document.Document doc, String key) {
+        Object value = doc.getMetadata() == null ? null : doc.getMetadata().get(key);
+        return value == null ? null : String.valueOf(value);
+    }
+
+    private Instant parseInstant(String value) {
+        if (value == null || value.isBlank() || "null".equals(value)) return null;
+        try { return Instant.parse(value); }
+        catch (Exception ignored) {
+            try { return OffsetDateTime.parse(value).toInstant(); }
+            catch (Exception ignoredAgain) { return null; }
+        }
+    }
+
+    private boolean isCurrentlyApplicable(String source, String version, Instant effectiveAt, String scope) {
+        if (version != null && !version.isBlank()) {
+            if (version.startsWith("legacy:")) {
+                if (activeVersionForSource(source) != null) return false;
+                Map<String, String> legacy = findFullSource(source);
+                String content = legacy.getOrDefault("content", "");
+                if (content.isBlank() || !version.equals("legacy:" + sha256(content))) return false;
+            } else {
+                String active = activeVersionForSource(source);
+                if (active == null || !active.equals(version)) return false;
+            }
+        }
+        if (effectiveAt != null && effectiveAt.isAfter(clock.instant())) return false;
+        return scope == null || scope.isBlank() || "public".equals(scope) || "*".equals(scope)
+                || scope.equals(retrievalScope);
+    }
+
+    String activeVersionForSource(String source) {
+        if (source == null || source.isBlank()) return null;
+        try {
+            String revisionKey = "rag:revisions:" + source;
+            Long revisionCount = redisTemplate.opsForZSet().zCard(revisionKey);
+            if (revisionCount != null && revisionCount > 0) {
+                Set<String> eligible = redisTemplate.opsForZSet().reverseRangeByScore(
+                        revisionKey, Double.NEGATIVE_INFINITY, clock.millis());
+                if (eligible == null || eligible.isEmpty()) return null;
+                String selected = null;
+                for (String revision : eligible) {
+                    Object candidateScope = redisTemplate.opsForHash().get(
+                            "bm25:source:" + source + ":" + revision, "scope");
+                    String scope = candidateScope == null ? "public" : candidateScope.toString();
+                    if (scope.isBlank() || "public".equals(scope) || "*".equals(scope) || scope.equals(retrievalScope)) {
+                        selected = revision;
+                        break;
+                    }
+                }
+                if (selected == null) return null;
+                String activeKey = "rag:active:" + source + ":" + retrievalScope;
+                String current = redisTemplate.opsForValue().get(activeKey);
+                if (!selected.equals(current)) {
+                    DefaultRedisScript<Long> activate = new DefaultRedisScript<>(
+                            "if redis.call('GET', KEYS[1]) == ARGV[1] then return 0 end; " +
+                                    "redis.call('SET', KEYS[1], ARGV[1]); redis.call('INCR', KEYS[2]); return 1", Long.class);
+                    Long changed = redisTemplate.execute(activate, List.of(activeKey, "rag:knowledge:epoch"), selected);
+                    if (changed != null && changed > 0 && semanticAnswerCacheService != null) {
+                        Object epoch = redisTemplate.opsForValue().get("rag:knowledge:epoch");
+                        semanticAnswerCacheService.invalidateKnowledgeVersion(epoch == null ? "0" : epoch.toString());
+                    }
+                    if (changed != null && changed > 0) {
+                        try { refreshBm25Stats(); }
+                        catch (Exception statsError) { log.warn("有效知识版本已切换，但BM25统计刷新失败: {}", statsError.getMessage()); }
+                    }
+                }
+                return selected;
+            }
+            // Preserve visibility of pre-versioning documents until they are re-ingested.
+            return redisTemplate.opsForValue().get("rag:active:" + source);
+        } catch (Exception e) {
+            log.warn("读取知识版本失败 source={}: {}", source, e.getMessage());
+            return null;
+        }
+    }
+
+    /** Sources with any staged or active immutable revision; legacy rows for these sources are retired. */
+    private Set<String> revisionSources() {
+        Set<String> sources = redisTemplate.opsForSet().members("rag:revision:sources");
+        return sources == null ? Collections.emptySet() : sources;
+    }
+
+    private boolean isEligibleLegacyRecord(String source, String version, Set<String> registeredSources) {
+        return version != null && !version.isBlank() || !registeredSources.contains(source);
+    }
+
+    private void refreshCurrentRevisions() {
+        try {
+            Set<String> sources = redisTemplate.opsForSet().members("rag:revision:sources");
+            if (sources != null) for (String source : sources) activeVersionForSource(source);
+        } catch (Exception e) {
+            log.debug("知识版本快照刷新失败，沿用当前epoch: {}", e.getMessage());
+        }
+    }
+
+    private static String sha256(String value) {
+        try { return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                .digest(value.getBytes(StandardCharsets.UTF_8))); }
+        catch (Exception e) { throw new IllegalStateException("SHA-256 is unavailable", e); }
+    }
+
+    private RetrievedDocument enrichLegacyEvidence(RetrievedDocument document) {
+        if (document.getVersion() != null && !document.getVersion().isBlank()) return document;
+        Map<String, String> source = findFullSource(document.getSource());
+        String fullText = source.getOrDefault("content", "");
+        if (fullText.isBlank() || document.getContent() == null || !fullText.contains(document.getContent())) return document;
+        String hash = source.getOrDefault("contentHash", sha256(fullText));
+        document.setVersion("legacy:" + hash);
+        document.setContentHash(hash);
+        document.setScope(source.getOrDefault("scope", "public"));
+        document.setEffectiveAt(parseInstant(source.get("effectiveAt")));
+        return document;
+    }
+
     // ==================== 内部数据结构 ====================
 
     /** 检索结果包装，携带排名和来源信息 */
@@ -102,6 +268,10 @@ public class RagService {
         private String retrievalSource;
         /** 在各自检索结果中的排名（从1开始） */
         private int rank;
+        private String version;
+        private String contentHash;
+        private Instant effectiveAt;
+        private String scope;
     }
 
     /** RRF融合后的文档 */
@@ -116,6 +286,11 @@ public class RagService {
         private String type;
         /** RRF融合分数 */
         private double rrfScore;
+        private String version;
+        private String contentHash;
+        private Instant effectiveAt;
+        private String scope;
+        private String retrievalSource;
     }
 
     /** 文档分块，携带元信息用于溯源和上下文拼接 */
@@ -158,9 +333,53 @@ public class RagService {
         private double rrfScore;
         /** 重排序相关性分数（0~1，越高越相关） */
         private double rerankScore;
+        private String version;
+        private String contentHash;
+        private Instant effectiveAt;
+        private String scope;
+        private String retrievalSource;
     }
 
     // ==================== Milvus向量检索 ====================
+
+    /** Build a bounded Milvus metadata predicate from the currently active source revisions. */
+    private org.springframework.ai.vectorstore.filter.Filter.Expression activeVectorFilter() {
+        try {
+            FilterExpressionBuilder builder = new FilterExpressionBuilder();
+            FilterExpressionBuilder.Op expression = null;
+            Set<String> revisions = revisionSources();
+            List<String> sources = revisions == null ? new ArrayList<>() : revisions.stream().sorted().limit(200).toList();
+            if (revisions != null && revisions.size() > 200) log.warn("Milvus metadata filter capped at 200 active knowledge sources");
+            for (String source : sources) {
+                String version = activeVersionForSource(source);
+                if (version == null) continue;
+                FilterExpressionBuilder.Op clause = builder.and(builder.eq("source", source), builder.eq("version", version));
+                expression = expression == null ? clause : builder.or(expression, clause);
+            }
+
+            // Backward compatibility for unversioned documents already in Milvus; never include a source
+            // that has any revision registry, so a failed/future staged version cannot leak via this branch.
+            Set<String> sourceKeys = redisTemplate.keys("bm25:source:*");
+            if (sourceKeys != null) {
+                List<String> legacySources = new ArrayList<>();
+                for (String key : sourceKeys.stream().sorted().limit(200).toList()) {
+                    Map<Object, Object> sourceInfo = redisTemplate.opsForHash().entries(key);
+                    String source = String.valueOf(sourceInfo.getOrDefault("source", ""));
+                    String version = String.valueOf(sourceInfo.getOrDefault("version", ""));
+                    if (!source.isBlank() && version.isBlank()
+                            && (revisions == null || !revisions.contains(source))) legacySources.add(source);
+                }
+                if (!legacySources.isEmpty()) {
+                    FilterExpressionBuilder.Op legacy = builder.in("source", legacySources.toArray());
+                    expression = expression == null ? legacy : builder.or(expression, legacy);
+                }
+            }
+            return expression == null ? null : expression.build();
+        } catch (Exception e) {
+            log.warn("Milvus active-revision filter unavailable; application-level version checks remain active: {}", e.getMessage());
+            return null;
+        }
+    }
 
     /**
      * 基于Milvus的向量语义检索
@@ -172,9 +391,11 @@ public class RagService {
     public List<RetrievedDocument> milvusVectorRetrieve(String query, int topK) {
         log.info("Milvus向量检索开始, query={}, topK={}", query, topK);
         try {
+            Set<String> revisions = revisionSources();
             SearchRequest searchRequest = SearchRequest.builder()
                     .query(query)
-                    .topK(topK)
+                    .topK(Math.max(topK * 4, topK))
+                    .filterExpression(activeVectorFilter())
                     .build();
 
             List<org.springframework.ai.document.Document> aiDocs = vectorStore.similaritySearch(searchRequest);
@@ -193,13 +414,30 @@ public class RagService {
                         .id(aiDoc.getId())
                         .content(aiDoc.getText())
                         .source(String.valueOf(sourceMeta))
-                        .type(String.valueOf(aiDoc.getMetadata().getOrDefault("type", "unknown")))
+                .type(String.valueOf(aiDoc.getMetadata().getOrDefault("type", "unknown")))
+                        .version(stringMeta(aiDoc, "version"))
+                        .contentHash(stringMeta(aiDoc, "contentHash"))
+                        .effectiveAt(parseInstant(stringMeta(aiDoc, "effectiveAt")))
+                        .scope(stringMeta(aiDoc, "scope"))
                         .score(extractSimilarityScore(aiDoc, i))
                         .retrievalSource("milvus")
                         .rank(i + 1)
-                        .build());
+                    .build());
             }
-            log.info("Milvus向量检索完成, 返回{}条结果", results.size());
+            // Apply the migration boundary while the row still has its original unversioned metadata.
+            // Enriching first could turn a stale blank-version row into legacy:<hash> and hide that it
+            // belongs to a source with a staged revision registry but no currently active revision.
+            results.removeIf(doc -> !isEligibleLegacyRecord(doc.getSource(), doc.getVersion(), revisions));
+            results.replaceAll(this::enrichLegacyEvidence);
+            results.removeIf(doc -> !isCurrentlyApplicable(doc.getSource(), doc.getVersion(), doc.getEffectiveAt(), doc.getScope()));
+            // Milvus 2.x insert accepts repeated primary keys after a retried staging write.
+            // One physical duplicate must not gain multiple votes inside a single recall channel.
+            Map<String,RetrievedDocument> uniqueResults=new LinkedHashMap<>();
+            for(RetrievedDocument result:results) uniqueResults.putIfAbsent(result.getId(),result);
+            results=new ArrayList<>(uniqueResults.values());
+            for (int i = 0; i < results.size(); i++) results.get(i).setRank(i + 1);
+            if (results.size() > topK) results = new ArrayList<>(results.subList(0, topK));
+            log.info("Milvus向量检索完成, 返回{}条有效版本结果", results.size());
             return results;
         } catch (Exception e) {
             log.error("Milvus向量检索失败: {}", e.getMessage(), e);
@@ -237,6 +475,10 @@ public class RagService {
     public List<RetrievedDocument> bm25KeywordRetrieve(String query, int topK) {
         log.info("BM25关键词检索开始, query={}, topK={}", query, topK);
         try {
+            Set<String> revisions = revisionSources();
+            String epoch = String.valueOf(redisTemplate.opsForValue().get("rag:knowledge:epoch"));
+            String statsEpoch = redisTemplate.opsForValue().get("bm25:stats:knowledge_epoch");
+            if (!epoch.equals(statsEpoch)) refreshBm25Stats();
             // 1. 对查询进行分词
             List<String> queryTerms = tokenize(query);
             if (queryTerms.isEmpty()) {
@@ -289,7 +531,6 @@ public class RagService {
             // 4. 按BM25分数降序排序，取topK
             List<RetrievedDocument> results = docScores.entrySet().stream()
                     .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
-                    .limit(topK)
                     .map(entry -> {
                         String docId = entry.getKey();
                         Map<Object, Object> docInfo = redisTemplate.opsForHash().entries("bm25:doc:" + docId);
@@ -298,10 +539,18 @@ public class RagService {
                                 .content(String.valueOf(docInfo.getOrDefault("content", "")))
                                 .source(String.valueOf(docInfo.getOrDefault("source", "unknown")))
                                 .type(String.valueOf(docInfo.getOrDefault("type", "unknown")))
+                                .version(String.valueOf(docInfo.getOrDefault("version", "")))
+                                .contentHash(String.valueOf(docInfo.getOrDefault("contentHash", "")))
+                                .effectiveAt(parseInstant(String.valueOf(docInfo.getOrDefault("effectiveAt", ""))))
+                                .scope(String.valueOf(docInfo.getOrDefault("scope", "public")))
                                 .score(entry.getValue())
                                 .retrievalSource("bm25")
                                 .build();
                     })
+                    .filter(doc -> isEligibleLegacyRecord(doc.getSource(), doc.getVersion(), revisions))
+                    .map(this::enrichLegacyEvidence)
+                    .filter(doc -> isCurrentlyApplicable(doc.getSource(), doc.getVersion(), doc.getEffectiveAt(), doc.getScope()))
+                    .limit(topK)
                     .toList();
 
             // 5. 设置排名
@@ -346,6 +595,9 @@ public class RagService {
                     .content(doc.getContent())
                     .source(doc.getSource())
                     .type(doc.getType())
+                    .version(doc.getVersion()).contentHash(doc.getContentHash())
+                    .effectiveAt(doc.getEffectiveAt()).scope(doc.getScope())
+                    .retrievalSource(doc.getRetrievalSource())
                     .build());
         }
 
@@ -358,6 +610,9 @@ public class RagService {
                     .content(doc.getContent())
                     .source(doc.getSource())
                     .type(doc.getType())
+                    .version(doc.getVersion()).contentHash(doc.getContentHash())
+                    .effectiveAt(doc.getEffectiveAt()).scope(doc.getScope())
+                    .retrievalSource(doc.getRetrievalSource())
                     .build());
         }
 
@@ -396,44 +651,64 @@ public class RagService {
     public void indexDocuments(List<Document> documents, String chunkStrategy) {
         log.info("开始索引{}篇文档, 分块策略={}", documents.size(), chunkStrategy);
 
-        // 分块前保存原始文档，来源弹窗可以回到全文，而不是只能展示命中的片段。
+        Map<String, String> versionBySource = new LinkedHashMap<>();
+        List<Document> publishable = new ArrayList<>();
         for (Document document : documents) {
             if (document.getSource() == null || document.getSource().isBlank()
-                    || document.getContent() == null || document.getContent().isBlank()) {
-                continue;
-            }
-            redisTemplate.opsForHash().putAll("bm25:source:" + document.getSource(), Map.of(
-                    "source", document.getSource(),
-                    "type", document.getType() == null ? "general" : document.getType(),
-                    "content", document.getContent()
-            ));
+                    || document.getContent() == null || document.getContent().isBlank()) continue;
+            String hash = sha256(document.getContent());
+            String version = sha256(hash + "|" + (document.getVersion() == null ? "" : document.getVersion())
+                    + "|" + (document.getEffectiveAt() == null ? "" : document.getEffectiveAt())
+                    + "|" + (document.getScope() == null ? "public" : document.getScope()));
+            document.setVersion(version);
+            document.setContentHash(hash);
+            if (document.getScope() == null || document.getScope().isBlank()) document.setScope("public");
+            versionBySource.put(document.getSource(), version);
+            publishable.add(document);
         }
+        if (publishable.isEmpty()) return;
 
         // 如果指定了分块策略，先对文档进行分块
         List<Document> docsToIndex;
         if (chunkStrategy != null && !chunkStrategy.isBlank()) {
             List<DocumentChunk> allChunks = new ArrayList<>();
-            for (Document doc : documents) {
+            for (Document doc : publishable) {
                 List<DocumentChunk> chunks = DocumentChunker.chunkWithMetadata(doc, chunkStrategy);
                 allChunks.addAll(chunks);
             }
             log.info("文档分块完成, 原始文档{}篇, 分块后{}块", documents.size(), allChunks.size());
             docsToIndex = allChunks.stream()
                     .map(chunk -> Document.builder()
-                            .id(toVectorId(chunk.getChunkId()))
                             .content(chunk.getContent())
                             .source(chunk.getSource())
                             .type(chunk.getType())
+                            .version(versionBySource.get(chunk.getSource()))
+                            .contentHash(publishable.stream().filter(d -> d.getSource().equals(chunk.getSource())).findFirst().map(Document::getContentHash).orElse(""))
+                            .effectiveAt(publishable.stream().filter(d -> d.getSource().equals(chunk.getSource())).findFirst().map(Document::getEffectiveAt).orElse(null))
+                            .scope(publishable.stream().filter(d -> d.getSource().equals(chunk.getSource())).findFirst().map(Document::getScope).orElse("public"))
+                            .id(toVectorId(chunk.getChunkId() + "|" + versionBySource.get(chunk.getSource())))
                             .build())
                     .toList();
         } else {
-            docsToIndex = documents;
+            docsToIndex = publishable.stream().map(doc -> Document.builder()
+                    .id(toVectorId(doc.getId() + "|" + doc.getVersion()))
+                    .content(doc.getContent()).source(doc.getSource()).type(doc.getType())
+                    .version(doc.getVersion()).contentHash(doc.getContentHash())
+                    .effectiveAt(doc.getEffectiveAt()).scope(doc.getScope()).build()).toList();
         }
 
         long totalDocs = 0;
         double totalLength = 0;
 
         for (Document doc : docsToIndex) {
+            Map<Object, Object> existing = redisTemplate.opsForHash().entries("bm25:doc:" + doc.getId());
+            String activeVersion = activeVersionForSource(doc.getSource());
+            if (doc.getVersion() != null && doc.getVersion().equals(existing.get("version"))
+                    && doc.getVersion().equals(activeVersion)) {
+                // Re-indexing the already-published immutable revision must not delete its live BM25 entry
+                // before the vector write succeeds.
+                continue;
+            }
             // 幂等重建：同一文档（docId 由来源稳定派生）重复导入时先清理旧索引，
             // 避免旧词项残留在倒排/词频表中，导致改版文档出现“新旧并存”的检索噪声。
             purgeIndexForDocument(doc.getId());
@@ -446,6 +721,10 @@ public class RagService {
             docInfo.put("source", doc.getSource());
             docInfo.put("type", doc.getType());
             docInfo.put("length", String.valueOf(terms.size()));
+            docInfo.put("version", doc.getVersion() == null ? "" : doc.getVersion());
+            docInfo.put("contentHash", doc.getContentHash() == null ? "" : doc.getContentHash());
+            docInfo.put("effectiveAt", doc.getEffectiveAt() == null ? "" : doc.getEffectiveAt().toString());
+            docInfo.put("scope", doc.getScope() == null ? "public" : doc.getScope());
             redisTemplate.opsForHash().putAll("bm25:doc:" + doc.getId(), docInfo);
 
             // 统计词频
@@ -480,14 +759,55 @@ public class RagService {
                     .map(doc -> new org.springframework.ai.document.Document(
                             doc.getId(),
                             doc.getContent(),
-                            Map.of("source", doc.getSource(), "type", doc.getType())
+                            Map.of("source", doc.getSource(), "type", doc.getType(),
+                                    "version", doc.getVersion() == null ? "" : doc.getVersion(),
+                                    "contentHash", doc.getContentHash() == null ? "" : doc.getContentHash(),
+                                    "effectiveAt", doc.getEffectiveAt() == null ? "" : doc.getEffectiveAt().toString(),
+                                    "scope", doc.getScope() == null ? "public" : doc.getScope())
                     ))
                     .toList();
             vectorStore.add(aiDocs);
             log.info("文档已同步到Milvus向量库");
         } catch (Exception e) {
             log.error("同步文档到Milvus失败: {}", e.getMessage(), e);
+            throw new IllegalStateException("Knowledge revision was not published because vector indexing failed", e);
         }
+
+        // Store full source snapshots under immutable version keys. They remain invisible until the
+        // atomic active-pointer swap below.
+        for (Document document : publishable) {
+            String version = versionBySource.get(document.getSource());
+            redisTemplate.opsForHash().putAll("bm25:source:" + document.getSource() + ":" + version, Map.of(
+                    "source", document.getSource(), "type", document.getType() == null ? "general" : document.getType(),
+                    "content", document.getContent(), "version", version, "contentHash", document.getContentHash(),
+                    "effectiveAt", document.getEffectiveAt() == null ? "" : document.getEffectiveAt().toString(),
+                    "scope", document.getScope() == null ? "public" : document.getScope()));
+        }
+
+        List<String> publicationArgs = new ArrayList<>();
+        versionBySource.forEach((source, version) -> {
+            Document revision = publishable.stream().filter(doc -> source.equals(doc.getSource())).reduce((a, b) -> b).orElseThrow();
+            publicationArgs.add(source);
+            publicationArgs.add(version);
+            // StringRedisTemplate requires string Lua arguments. Immediate revisions must sort by
+            // publication time, rather than sharing score zero and sorting by random version hash.
+            publicationArgs.add(Long.toString(revision.getEffectiveAt() == null ? clock.millis() : revision.getEffectiveAt().toEpochMilli()));
+        });
+        DefaultRedisScript<Long> publishScript = new DefaultRedisScript<>("""
+                for i = 1, #ARGV, 3 do
+                  local source = ARGV[i]
+                  local version = ARGV[i + 1]
+                  local effective = ARGV[i + 2]
+                  local revisions = 'rag:revisions:' .. source
+                  redis.call('ZADD', revisions, effective, version)
+                  redis.call('SADD', 'rag:revision:sources', source)
+                end
+                return #ARGV / 3
+                """, Long.class);
+        redisTemplate.execute(publishScript, List.of("rag:revision:registry"), publicationArgs.toArray());
+        for (String source : versionBySource.keySet()) activeVersionForSource(source);
+        try { refreshBm25Stats(); }
+        catch (Exception e) { log.warn("知识版本已发布，但BM25统计刷新失败: {}", e.getMessage()); }
 
         log.info("文档索引完成, 共索引{}篇文档, 平均文档长度{}", totalDocs,
                 totalDocs > 0 ? totalLength / totalDocs : 0);
@@ -515,8 +835,7 @@ public class RagService {
     /** 已索引的知识来源数量（bm25:source:{source} 键数量） */
     public long countIndexedSources() {
         try {
-            Set<String> keys = redisTemplate.keys("bm25:source:*");
-            return keys == null ? 0 : keys.size();
+            return listIndexedSources().size();
         } catch (Exception e) {
             return 0;
         }
@@ -542,6 +861,7 @@ public class RagService {
         List<Map<String, String>> result = new ArrayList<>();
         try {
             Set<String> keys = redisTemplate.keys("bm25:source:*");
+            Set<String> revisions = revisionSources();
             if (keys == null || keys.isEmpty()) {
                 return result;
             }
@@ -552,11 +872,20 @@ public class RagService {
                 }
                 String source = String.valueOf(values.getOrDefault("source",
                         key.substring("bm25:source:".length())));
+                String version = String.valueOf(values.getOrDefault("version", ""));
+                if (!isEligibleLegacyRecord(source, version, revisions)) continue;
+                String activeVersion = activeVersionForSource(source);
+                if (!version.isBlank() && !version.equals(activeVersion)) continue;
+                if (activeVersion != null && !version.isBlank() && !activeVersion.equals(version)) continue;
                 String type = String.valueOf(values.getOrDefault("type", "general"));
                 String content = String.valueOf(values.getOrDefault("content", ""));
                 Map<String, String> item = new HashMap<>();
                 item.put("source", source);
                 item.put("type", type);
+                item.put("version", version);
+                item.put("contentHash", String.valueOf(values.getOrDefault("contentHash", "")));
+                item.put("effectiveAt", String.valueOf(values.getOrDefault("effectiveAt", "")));
+                item.put("scope", String.valueOf(values.getOrDefault("scope", "public")));
                 item.put("title", extractTitle(content, source));
                 result.add(item);
             }
@@ -613,22 +942,61 @@ public class RagService {
                 if (key.endsWith(":tf")) {
                     continue;
                 }
-                Object length = redisTemplate.opsForHash().get(key, "length");
-                if (length == null) {
-                    continue;
-                }
-                totalDocs++;
+            Object length = redisTemplate.opsForHash().get(key, "length");
+            if (length == null) {
+                continue;
+            }
+            Map<Object, Object> info = redisTemplate.opsForHash().entries(key);
+            String source = String.valueOf(info.getOrDefault("source", ""));
+            String version = String.valueOf(info.getOrDefault("version", ""));
+            if (!version.isBlank()) {
+                String active = activeVersionForSource(source);
+                if (!version.equals(active)) continue;
+            }
+            totalDocs++;
                 totalLength += Double.parseDouble(length.toString());
             }
         }
         redisTemplate.opsForValue().set("bm25:stats:total_docs", String.valueOf(totalDocs));
         redisTemplate.opsForValue().set("bm25:stats:avg_doc_length",
                 totalDocs > 0 ? String.valueOf(totalLength / totalDocs) : "0");
+        Object epoch = redisTemplate.opsForValue().get("rag:knowledge:epoch");
+        redisTemplate.opsForValue().set("bm25:stats:knowledge_epoch", epoch == null ? "0" : epoch.toString());
         log.info("BM25 统计信息已重算: totalDocs={}, avgDocLength={}", totalDocs,
                 totalDocs > 0 ? String.format("%.2f", totalLength / totalDocs) : "0");
     }
 
     /** 按来源读取索引时保存的原始文档全文。 */
+    /** Historical citation reads use an immutable, published revision rather than today's policy. */
+    public Map<String,String> findSourceRevision(String source,String version) {
+        if(version==null || version.isBlank()) return findFullSource(source);
+        if(source==null || source.isBlank() || version.length()>256) return Map.of();
+        String normalized=source.replace('\\','/');
+        if(normalized.contains("..") || normalized.startsWith("/") || normalized.contains(":/")) return Map.of();
+        List<String> candidates=new ArrayList<>(List.of(normalized));
+        if(normalized.startsWith("docs/knowledge/")) candidates.add(normalized.substring("docs/knowledge/".length()));
+        for(String candidate:candidates) {
+            Map<Object,Object> values;
+            if(version.startsWith("legacy:")) {
+                values=redisTemplate.opsForHash().entries("bm25:source:"+candidate);
+                if(values==null || values.isEmpty() || !String.valueOf(values.getOrDefault("version","")).isBlank()
+                        || !version.equals("legacy:"+sha256(String.valueOf(values.getOrDefault("content",""))))) continue;
+            } else {
+                Double published=redisTemplate.opsForZSet().score("rag:revisions:"+candidate,version);
+                if(published==null) continue;
+                values=redisTemplate.opsForHash().entries("bm25:source:"+candidate+":"+version);
+            }
+            if(values==null || values.isEmpty()) continue;
+            String scope=String.valueOf(values.getOrDefault("scope","public"));
+            if(!scope.isBlank() && !scope.equals("public") && !scope.equals("*")) continue;
+            String effective=String.valueOf(values.getOrDefault("effectiveAt",""));
+            if(!effective.isBlank() && (parseInstant(effective)==null || parseInstant(effective).isAfter(clock.instant()))) continue;
+            Map<String,String> result=new HashMap<>();values.forEach((key,value)->result.put(key.toString(),value.toString()));
+            result.put("version",version);return result;
+        }
+        return Map.of();
+    }
+
     public Map<String, String> findFullSource(String source) {
         if (source == null || source.isBlank()) {
             return Map.of();
@@ -643,7 +1011,11 @@ public class RagService {
             candidates.add(normalized.substring("docs/knowledge/".length()));
         }
         for (String candidate : candidates) {
-            Map<Object, Object> values = redisTemplate.opsForHash().entries("bm25:source:" + candidate);
+            String activeVersion = activeVersionForSource(candidate);
+            Map<Object, Object> values = activeVersion == null ? Map.of()
+                    : redisTemplate.opsForHash().entries("bm25:source:" + candidate + ":" + activeVersion);
+            if ((values == null || values.isEmpty()) && activeVersion == null)
+                values = redisTemplate.opsForHash().entries("bm25:source:" + candidate);
             if (values != null && !values.isEmpty()) {
                 Map<String, String> result = new HashMap<>();
                 values.forEach((key, value) -> result.put(String.valueOf(key), String.valueOf(value)));
@@ -1352,6 +1724,9 @@ public class RagService {
                         .source(doc.getSource())
                         .type(doc.getType())
                         .rrfScore(doc.getRrfScore())
+                        .version(doc.getVersion()).contentHash(doc.getContentHash())
+                        .effectiveAt(doc.getEffectiveAt()).scope(doc.getScope())
+                        .retrievalSource(doc.getRetrievalSource())
                         .rerankScore(rawScore)
                         .build());
             }
@@ -1424,11 +1799,12 @@ public class RagService {
          * @return 语义相似度 [0, 1]
          */
         private double extractSemanticSimilarity(String query, String document) {
+            if (!semanticFeatureEnabled) return extractQueryTermCoverage(query, document);
             try {
                 // 通过VectorStore的similaritySearch间接获取query的embedding相似度
                 // 使用document内容作为query进行相似度搜索，与原query的embedding对比
-                float[] queryEmbedding = embeddingModel.embed(query);
-                float[] docEmbedding = embeddingModel.embed(document);
+                float[] queryEmbedding = featureEmbedding(query);
+                float[] docEmbedding = featureEmbedding(document);
                 return cosineSimilarity(queryEmbedding, docEmbedding);
             } catch (Exception e) {
                 log.debug("语义相似度计算失败，使用词项覆盖率近似: {}", e.getMessage());
@@ -1652,7 +2028,13 @@ public class RagService {
 
     /** 检索结果 + 证据判定：回答前先判断"知识库能不能可靠回答这个问题" */
     public record RetrievalOutcome(List<Document> documents, double topSimilarity,
-                                   double topBm25Score, double evidenceScore, boolean weakEvidence) {
+                                   double topBm25Score, double evidenceScore, boolean weakEvidence,
+                                   String route, String reranker, int correctionCount, String knowledgeVersion) {
+        public RetrievalOutcome(List<Document> documents, double topSimilarity,
+                                double topBm25Score, double evidenceScore, boolean weakEvidence) {
+            this(documents, topSimilarity, topBm25Score, evidenceScore, weakEvidence,
+                    "hybrid", "feature", 0, "unknown");
+        }
     }
 
     /**
@@ -1664,50 +2046,156 @@ public class RagService {
      *    实测小模型拿到弱相关上下文时会把无关资料"聊成"答案，这一步从机制上掐断。
      */
     public RetrievalOutcome retrieveWithEvidence(String query, int topK) {
-        int recallSize = Math.max(topK * 2, 6);
-        log.info("混合检索开始, query={}, topK={}, 召回池={}", query, topK, recallSize);
+        return AgentTelemetry.observed("retrieve", () -> retrieveObserved(query,topK));
+    }
 
-        // 1. Milvus向量检索（扩大召回池）
-        List<RetrievedDocument> vectorResults = milvusVectorRetrieve(query, recallSize);
-
-        // 2. BM25关键词检索（同样扩大召回池）
-        List<RetrievedDocument> keywordResults = bm25KeywordRetrieve(query, recallSize);
-
-        Map<String, Double> similarityById = new HashMap<>();
-        for (RetrievedDocument doc : vectorResults) {
-            similarityById.put(doc.getId(), doc.getScore());
+    private RetrievalOutcome retrieveObserved(String query, int topK) {
+        long rewriteStarted = System.nanoTime();
+        boolean decomposed = query != null && queryDecomposer.hasMultipleIntents(query);
+        List<String> recallQueries;
+        int correctionCount;
+        if (decomposed) {
+            // One decomposition attempt replaces dictionary correction for this request; never stack both.
+            recallQueries = queryDecomposer.decompose(query);
+            correctionCount = 1;
+            if (recallQueries == null || recallQueries.isEmpty()) recallQueries = List.of(query);
+        } else {
+            String expanded = RetrievalQueryRewriter.expand(query);
+            correctionCount = expanded != null && !expanded.equals(query == null ? null : query.trim()) ? 1 : 0;
+            recallQueries = List.of(expanded == null ? "" : expanded);
         }
-        double topBm25Score = keywordResults.isEmpty() ? 0.0 : keywordResults.get(0).getScore();
+        AgentTelemetry.recordStage("rewrite", (System.nanoTime() - rewriteStarted) / 1_000_000,
+                correctionCount > 0 ? "success" : "miss");
+        String route = resolveRoute(query, decomposed);
+        // Capture a stable Redis epoch after the one allowed query transformation. Reruns reuse these queries
+        // and never trigger another dictionary or LLM correction attempt.
+        String snapshot = currentKnowledgeVersion();
+        RetrievalOutcome outcome = retrieveSnapshot(query, topK, recallQueries, route, correctionCount, snapshot);
+        String after = currentKnowledgeVersion();
+        if (!snapshot.equals(after)) {
+            snapshot = after;
+            outcome = retrieveSnapshot(query, topK, recallQueries, route, correctionCount, snapshot);
+            if (!snapshot.equals(currentKnowledgeVersion())) {
+                return new RetrievalOutcome(List.of(), 0.0, 0.0, 0.0, true, route,
+                        outcome.reranker(), correctionCount, snapshot);
+            }
+        }
+        return outcome;
+    }
 
-        // 3. RRF融合排序
+    private RetrievalOutcome retrieveSnapshot(String query, int topK, List<String> recallQueries,
+                                                String route, int correctionCount, String knowledgeVersion) {
+        long retrievalStarted = System.nanoTime();
+        int recallSize = Math.max(topK * 2, 6);
+        List<RetrievedDocument> vectorResults = new ArrayList<>();
+        List<RetrievedDocument> keywordResults = new ArrayList<>();
+        Map<String, Double> similarityById = new HashMap<>();
+        Map<String, Double> bm25ById = new HashMap<>();
+        Map<String, Double> bm25BySource = new HashMap<>();
+        double topBm25Score = 0.0;
+        for (String recallQuery : recallQueries) {
+            List<RetrievedDocument> vectors = "exact".equals(route)
+                    ? new ArrayList<>() : milvusVectorRetrieve(recallQuery, recallSize);
+            List<RetrievedDocument> keywords = "semantic".equals(route)
+                    ? new ArrayList<>() : bm25KeywordRetrieve(recallQuery, recallSize);
+            if (vectors.isEmpty() && keywords.isEmpty()) {
+                if (vectorFallbackEnabled && !"semantic".equals(route)) vectors = milvusVectorRetrieve(recallQuery, recallSize);
+                if (!"exact".equals(route)) keywords = bm25KeywordRetrieve(recallQuery, recallSize);
+            }
+            for (RetrievedDocument doc : vectors) similarityById.merge(doc.getId(), doc.getScore(), Math::max);
+            if (!keywords.isEmpty()) topBm25Score = Math.max(topBm25Score, keywords.get(0).getScore());
+            for (RetrievedDocument doc : keywords) bm25ById.merge(doc.getId(), doc.getScore(), Math::max);
+            for (RetrievedDocument doc : keywords) bm25BySource.merge(doc.getSource(), doc.getScore(), Math::max);
+            vectorResults.addAll(vectors);
+            keywordResults.addAll(keywords);
+        }
+
+        int graphRank = 1;
+        for (Document graphDocument : GraphEvidenceContext.currentDocuments()) {
+            if (graphDocument == null || graphDocument.getContent() == null || graphDocument.getContent().isBlank()
+                    || !isCurrentlyApplicable(graphDocument.getSource(), graphDocument.getVersion(),
+                    graphDocument.getEffectiveAt(), graphDocument.getScope())) continue;
+            RetrievedDocument candidate = RetrievedDocument.builder().id(graphDocument.getId())
+                    .content(graphDocument.getContent()).source(graphDocument.getSource()).type(graphDocument.getType())
+                    .version(graphDocument.getVersion()).contentHash(graphDocument.getContentHash())
+                    .effectiveAt(graphDocument.getEffectiveAt()).scope(graphDocument.getScope())
+                    .retrievalSource("graph").rank(graphRank++).score(0.0).build();
+            vectorResults.add(candidate);
+        }
+
         List<FusedDocument> fusedResults = rrfFusion(vectorResults, keywordResults);
-
-        // 4. 重排序：基于特征工程的多维度重排序，截断到 topK
-        List<RerankedDocument> rerankedResults = new CrossEncoderReranker().rerank(query, fusedResults, topK);
-
-        // 5. 转换为Document
-        List<Document> documents = rerankedResults.stream()
-                .map(reranked -> Document.builder()
-                        .id(reranked.getId())
-                        .content(reranked.getContent())
-                        .source(reranked.getSource())
-                        .type(reranked.getType())
-                        .score(reranked.getRerankScore())
-                        .retrievalSource("hybrid")
+        RerankSelection rerankSelection = rerankCandidates(query, fusedResults, topK);
+        List<Document> documents = rerankSelection.documents().stream()
+                .map(r -> Document.builder().id(r.getId()).content(r.getContent()).source(r.getSource()).type(r.getType())
+                        .score(r.getRerankScore()).retrievalSource(r.getRetrievalSource() == null ? route : r.getRetrievalSource())
+                        .version(r.getVersion()).contentHash(r.getContentHash())
+                        .effectiveAt(r.getEffectiveAt()).scope(r.getScope()).knowledgeVersion(knowledgeVersion)
+                        .evidenceVerified(r.getVersion() != null && !r.getVersion().isBlank()
+                                && r.getContentHash() != null && !r.getContentHash().isBlank()
+                                && isCurrentlyApplicable(r.getSource(), r.getVersion(), r.getEffectiveAt(), r.getScope()))
                         .build())
-                .toList();
+                .filter(Document::isEvidenceVerified).toList();
 
-        // 6. 证据判定：top-1 语义相似度为主信号，BM25 强命中作为补充（关键词类查询兜底）
-        double topSimilarity = rerankedResults.isEmpty() ? 0.0
-                : similarityById.getOrDefault(rerankedResults.get(0).getId(), 0.0);
-        boolean bm25Strong = topBm25Score >= BM25_STRONG_SCORE;
+        double topSimilarity = documents.isEmpty() ? 0.0
+                : documents.stream().mapToDouble(d -> similarityById.getOrDefault(d.getId(), 0.0)).max().orElse(0.0);
+        double returnedBm25Score = documents.stream().mapToDouble(d -> Math.max(bm25ById.getOrDefault(d.getId(), 0.0),
+                "graph".equals(d.getRetrievalSource()) ? bm25BySource.getOrDefault(d.getSource(), 0.0) : 0.0)).max().orElse(0.0);
+        boolean bm25Strong = returnedBm25Score >= BM25_STRONG_SCORE;
         double evidenceScore = bm25Strong ? Math.max(topSimilarity, 0.60) : topSimilarity;
-        boolean weakEvidence = evidenceScore < evidenceThreshold;
+        boolean weakEvidence = documents.isEmpty() || evidenceScore < evidenceThreshold;
+        AgentTelemetry.recordStage("retrieve", (System.nanoTime() - retrievalStarted) / 1_000_000,
+                weakEvidence ? "refusal" : "success");
+        return new RetrievalOutcome(documents, topSimilarity, returnedBm25Score, evidenceScore, weakEvidence,
+                route, rerankSelection.name(), correctionCount, knowledgeVersion);
+    }
 
-        log.info("混合检索完成, 返回{}条结果, top相似度={}, BM25最高分={}, 证据强度={}, 判定={}",
-                documents.size(), String.format("%.3f", topSimilarity), String.format("%.2f", topBm25Score),
-                String.format("%.3f", evidenceScore), weakEvidence ? "依据不足" : "依据充分");
-        return new RetrievalOutcome(documents, topSimilarity, topBm25Score, evidenceScore, weakEvidence);
+    record RerankSelection(List<RerankedDocument> documents, String name) { }
+
+    RerankSelection rerankCandidates(String query, List<FusedDocument> candidates, int topK) {
+        long started = System.nanoTime();
+        List<RerankedDocument> featureRanked = new CrossEncoderReranker().rerank(query, candidates, candidates.size());
+        if (!neuralRerankerEnabled || neuralReranker == null || candidates.isEmpty()) {
+            AgentTelemetry.recordStage("rerank", (System.nanoTime() - started) / 1_000_000, "success");
+            return new RerankSelection(featureRanked.stream().limit(topK).toList(), "feature");
+        }
+        try {
+            List<Double> scores = neuralReranker.score(query, candidates.stream().map(FusedDocument::getContent).toList());
+            if (scores.size() != candidates.size() || scores.stream().anyMatch(score -> score == null || !Double.isFinite(score)))
+                throw new IllegalStateException("Local reranker returned invalid scores");
+            List<RerankedDocument> ranked = new ArrayList<>();
+            for (int i = 0; i < candidates.size(); i++) {
+                FusedDocument d = candidates.get(i);
+                ranked.add(RerankedDocument.builder().id(d.getId()).content(d.getContent()).source(d.getSource())
+                        .type(d.getType()).rrfScore(d.getRrfScore()).version(d.getVersion()).contentHash(d.getContentHash())
+                        .effectiveAt(d.getEffectiveAt()).scope(d.getScope()).retrievalSource(d.getRetrievalSource())
+                        .rerankScore(scores.get(i)).build());
+            }
+            AgentTelemetry.recordStage("rerank", (System.nanoTime() - started) / 1_000_000, "success");
+            return new RerankSelection(ranked.stream().sorted(Comparator.comparingDouble(RerankedDocument::getRerankScore).reversed())
+                    .limit(topK).toList(), "qwen3-reranker-0.6b");
+        } catch (Exception e) {
+            log.warn("Local neural reranker failed; using feature reranker: {}", e.getMessage());
+            if (e instanceof InterruptedException) Thread.currentThread().interrupt();
+            AgentTelemetry.recordStage("rerank", (System.nanoTime() - started) / 1_000_000, "fallback");
+            return new RerankSelection(featureRanked.stream().limit(topK).toList(), "feature");
+        }
+    }
+
+    private String resolveRoute(String query, boolean complex) {
+        String configured = retrievalStrategy == null ? "auto" : retrievalStrategy.trim().toLowerCase();
+        if (Set.of("semantic", "exact", "hybrid").contains(configured)) return configured;
+        if (query != null && query.matches(".*(?:SKU|型号|型号是|iPhone|Galaxy|Pixel)[：:#\\s-]*[A-Za-z0-9-]{1,}.*")) return "exact";
+        return complex ? "hybrid" : "semantic";
+    }
+
+    private String currentKnowledgeVersion() {
+        try {
+            refreshCurrentRevisions();
+            Object epoch = redisTemplate.opsForValue().get("rag:knowledge:epoch");
+            String version = epoch == null ? "0" : epoch.toString();
+            if (semanticAnswerCacheService != null) semanticAnswerCacheService.observeKnowledgeVersion(version);
+            return version;
+        } catch (Exception ignored) { return "unknown"; }
     }
 
     /**

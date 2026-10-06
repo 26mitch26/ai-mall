@@ -100,7 +100,7 @@ spec:
           image: ${DOCKER_REGISTRY}/agent-ops:latest
           imagePullPolicy: Always
           ports:
-            - containerPort: 8083
+            - containerPort: 8084
               protocol: TCP
           env:
             - name: SPRING_PROFILES_ACTIVE
@@ -115,7 +115,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /actuator/health
-              port: 8083
+              port: 8084
             initialDelaySeconds: 15
             periodSeconds: 10
             timeoutSeconds: 5
@@ -123,7 +123,7 @@ spec:
           livenessProbe:
             httpGet:
               path: /actuator/health
-              port: 8083
+              port: 8084
             initialDelaySeconds: 30
             periodSeconds: 20
             timeoutSeconds: 5
@@ -141,8 +141,8 @@ spec:
   type: ClusterIP
   ports:
     - name: http
-      port: 8083
-      targetPort: 8083
+      port: 8084
+      targetPort: 8084
       protocol: TCP
   selector:
     app: agent-ops

@@ -1,0 +1,25 @@
+{
+  "inputReport": "eval\\results\\multiturn-chat.json",
+  "passed": 0,
+  "cases": [
+    {
+      "id": "refund-006",
+      "check": "quality-return freight is paid by platform",
+      "passed": false,
+      "answer": "七天无理由退货需要满足商品保持完好、吊牌未剪、不影响二次销售等条件。"
+    },
+    {
+      "id": "aftersale-006",
+      "check": "human damage excluded from warranty",
+      "passed": false,
+      "answer": "保修期内人为损坏可免费维修。"
+    },
+    {
+      "id": "shipping-014",
+      "check": "same-city half-day / four-hour policy",
+      "passed": false,
+      "answer": "同城订单一般需要一到两天，外省配送通常需要二到四天。"
+    }
+  ],
+  "scope": "Three observed policy fact failures only; lexical pattern checks, no general semantic correctness or human calibration."
+}

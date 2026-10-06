@@ -1,0 +1,16 @@
+[
+  {
+    "suite": "TEST-com.ai.mall.agent.customer.service.rag.RagPublicationRedisIntegrationTest.xml",
+    "tests": "1",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0"
+  },
+  {
+    "suite": "TEST-com.ai.mall.agent.customer.service.workflow.AfterSaleWorkflowRedisIntegrationTest.xml",
+    "tests": "4",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0"
+  }
+]

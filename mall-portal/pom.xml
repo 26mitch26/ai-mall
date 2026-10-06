@@ -17,6 +17,11 @@
     <description>前台商城系统接口</description>
 
     <dependencies>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
         <!-- Mall Security -->
         <dependency>
             <groupId>com.ai.mall</groupId>

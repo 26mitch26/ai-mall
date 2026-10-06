@@ -138,6 +138,23 @@ public class TestReportGenerator {
                 .append(report.getAssertionsFailed()).append("</div><div class=\"label\">Assertions Failed</div></div>");
         html.append("</div>");
 
+        // Environment banner：把"环境不可达"和"代码有缺陷"区分开，避免满屏红灯被误读
+        com.ai.mall.agent.test.model.EnvironmentCheck env = report.getEnvironment();
+        if (env != null) {
+            String bannerClass = env.isReachable() ? "assertion-pass" : "assertion-fail";
+            String verdict = env.isSkipped() ? "SKIPPED"
+                    : (env.isReachable() ? "REACHABLE" : "UNREACHABLE");
+            html.append("<div class=\"assertion-details ").append(bannerClass).append("\">Environment: ")
+                    .append(verdict).append(" | target=").append(escapeHtml(env.getTarget()))
+                    .append(" | detail=").append(escapeHtml(env.getDetail()))
+                    .append(env.getStatusCode() == null ? "" : " | http=" + env.getStatusCode())
+                    .append(" | ").append(env.getLatencyMs()).append("ms</div>");
+            if (!env.isReachable() && !env.isSkipped()) {
+                html.append("<div class=\"assertion-details assertion-fail\">")
+                        .append("提示：目标不可达，本轮失败很可能来自环境而非被测代码</div>");
+            }
+        }
+
         // Results table
         html.append("<h2>Test Case Details</h2>");
         html.append("<table>");
@@ -271,6 +288,20 @@ public class TestReportGenerator {
 
             // 已知缺陷（失败回流沉淀的历史经验）
             jsonReport.put("knownDefects", buildKnownDefects(report));
+
+            // 环境可达性结论：区分"环境挂了"与"代码坏了"
+            com.ai.mall.agent.test.model.EnvironmentCheck env = report.getEnvironment();
+            if (env != null) {
+                Map<String, Object> environment = new LinkedHashMap<>();
+                environment.put("module", env.getModule());
+                environment.put("target", env.getTarget());
+                environment.put("reachable", env.isReachable());
+                environment.put("skipped", env.isSkipped());
+                environment.put("statusCode", env.getStatusCode());
+                environment.put("latencyMs", env.getLatencyMs());
+                environment.put("detail", env.getDetail());
+                jsonReport.put("environment", environment);
+            }
 
             return objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(jsonReport);
         } catch (Exception e) {

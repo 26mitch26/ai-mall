@@ -44,6 +44,24 @@ public class AgentLlmClient {
     private final int maxTokens;
     private final double temperature;
 
+    @org.springframework.beans.factory.annotation.Value("${ai.model.llm.context-tokens:4096}")
+    private int contextTokens = 4096;
+
+    @org.springframework.beans.factory.annotation.Value("${ai.model.llm.threads:4}")
+    private int threads = 4;
+
+    @org.springframework.beans.factory.annotation.Value("${ai.model.llm.keep-alive:30m}")
+    private String keepAlive = "30m";
+
+    @org.springframework.beans.factory.annotation.Value("${ai.model.llm.gpu-layers:-1}")
+    private int gpuLayers = -1;
+
+    @org.springframework.beans.factory.annotation.Value("${ai.model.llm.release-embedding-before-generation:false}")
+    private boolean releaseEmbeddingBeforeGeneration;
+
+    @org.springframework.beans.factory.annotation.Value("${spring.ai.openai.embedding.options.model:bge-m3}")
+    private String embeddingModelName = "bge-m3";
+
     public AgentLlmClient(ObjectMapper objectMapper,
                           @Value("${ai.model.llm.base-url:http://localhost:11434/api/chat}") String baseUrl,
                           @Value("${ai.model.llm.model:qwen3.5-4b}") String model,
@@ -71,6 +89,24 @@ public class AgentLlmClient {
      * @throws RuntimeException 模型/网络异常时抛出，交由上层熔断器降级
      */
     public String chat(String prompt) {
+        if (!com.ai.mall.agent.customer.service.telemetry.AgentTelemetry.reserveModelCall()) {
+            throw new IllegalStateException("Request model-call budget exhausted");
+        }
+        return com.ai.mall.agent.customer.service.telemetry.AgentTelemetry.observed("llm", () -> doChat(prompt));
+    }
+
+    private String doChat(String prompt) {
+        long requestStart = System.currentTimeMillis();
+        if (releaseEmbeddingBeforeGeneration) {
+            try {
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.APPLICATION_JSON);
+                restTemplate.postForEntity(URI.create(baseUrl).resolve("/api/generate"),
+                        new HttpEntity<>(objectMapper.writeValueAsString(Map.of("model", embeddingModelName, "keep_alive", 0)), headers), String.class);
+            } catch (Exception failure) {
+                throw new IllegalStateException("Cannot release embedding residency for bounded evaluation", failure);
+            }
+        }
         Map<String, Object> body = new HashMap<>();
         body.put("model", model);
         List<Map<String, String>> messages = new ArrayList<>();
@@ -80,10 +116,13 @@ public class AgentLlmClient {
         // 关闭 qwen3 思维链：OpenAI 兼容端点不支持该顶层参数，必须走 /api/chat
         body.put("think", false);
         // 保持模型常驻内存，压测期间避免冷加载（默认 keep_alive 5 分钟偏短）
-        body.put("keep_alive", "30m");
+        body.put("keep_alive", keepAlive);
         Map<String, Object> options = new HashMap<>();
         options.put("num_predict", maxTokens);
         options.put("temperature", temperature);
+        options.put("num_ctx", Math.max(1024, contextTokens));
+        options.put("num_thread", Math.max(1, threads));
+        if (gpuLayers >= 0) options.put("num_gpu", gpuLayers);
         body.put("options", options);
 
         try {
@@ -105,10 +144,13 @@ public class AgentLlmClient {
             JsonNode node = objectMapper.readTree(response.getBody());
             String content = node.path("message").path("content").asText("");
             int evalCount = node.path("eval_count").asInt(-1);
+            com.ai.mall.agent.customer.service.telemetry.AgentTelemetry.recordLlm(costMs,
+                    node.path("prompt_eval_count").asLong(-1), evalCount, "success");
             log.info("LLM 调用成功 model={}, 耗时{}ms, eval_count={}, contentLength={}",
                     model, costMs, evalCount, content.length());
             return content;
         } catch (Exception e) {
+            com.ai.mall.agent.customer.service.telemetry.AgentTelemetry.recordLlm(System.currentTimeMillis() - requestStart, -1, -1, "failure");
             log.error("LLM 调用异常 model={}, err={}", model, e.getMessage());
             throw new RuntimeException("LLM 调用失败: " + e.getMessage(), e);
         }

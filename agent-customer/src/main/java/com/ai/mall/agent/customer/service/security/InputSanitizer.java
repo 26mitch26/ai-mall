@@ -63,7 +63,7 @@ public class InputSanitizer {
      */
     private static final Pattern[] CN_INJECTION_PATTERNS = {
             Pattern.compile("忽略(上面|以上|之前|前面|上述)(的)?(所有)?(指令|提示|规则|设定)"),
-            Pattern.compile("忘记(你)?(的)?(所有)?(指令|提示|规则|设定|身份)"),
+            Pattern.compile("忘记(你|上面|以上|之前|前面|上述)?(的)?(所有)?(指令|提示|规则|设定|身份)"),
             Pattern.compile("你现在是|你现在扮演|请扮演|请充当|假装你是"),
             Pattern.compile("绕过(所有)?(限制|规则|安全|审查)"),
             Pattern.compile("(解除|关闭|取消)(你的)?(所有)?(限制|约束|安全机制)"),

@@ -48,7 +48,7 @@ spec:
               service:
                 name: agent-ops
                 port:
-                  number: 8083
+                  number: 8084
           - path: /agent/test(/|$)(.*)
             pathType: ImplementationSpecific
             backend:

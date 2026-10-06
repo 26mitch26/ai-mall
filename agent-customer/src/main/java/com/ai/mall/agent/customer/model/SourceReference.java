@@ -17,4 +17,10 @@ public class SourceReference {
     private String content;
     private double score;
     private String retrievalSource;
+    private String version;
+    private String contentHash;
+    private java.time.Instant effectiveAt;
+    private String scope;
+    private String knowledgeVersion;
+    private boolean evidenceVerified;
 }

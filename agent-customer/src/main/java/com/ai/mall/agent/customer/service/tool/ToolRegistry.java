@@ -4,6 +4,8 @@ import com.ai.mall.agent.customer.model.Tool;
 import com.ai.mall.agent.customer.model.ToolInvocationContext;
 import com.ai.mall.agent.customer.service.security.InputSanitizer;
 import com.ai.mall.agent.customer.service.security.ToolAccessGuard;
+import com.ai.mall.agent.customer.service.security.OperationFingerprint;
+import com.ai.mall.agent.customer.service.telemetry.AgentTelemetry;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -145,6 +147,12 @@ public class ToolRegistry {
      * @return 净化后的工具返回内容；被拒绝或异常时返回结构化错误信息
      */
     public String executeTool(String name, String parameters, ToolInvocationContext context) {
+        return AgentTelemetry.observed("tool", () -> executeToolInternal(name,parameters,context));
+    }
+
+    private String executeToolInternal(String name, String parameters, ToolInvocationContext context) {
+        String approvalError = validateApproval(name, parameters, context);
+        if (approvalError != null) return approvalError;
         ToolAccessGuard.Decision decision = toolAccessGuard.authorize(name, context);
         if (!decision.isAllowed()) {
             log.warn("工具调用被拒绝: tool={}, reason={}", name, decision.getReason());
@@ -156,14 +164,19 @@ public class ToolRegistry {
             return "Tool not found: " + name;
         }
 
+        long started = System.nanoTime();
+        String outcome = "failure";
         try {
             String rawResult = tool.getExecutor().execute(parameters, context);
+            outcome = successfulResult(rawResult) ? "success" : "failure";
             // 外部数据进入提示词前统一净化，阻断间接提示词注入
             return inputSanitizer.sanitizeToolObservation(rawResult);
         } catch (Exception e) {
             // 不回显内部异常细节，避免信息外泄
             log.error("Error executing tool {}: {}", name, e.getMessage());
             return "{\"error\": \"工具执行失败，请稍后重试\"}";
+        } finally {
+            AgentTelemetry.recordStage("tool", (System.nanoTime() - started) / 1_000_000, outcome);
         }
     }
 
@@ -173,18 +186,61 @@ public class ToolRegistry {
      * 因此不能把被截断的 JSON 当作完整文档再次解析。
      */
     public String executeStructuredTool(String name, String parameters, ToolInvocationContext context) {
+        return AgentTelemetry.observed("tool", () -> executeStructuredToolInternal(name,parameters,context));
+    }
+
+    private String executeStructuredToolInternal(String name, String parameters, ToolInvocationContext context) {
+        String approvalError = validateApproval(name, parameters, context);
+        if (approvalError != null) return approvalError;
         ToolAccessGuard.Decision decision = toolAccessGuard.authorize(name, context);
         if (!decision.isAllowed()) {
             return "{\"error\": \"" + decision.getReason() + "\", \"blocked\": true}";
         }
         Tool tool = tools.get(name);
         if (tool == null) return "{\"error\": \"工具不存在\"}";
+        long started = System.nanoTime();
+        String outcome = "failure";
         try {
-            return tool.getExecutor().execute(parameters, context);
+            String result = tool.getExecutor().execute(parameters, context);
+            outcome = successfulResult(result) ? "success" : "failure";
+            return result;
         } catch (Exception e) {
             log.error("Error executing structured tool {}: {}", name, e.getMessage());
             return "{\"error\": \"工具执行失败，请稍后重试\"}";
+        } finally {
+            AgentTelemetry.recordStage("tool", (System.nanoTime() - started) / 1_000_000, outcome);
         }
+    }
+
+    private String validateApproval(String name, String parameters, ToolInvocationContext context) {
+        if (!"place_order".equals(name) && !"cancel_order".equals(name) && !"create_after_sale".equals(name)) return null;
+        if (context == null || !context.isWriteApproved() || context.getOperationId() == null || context.getOperationHash() == null) {
+            return "{\"error\":\"写操作需要先确认具体草稿\",\"blocked\":true}";
+        }
+        try {
+            if (!context.getOperationHash().equals(OperationFingerprint.hash(parameters))) {
+                return "{\"error\":\"操作参数已变化，请重新确认\",\"blocked\":true}";
+            }
+        } catch (IllegalArgumentException ex) { return "{\"error\":\"无效操作参数\",\"blocked\":true}"; }
+        return null;
+    }
+
+    private boolean successfulResult(String result) {
+        try {
+            JsonNode node=objectMapper.readTree(result);
+            return node!=null && !node.has("error") && !node.path("blocked").asBoolean()
+                    && (!node.has("code") || node.path("code").asInt()==200);
+        } catch(Exception ex) { return false; }
+    }
+
+    /** Reconciles an uncertain write result; never retries a write merely because its response was lost. */
+    public String lookupOperation(String kind, String operationId, ToolInvocationContext context) {
+        if (context == null || !context.isAuthenticated() || operationId == null || !operationId.matches("[A-Za-z0-9_-]{1,128}")) {
+            return "{\"error\":\"需要有效的登录凭证和操作编号\"}";
+        }
+        String path = "order".equals(kind) ? "/order/operations/" : "/returnApply/operations/";
+        try { return getWithAuth(mallPortalUrl + path + operationId, Map.of(), context); }
+        catch (Exception ex) { return "{\"error\":\"暂时无法核对执行结果\",\"uncertain\":true}"; }
     }
 
     // ==================== 具体工具实现 ====================
@@ -293,6 +349,13 @@ public class ToolRegistry {
             if (product.isMissingNode() || product.isNull()) {
                 return "{\"error\": \"商品不存在\"}";
             }
+            java.math.BigDecimal actualPrice = product.path("promotionPrice").asDouble(0) > 0
+                    ? new java.math.BigDecimal(product.path("promotionPrice").asText())
+                    : new java.math.BigDecimal(product.path("price").asText("0"));
+            if (paramMap.get("expected_price") != null
+                    && actualPrice.compareTo(new java.math.BigDecimal(paramMap.get("expected_price").toString())) != 0) {
+                return "{\"error\":\"商品价格已变化，请重新查看商品并确认下单\",\"blocked\":true}";
+            }
             JsonNode skus = data.path("skuStockList");
             Long skuId = null;
             int stock = 0;
@@ -357,12 +420,12 @@ public class ToolRegistry {
             }
 
             // 5. 幂等 token（防重复提交）+ 生成订单
-            String idempotencyToken = objectMapper.readTree(
-                    getWithAuth(mallPortalUrl + "/order/token", Map.of(), context)).path("data").asText("");
+            String idempotencyToken = context.getOperationId();
             Map<String, Object> orderBody = new HashMap<>();
             orderBody.put("memberReceiveAddressId", addressId);
             orderBody.put("cartIds", List.of(cartId));
             orderBody.put("idempotencyToken", idempotencyToken);
+            orderBody.put("idempotencyKey", context.getOperationId());
             JsonNode orderRoot = objectMapper.readTree(postWithAuth(mallPortalUrl + "/order/generateOrder", orderBody, context));
             if (orderRoot.path("code").asInt(500) != 200) {
                 String message = orderRoot.path("message").asText("下单失败");
@@ -471,6 +534,7 @@ public class ToolRegistry {
             requestBody.put("returnAmount", order.path("payAmount").asDouble(0));
             requestBody.put("reason", paramMap.get("reason"));
             requestBody.put("description", paramMap.get("description"));
+            requestBody.put("idempotencyKey", context.getOperationId());
 
             // 用订单明细补全退货商品信息，后台退货申请页才能直接审核处理
             JsonNode items = order.path("orderItemList");
@@ -583,6 +647,7 @@ public class ToolRegistry {
         if (context != null && context.getUserToken() != null && !context.getUserToken().isBlank()) {
             headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + context.getUserToken());
         }
+        if (context != null && context.getOperationId() != null) headers.set("Idempotency-Key", context.getOperationId());
         return headers;
     }
 }

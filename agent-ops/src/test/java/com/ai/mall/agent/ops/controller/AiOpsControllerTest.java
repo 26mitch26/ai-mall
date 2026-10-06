@@ -32,6 +32,24 @@ class AiOpsControllerTest {
     @MockitoBean
     private Orchestrator orchestrator;
 
+    /** 控制面依赖：capabilities 现在会读这些 bean，测试里打桩避免拉起真实组件。 */
+    @MockitoBean
+    private com.ai.mall.agent.ops.service.metric.MetricsIngestService ingestService;
+
+    @MockitoBean
+    private com.ai.mall.agent.ops.service.audit.GateDecisionStore gateStore;
+
+    @MockitoBean
+    private com.ai.mall.agent.ops.service.execution.SimulatedExecutor executor;
+
+    @org.junit.jupiter.api.BeforeEach
+    void stubCapabilitiesDependencies() {
+        org.mockito.Mockito.lenient().when(ingestService.watchTargets()).thenReturn(java.util.List.of());
+        org.mockito.Mockito.lenient().when(executor.mode()).thenReturn("simulated");
+        org.mockito.Mockito.lenient().when(gateStore.summary())
+                .thenReturn(java.util.Map.of("total", 0, "pending", 0));
+    }
+
     @Test
     void testTriggerIncidentEndpoint() throws Exception {
         IncidentState incident = IncidentState.builder()

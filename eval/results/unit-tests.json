@@ -1,0 +1,425 @@
+{
+  "mall-core": [
+    {
+      "suite": "TEST-com.ai.mall.common.autoconfigure.MallCommonAutoConfigurationTest.xml",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.common.circuitbreaker.ModelCircuitBreakerTest.xml",
+      "tests": "12",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.common.exception.GlobalExceptionHandlerTest.xml",
+      "tests": "16",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.common.filter.TraceFilterTest.xml",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.common.service.impl.RedisServiceImplTest.xml",
+      "tests": "25",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.common.security.util.JwtTokenUtilTest.xml",
+      "tests": "14",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.common.security.validator.JwtSecurityValidatorTest.xml",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "mall-admin": [],
+  "mall-portal": [
+    {
+      "suite": "TEST-com.ai.mall.common.portal.controller.OmsPortalOrderControllerIdempotencyH2Test.xml",
+      "tests": "2",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.common.portal.controller.OmsPortalOrderControllerIdempotencyTest.xml",
+      "tests": "2",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.common.portal.controller.OmsPortalReturnApplyIdempotencyH2Test.xml",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.common.portal.service.impl.OmsPortalOrderReturnApplyServiceImplTest.xml",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.portal.service.impl.OmsPortalOrderServiceImplTest.xml",
+      "tests": "17",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "mall-search": [],
+  "mall-demo": [],
+  "mall-generator": [],
+  "mall-message": [],
+  "agent-customer": [
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.config.LexicalEvaluationVectorStoreConfigTest.xml",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.controller.ChatControllerTest.xml",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.controller.KnowledgeWriteAccessTest.xml",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.controller.McpControllerTest.xml",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.rag.ChunkStrategyExperimentTest.xml",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.rag.RagRecallEvaluationTest.xml",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.service.agent.HumanSupportIntentTest.xml",
+      "tests": "2",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.service.agent.PolicyAnswerComposerTest.xml",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.service.agent.ReActAgentTest.xml",
+      "tests": "23",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.service.evidence.EvidenceAndTraceTest.xml",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.service.llm.AgentLlmResourceSettingsTest.xml",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.service.mcp.McpProtocolServiceTest.xml",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.service.rag.AdaptiveRagBehaviorTest.xml",
+      "tests": "13",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.service.rag.KnowledgeParserTest.xml",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.service.rag.RagPublicationRedisIntegrationTest.xml",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.service.security.InjectionRegressionTest.xml",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.service.security.InputSanitizerTest.xml",
+      "tests": "11",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.service.security.MemberIdentityResolverTest.xml",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.service.security.OutputGuardrailTest.xml",
+      "tests": "8",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.service.security.ToolAccessGuardTest.xml",
+      "tests": "10",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.service.vision.AfterSaleVisionServiceTest.xml",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.customer.service.workflow.AfterSaleWorkflowRedisIntegrationTest.xml",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "agent-ops": [
+    {
+      "suite": "TEST-com.ai.mall.agent.ops.controller.AiOpsControllerTest.xml",
+      "tests": "7",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.ops.service.agent.AnomalyDetectionBenchmarkTest.xml",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.ops.service.agent.IncidentPipelineIntegrationTest.xml",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.ops.service.agent.RCAAgentTest.xml",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.ops.service.audit.GateDecisionStoreTest.xml",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.ops.service.event.EventBusTest.xml",
+      "tests": "7",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.ops.service.execution.SimulatedExecutorTest.xml",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.ops.service.knowledge.KnowledgeGraphServiceTest.xml",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.ops.service.metric.MetricsIngestServiceTest.xml",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "agent-test": [
+    {
+      "suite": "TEST-com.ai.mall.agent.test.service.agent.TestAgentTest.xml",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.test.service.agent.TestExecutorAssertionTest.xml",
+      "tests": "8",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.test.service.assertion.OpenApiSchemaValidatorTest.xml",
+      "tests": "8",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.test.service.assertion.SemanticAssertionServiceTest.xml",
+      "tests": "9",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.test.service.generator.TestCaseContractGuardTest.xml",
+      "tests": "11",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.test.service.generator.TestCaseGeneratorContractTest.xml",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.test.service.insight.FailureClassifierTest.xml",
+      "tests": "10",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.test.service.insight.InsightFeedbackTest.xml",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.test.service.insight.TestInsightStoreTest.xml",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.test.service.mcp.McpProtocolServiceTest.xml",
+      "tests": "11",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.test.service.quality.QualityCaseLoaderTest.xml",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.test.service.report.TestReportStoreTest.xml",
+      "tests": "4",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.agent.test.service.security.TestAccessGuardTest.xml",
+      "tests": "12",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "ai-gateway": [
+    {
+      "suite": "TEST-com.ai.mall.gateway.filter.CustomerGatewayAccessTest.xml",
+      "tests": "2",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "suite": "TEST-com.ai.mall.gateway.handler.GatewayExceptionHandlerTest.xml",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ]
+}

@@ -5,9 +5,10 @@ import com.ai.mall.common.api.CommonResult;
 import com.ai.mall.portal.domain.ConfirmOrderResult;
 import com.ai.mall.portal.domain.OmsOrderDetail;
 import com.ai.mall.portal.domain.OrderParam;
-import com.ai.mall.common.exception.Asserts;
-import com.ai.mall.common.service.RedisService;
+import com.ai.mall.portal.service.UmsMemberService;
 import com.ai.mall.portal.service.OmsPortalOrderService;
+import com.ai.mall.model.UmsMember;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
@@ -15,11 +16,19 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Comparator;
 
 /**
  * 订单管理Controller
@@ -32,22 +41,17 @@ public class OmsPortalOrderController {
     @Autowired
     private OmsPortalOrderService portalOrderService;
     @Autowired
-    private RedisService redisService;
-
-    private static final String IDEMPOTENCY_TOKEN_PREFIX = "order:token:";
-    private static final long TOKEN_EXPIRE_SECONDS = 300; // 5 分钟有效
+    private JdbcTemplate jdbcTemplate;
+    @Autowired
+    private UmsMemberService memberService;
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Operation(summary = "获取下单幂等token，防重复提交")
     @RequestMapping(value = "/token", method = RequestMethod.GET)
     @ResponseBody
     public CommonResult<String> getIdempotencyToken() {
-        String token = UUID.randomUUID().toString();
-        try {
-            redisService.set(IDEMPOTENCY_TOKEN_PREFIX + token, "1", TOKEN_EXPIRE_SECONDS);
-        } catch (Exception e) {
-            // Redis 不可用时仍然返回 token，下单时会跳过校验
-        }
-        return CommonResult.success(token);
+        return CommonResult.success(UUID.randomUUID().toString());
     }
 
     @Operation(summary = "根据购物车信息生成确认单")
@@ -61,24 +65,90 @@ public class OmsPortalOrderController {
     @Operation(summary = "根据购物车信息生成订单")
     @RequestMapping(value = "/generateOrder", method = RequestMethod.POST)
     @ResponseBody
+    @Transactional
     public CommonResult generateOrder(@RequestBody OrderParam orderParam) {
-        // 幂等 token 校验：防止重复提交（Redis 不可用时跳过校验，降级放行）
-        String token = orderParam.getIdempotencyToken();
-        try {
-            if (token == null || token.isBlank()) {
-                Asserts.fail("缺少幂等token，请先调用 GET /order/token 获取");
-            }
-            String tokenKey = IDEMPOTENCY_TOKEN_PREFIX + token;
-            Boolean deleted = redisService.del(tokenKey);
-            if (!Boolean.TRUE.equals(deleted)) {
-                Asserts.fail("重复提交，请勿重复下单");
-            }
-        } catch (Exception e) {
-            // Redis 不可用时降级：跳过 token 校验，放行下单
+        String token = orderParam == null ? null : orderParam.getIdempotencyToken();
+        if (token == null || token.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "缺少幂等键，请先调用 GET /order/token 获取");
         }
-
+        if (token.length() > 128 || !token.matches("[A-Za-z0-9_-]+")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "无效的幂等键");
+        }
+        UmsMember member = memberService.getCurrentMember();
+        if (member == null || member.getId() == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "需要登录后下单");
+        String requestHash = requestHash(orderParam);
+        // Insert-if-absent plus row lock serializes concurrent retries. The order and stored response
+        // commit in the same database transaction, so a retry after a timeout returns the first result.
+        jdbcTemplate.update("INSERT INTO agent_operation_idempotency (owner_type, owner_id, operation_key, request_hash, status, created_at, updated_at) " +
+                        "VALUES ('order', ?, ?, ?, 'PROCESSING', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) " +
+                        "ON DUPLICATE KEY UPDATE id = id",
+                String.valueOf(member.getId()), token.trim(), requestHash);
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT request_hash, status, result_json FROM agent_operation_idempotency " +
+                        "WHERE owner_type='order' AND owner_id=? AND operation_key=? FOR UPDATE",
+                String.valueOf(member.getId()), token.trim());
+        if (rows.isEmpty()) throw new IllegalStateException("幂等请求记录无法读取");
+        Map<String, Object> row = rows.get(0);
+        if (!requestHash.equals(row.get("request_hash"))) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "该幂等键已用于不同的下单参数");
+        }
+        String status = String.valueOf(row.get("status"));
+        if ("COMPLETED".equals(status)) {
+            try {
+                @SuppressWarnings("unchecked") Map<String, Object> prior = objectMapper.readValue(String.valueOf(row.get("result_json")), Map.class);
+                return CommonResult.success(prior, "下单成功");
+            } catch (Exception e) { throw new IllegalStateException("幂等请求结果损坏", e); }
+        }
         Map<String, Object> result = portalOrderService.generateOrder(orderParam);
+        try {
+            jdbcTemplate.update("UPDATE agent_operation_idempotency SET status='COMPLETED', result_json=?, updated_at=CURRENT_TIMESTAMP " +
+                            "WHERE owner_type='order' AND owner_id=? AND operation_key=?",
+                    objectMapper.writeValueAsString(result), String.valueOf(member.getId()), token.trim());
+        } catch (Exception e) { throw new IllegalStateException("下单结果无法持久化", e); }
         return CommonResult.success(result, "下单成功");
+    }
+
+    private String requestHash(OrderParam p) {
+        try {
+            Map<String, Object> canonical = new java.util.TreeMap<>();
+            canonical.put("addressId", p.getMemberReceiveAddressId());
+            canonical.put("couponId", p.getCouponId());
+            canonical.put("useIntegration", p.getUseIntegration());
+            canonical.put("payType", p.getPayType());
+            List<Long> cartIds = p.getCartIds() == null ? List.of() : new ArrayList<>(p.getCartIds());
+            cartIds.sort(Comparator.nullsFirst(Long::compareTo));
+            canonical.put("cartIds", cartIds);
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(objectMapper.writeValueAsBytes(canonical));
+            return java.util.HexFormat.of().formatHex(digest);
+        } catch (Exception e) { throw new IllegalStateException("下单参数无法校验", e); }
+    }
+
+    @Operation(summary = "按幂等操作编号查询下单结果")
+    @GetMapping("/operations/{operationId}")
+    @ResponseBody
+    public CommonResult<Map<String, Object>> lookupOrderOperation(@PathVariable String operationId) {
+        if (operationId == null || !operationId.matches("[A-Za-z0-9_-]{1,128}")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "无效的操作编号");
+        }
+        UmsMember member = memberService.getCurrentMember();
+        if (member == null || member.getId() == null) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "需要登录");
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT status, result_json FROM agent_operation_idempotency WHERE owner_type='order' AND owner_id=? AND operation_key=?",
+                String.valueOf(member.getId()), operationId);
+        Map<String, Object> data = new java.util.HashMap<>();
+        if (rows.isEmpty()) {
+            data.put("status", "NOT_FOUND");
+            data.put("result", null);
+        } else {
+            Map<String, Object> row = rows.get(0);
+            String status = String.valueOf(row.get("status"));
+            data.put("status", status);
+            if ("COMPLETED".equals(status) && row.get("result_json") != null) {
+                try { data.put("result", objectMapper.readValue(String.valueOf(row.get("result_json")), Map.class)); }
+                catch (Exception e) { throw new IllegalStateException("幂等结果损坏", e); }
+            } else data.put("result", null);
+        }
+        return CommonResult.success(data);
     }
 
     @Operation(summary = "用户支付成功的回调")

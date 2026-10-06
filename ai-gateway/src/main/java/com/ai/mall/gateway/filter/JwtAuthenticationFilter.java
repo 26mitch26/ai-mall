@@ -50,6 +50,12 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/agent/customer/api/v1/knowledge/status",
             "/agent/customer/api/v1/knowledge/source",
             "/agent/customer/api/v1/knowledge/documents",
+            // Public support and protocol entrypoints enforce member ownership at each private tool.
+            "/agent/customer/api/v1/chat",
+            "/agent/customer/api/v1/chat/stream",
+            "/agent/customer/api/v1/task/execute",
+            "/agent/customer/api/v1/evaluation/retrieve",
+            "/agent/customer/mcp",
             "/swagger-ui/**",
             "/v3/api-docs/**",
             "/actuator/**"

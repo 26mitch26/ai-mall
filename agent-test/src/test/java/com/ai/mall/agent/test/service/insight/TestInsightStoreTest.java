@@ -70,6 +70,20 @@ class TestInsightStoreTest {
     }
 
     @Test
+    void snapshotShouldBeDetachedFromStore() throws IOException {
+        TestInsightStore store = newStore();
+        store.record("GET", "/api/orders", "业务码异常");
+
+        List<KnownDefect> snapshot = store.snapshot();
+        store.markRoundCompleted();
+
+        assertTrue(snapshot.get(0).isHitThisRun(),
+                "快照必须是副本，否则清轮次标记会反向污染已落库的报告");
+        assertFalse(store.findByApi("GET", "/api/orders").isHitThisRun(),
+                "库内对象本身仍应被清标记");
+    }
+
+    @Test
     void clearShouldRemoveAllAndPersist() throws IOException {
         TestInsightStore store = newStore();
         store.record("GET", "/api/orders", "业务码异常");

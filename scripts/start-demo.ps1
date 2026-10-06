@@ -3,7 +3,11 @@ param(
     [switch]$SkipBuild,
     [switch]$SkipFrontend,
     [switch]$SkipInfrastructure,
-    [switch]$SkipMemberFrontend
+    [switch]$SkipMemberFrontend,
+    [switch]$EnableSearch,
+    [switch]$EnableRabbitMq,
+    [switch]$EnableKafka,
+    [switch]$EnableMonitoring
 )
 
 $ErrorActionPreference = 'Stop'
@@ -14,8 +18,38 @@ New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null
 $previousDatabaseUrl = $env:MALL_DB_URL
 $previousDatabaseUser = $env:MALL_DB_USERNAME
 $previousDatabasePassword = $env:MALL_DB_PASSWORD
+$previousJavaHome = $env:JAVA_HOME
+$previousPath = $env:Path
+$previousMavenOpts = $env:MAVEN_OPTS
 
 try {
+    # Use an actual JDK executable. Oracle's javapath shim can return a launcher PID
+    # that differs from the JVM PID later used by stop-demo.ps1.
+    $jdkCandidates = @()
+    if (-not [string]::IsNullOrWhiteSpace($env:JAVA_HOME)) {
+        $jdkCandidates += Join-Path $env:JAVA_HOME 'bin\java.exe'
+    }
+    $jdkCandidates += Get-Command java.exe -All -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandType -eq 'Application' -and $_.Source -notmatch '\\javapath\\|\\WindowsApps\\' } |
+        Select-Object -ExpandProperty Source
+    $javaPath = $null
+    foreach ($candidate in $jdkCandidates) {
+        if ([string]::IsNullOrWhiteSpace($candidate) -or -not (Test-Path -LiteralPath $candidate)) { continue }
+        $candidateHome = Split-Path -Parent (Split-Path -Parent $candidate)
+        if (Test-Path -LiteralPath (Join-Path $candidateHome 'bin\javac.exe')) {
+            $javaPath = (Resolve-Path -LiteralPath $candidate).Path
+            $env:JAVA_HOME = $candidateHome
+            $env:Path = (Join-Path $candidateHome 'bin') + ';' + $previousPath
+            break
+        }
+    }
+    if (-not $javaPath) {
+        throw '未找到 JDK 的 bin\java.exe 与 bin\javac.exe。请将 JAVA_HOME 指向 JDK 21 后重试。'
+    }
+    if ([string]::IsNullOrWhiteSpace($env:MAVEN_OPTS)) {
+        $env:MAVEN_OPTS = '-Xms128m -Xmx1536m'
+    }
+
 if ([string]::IsNullOrEmpty($env:MALL_DB_PASSWORD)) {
     $securePassword = Read-Host '请输入本机 MySQL 密码（只注入本次启动的子进程）' -AsSecureString
     $passwordPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($securePassword)
@@ -34,8 +68,26 @@ if ([string]::IsNullOrEmpty($env:MALL_DB_USERNAME)) {
 }
 
 if (-not $SkipInfrastructure) {
-    & docker compose -f (Join-Path $projectRoot 'infra\docker-compose.yml') `
-        up -d --wait --wait-timeout 150 redis minio etcd milvus neo4j mongo
+    $composeArgs = @('--project-directory', $projectRoot, '-f', (Join-Path $projectRoot 'infra\docker-compose.yml'))
+    $infrastructureServices = @('redis', 'minio', 'etcd', 'milvus', 'neo4j', 'mongo')
+    if ($EnableSearch) {
+        $composeArgs += @('--profile', 'search')
+        $infrastructureServices += @('elasticsearch', 'elasticsearch-ik-setup')
+    }
+    if ($EnableRabbitMq) {
+        $composeArgs += @('--profile', 'messaging')
+        $infrastructureServices += 'rabbitmq'
+    }
+    if ($EnableKafka) {
+        $composeArgs += @('--profile', 'kafka')
+        $infrastructureServices += @('zookeeper', 'kafka')
+    }
+    if ($EnableMonitoring) {
+        $composeArgs += @('--profile', 'monitoring')
+        $infrastructureServices += @('prometheus', 'grafana')
+    }
+    $composeArgs += @('up', '-d', '--wait', '--wait-timeout', '150') + $infrastructureServices
+    & docker compose @composeArgs
     if ($LASTEXITCODE -ne 0) {
         throw 'Agent 基础设施启动失败。请确认 Docker Desktop、Milvus 和 Neo4j 容器状态。'
     }
@@ -44,19 +96,19 @@ if (-not $SkipInfrastructure) {
 if (-not $SkipBuild) {
     & mvn -f (Join-Path $projectRoot 'pom.xml') `
         -pl ai-gateway,mall-admin,mall-portal,agent-customer,agent-ops,agent-test `
-        -am clean package -DskipTests
+        -am package -DskipTests
     if ($LASTEXITCODE -ne 0) {
         throw '后端构建失败。'
     }
 }
 
 $services = @(
-    @{ Name = 'mall-admin'; Port = 8081; Jar = 'mall-admin\target\mall-admin-1.0-SNAPSHOT.jar' },
-    @{ Name = 'mall-portal'; Port = 8087; Jar = 'mall-portal\target\mall-portal-1.0-SNAPSHOT.jar' },
-    @{ Name = 'agent-customer'; Port = 8083; Jar = 'agent-customer\target\agent-customer-1.0-SNAPSHOT.jar' },
-    @{ Name = 'agent-ops'; Port = 8084; Jar = 'agent-ops\target\agent-ops-1.0-SNAPSHOT.jar' },
-    @{ Name = 'agent-test'; Port = 8085; Jar = 'agent-test\target\agent-test-1.0-SNAPSHOT.jar' },
-    @{ Name = 'ai-gateway'; Port = 8080; Jar = 'ai-gateway\target\ai-gateway-1.0-SNAPSHOT.jar' }
+    @{ Name = 'mall-admin'; Port = 8081; Xmx = '512m'; Jar = 'mall-admin\target\mall-admin-1.0-SNAPSHOT.jar' },
+    @{ Name = 'mall-portal'; Port = 8087; Xmx = '768m'; Jar = 'mall-portal\target\mall-portal-1.0-SNAPSHOT.jar' },
+    @{ Name = 'agent-customer'; Port = 8083; Xmx = '1024m'; Jar = 'agent-customer\target\agent-customer-1.0-SNAPSHOT.jar' },
+    @{ Name = 'agent-ops'; Port = 8084; Xmx = '512m'; Jar = 'agent-ops\target\agent-ops-1.0-SNAPSHOT.jar' },
+    @{ Name = 'agent-test'; Port = 8085; Xmx = '512m'; Jar = 'agent-test\target\agent-test-1.0-SNAPSHOT.jar' },
+    @{ Name = 'ai-gateway'; Port = 8080; Xmx = '384m'; Jar = 'ai-gateway\target\ai-gateway-1.0-SNAPSHOT.jar' }
 )
 
 foreach ($service in $services) {
@@ -72,7 +124,8 @@ foreach ($service in $services) {
     }
     $stdout = Join-Path $runDirectory "$($service.Name).log"
     $stderr = Join-Path $runDirectory "$($service.Name).error.log"
-    $process = Start-Process -FilePath 'java' -ArgumentList '-jar', $jarPath, '--spring.profiles.active=dev' `
+    $javaArguments = @('-Xms64m', "-Xmx$($service.Xmx)", '-jar', $jarPath, '--spring.profiles.active=dev')
+    $process = Start-Process -FilePath $javaPath -ArgumentList $javaArguments `
         -WorkingDirectory $projectRoot -WindowStyle Hidden -PassThru `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr
     Set-Content -LiteralPath (Join-Path $runDirectory "$($service.Name).pid") -Value $process.Id -Encoding ascii
@@ -142,35 +195,53 @@ if (-not $allHealthy) {
     throw "服务未在 120 秒内全部就绪，请检查 $runDirectory 下的日志。"
 }
 
-# 首次启动时写入课设演示知识，形成可直接提问的 RAG 闭环。
-$knowledgeSeedFlag = Join-Path $runDirectory 'knowledge-seeded.flag'
-if (-not (Test-Path -LiteralPath $knowledgeSeedFlag)) {
-    $bm25Keys = @(& docker exec ai-mall-redis redis-cli --scan --pattern 'bm25:*')
-    if ($bm25Keys.Count -gt 0) {
-        & docker exec ai-mall-redis redis-cli DEL @bm25Keys | Out-Null
+# Keep the demo knowledge aligned with source files without clearing shared Redis data.
+# The service exposes each active source's contentHash; unchanged documents are skipped,
+# changed/new files are published through the regular idempotent ingest endpoint.
+$knowledgeBaseUrl = 'http://localhost:8083/api/v1/knowledge'
+$indexedResponse = Invoke-RestMethod -Uri "$knowledgeBaseUrl/documents" -TimeoutSec 10
+$indexedHashes = @{}
+foreach ($indexedDocument in @($indexedResponse.documents)) {
+    if ($indexedDocument.source) {
+        $indexedHashes[[string]$indexedDocument.source] = [string]$indexedDocument.contentHash
     }
-    $demoDocuments = @(
-        @{ source='docs/knowledge/refund-policy.md'; type='policy'; chunkStrategy='sentence' },
-        @{ source='docs/knowledge/shipping-policy.md'; type='policy'; chunkStrategy='sentence' },
-        @{ source='docs/knowledge/payment-faq.md'; type='faq'; chunkStrategy='sentence' },
-        @{ source='docs/knowledge/after-sale-process.md'; type='policy'; chunkStrategy='sentence' },
-        @{ source='docs/knowledge/member-benefits.md'; type='policy'; chunkStrategy='sentence' },
-        @{ source='docs/knowledge/inspection-exchange-guide.md'; type='policy'; chunkStrategy='sentence' },
-        @{ source='docs/knowledge/invoice-warranty.md'; type='policy'; chunkStrategy='sentence' },
-        @{ source='docs/knowledge/promotion-rules.md'; type='policy'; chunkStrategy='sentence' },
-        @{ source='docs/knowledge/account-security.md'; type='policy'; chunkStrategy='sentence' }
-    )
-    foreach ($document in $demoDocuments) {
-        # 注意：PowerShell 5.1 下 Get-Content -Raw 返回的字符串带 ETS 装饰属性，
-        # ConvertTo-Json 会把它序列化成 {"value": ...} 对象导致入库 400；
-        # 统一用 File.ReadAllText 取纯字符串，并以 UTF-8 字节发送，避免编码/包装问题。
-        $document.content = [System.IO.File]::ReadAllText((Join-Path $projectRoot $document.source), [System.Text.Encoding]::UTF8)
-        $documentJson = $document | ConvertTo-Json -Compress
-        $documentBytes = [System.Text.Encoding]::UTF8.GetBytes($documentJson)
-        Invoke-RestMethod -Method Post -Uri 'http://localhost:8083/api/v1/knowledge/ingest' `
-            -ContentType 'application/json; charset=utf-8' -Body $documentBytes -TimeoutSec 120 | Out-Null
+}
+
+$demoDocuments = @(
+    @{ source='docs/knowledge/refund-policy.md'; type='policy'; chunkStrategy='sentence' },
+    @{ source='docs/knowledge/shipping-policy.md'; type='policy'; chunkStrategy='sentence' },
+    @{ source='docs/knowledge/payment-faq.md'; type='faq'; chunkStrategy='sentence' },
+    @{ source='docs/knowledge/after-sale-process.md'; type='policy'; chunkStrategy='sentence' },
+    @{ source='docs/knowledge/member-benefits.md'; type='policy'; chunkStrategy='sentence' },
+    @{ source='docs/knowledge/inspection-exchange-guide.md'; type='policy'; chunkStrategy='sentence' },
+    @{ source='docs/knowledge/invoice-warranty.md'; type='policy'; chunkStrategy='sentence' },
+    @{ source='docs/knowledge/promotion-rules.md'; type='policy'; chunkStrategy='sentence' },
+    @{ source='docs/knowledge/account-security.md'; type='policy'; chunkStrategy='sentence' }
+)
+foreach ($document in $demoDocuments) {
+    # PowerShell 5.1 Get-Content -Raw can serialize with an ETS wrapper; read the
+    # UTF-8 file directly. Match Java String.trim() (U+0000..U+0020) before hashing.
+    $document.content = [System.IO.File]::ReadAllText((Join-Path $projectRoot $document.source), [System.Text.Encoding]::UTF8)
+    $trimCharacters = [char[]](0..32)
+    $normalizedContent = $document.content.Trim($trimCharacters)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $contentHashBytes = $sha256.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($normalizedContent))
     }
-    Set-Content -LiteralPath $knowledgeSeedFlag -Value (Get-Date -Format o) -Encoding utf8
+    finally {
+        $sha256.Dispose()
+    }
+    $contentHash = [System.BitConverter]::ToString($contentHashBytes).Replace('-', '').ToLowerInvariant()
+    if ($indexedHashes.ContainsKey($document.source) -and $indexedHashes[$document.source] -eq $contentHash) {
+        Write-Host "知识文件未变化，跳过：$($document.source)"
+        continue
+    }
+
+    $documentJson = $document | ConvertTo-Json -Compress
+    $documentBytes = [System.Text.Encoding]::UTF8.GetBytes($documentJson)
+    $ingestResult = Invoke-RestMethod -Method Post -Uri "$knowledgeBaseUrl/ingest" `
+        -ContentType 'application/json; charset=utf-8' -Body $documentBytes -TimeoutSec 120
+    $indexedHashes[$document.source] = [string]$ingestResult.contentHash
 }
 
 Write-Host 'AI-Mall 本地演示环境已启动。' -ForegroundColor Green
@@ -186,4 +257,9 @@ finally {
     else { $env:MALL_DB_USERNAME = $previousDatabaseUser }
     if ($null -eq $previousDatabasePassword) { Remove-Item Env:MALL_DB_PASSWORD -ErrorAction SilentlyContinue }
     else { $env:MALL_DB_PASSWORD = $previousDatabasePassword }
+    if ($null -eq $previousJavaHome) { Remove-Item Env:JAVA_HOME -ErrorAction SilentlyContinue }
+    else { $env:JAVA_HOME = $previousJavaHome }
+    $env:Path = $previousPath
+    if ($null -eq $previousMavenOpts) { Remove-Item Env:MAVEN_OPTS -ErrorAction SilentlyContinue }
+    else { $env:MAVEN_OPTS = $previousMavenOpts }
 }

@@ -100,6 +100,12 @@ spring:
           uri: ${GATEWAY_ROUTE_OPS:http://localhost:8084}
           filters:
             - StripPrefix=2
+            # 触发接口内部会同步调用本地大模型（实测可达 60s），不限流等于给了一个廉价的 DoS 面
+            - name: RequestRateLimiter
+              args:
+                redis-rate-limiter.replenishRate: 3
+                redis-rate-limiter.burstCapacity: 6
+                key-resolver: "#{@ipKeyResolver}"
         - id: agent-test
           predicates:
             - Path=/agent/test/**

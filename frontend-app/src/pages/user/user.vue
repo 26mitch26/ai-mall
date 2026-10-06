@@ -1,5 +1,8 @@
 <template>
-  <view class="container">
+  <view class="container pc-storefront-page">
+    <!-- #ifdef H5 -->
+    <pc-storefront-nav active="user" />
+    <!-- #endif -->
     <view class="user-section">
       <image class="bg" src="/static/user-bg.jpg"></image>
       <!-- #ifdef MP -->
@@ -137,6 +140,7 @@
 </template>
 
 <script setup lang="ts">
+import PcStorefrontNav from '@/components/pc-storefront-nav.vue'
 import { ref, computed } from 'vue'
 import { onShow, onNavigationBarButtonTap } from '@dcloudio/uni-app'
 import { useMemberStore } from '@/stores/member'
@@ -453,5 +457,130 @@ const handleCoverTouchend = () => {
   margin-top: 20rpx;
   background: #fff;
   border-radius: 10rpx;
+}
+
+@media screen and (min-width: 769px) {
+  .container {
+    width: min(1240px, calc(100% - 64px));
+    margin: 0 auto;
+    padding: 0 0 40px;
+  }
+
+  .user-section {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.1fr);
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 20px 28px;
+    height: auto;
+    min-height: 300px;
+    padding: 28px;
+    border-radius: 22px;
+    overflow: hidden;
+    background: linear-gradient(120deg, #f4f5fc, #fff 68%);
+  }
+
+  .user-section > .bg {
+    opacity: 0.13;
+    filter: blur(2px);
+  }
+
+  .user-info-box {
+    grid-column: 1;
+    height: auto;
+    min-height: 98px;
+  }
+
+  .user-info-box .portrait {
+    width: 76px;
+    height: 76px;
+  }
+
+  .user-info-box .username {
+    margin-left: 16px;
+    font-size: 22px;
+  }
+
+  .vip-card-box {
+    grid-column: 1;
+    height: 142px;
+    padding: 18px 20px;
+    border-radius: 16px;
+  }
+
+  .vip-card-box .card-bg {
+    width: 220px;
+    height: 150px;
+  }
+
+  .vip-card-box .tit {
+    margin-bottom: 12px;
+    font-size: 17px;
+  }
+
+  .vip-card-box .e-m,
+  .vip-card-box .e-b {
+    font-size: 12px;
+  }
+
+  .cover-container {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(280px, 0.9fr);
+    gap: 18px 24px;
+    margin: 20px 0 0;
+    padding: 0;
+    background: transparent;
+  }
+
+  .cover-container > .arc {
+    display: none;
+  }
+
+  .tj-sction,
+  .order-section,
+  .history-section {
+    margin: 0;
+    padding: 18px;
+    border: 1px solid #edf0f6;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 6px 20px rgba(31, 48, 94, 0.04);
+  }
+
+  .tj-sction {
+    grid-column: 1;
+  }
+
+  .tj-sction .tj-item {
+    height: 76px;
+    font-size: 13px;
+  }
+
+  .tj-sction .num {
+    font-size: 19px;
+  }
+
+  .order-section {
+    grid-column: 1;
+    grid-row: 2;
+    padding: 10px 16px;
+  }
+
+  .order-section .order-item {
+    width: auto;
+    height: 88px;
+    font-size: 13px;
+  }
+
+  .order-section .yticon {
+    margin-bottom: 10px;
+    font-size: 28px;
+  }
+
+  .history-section {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    padding: 8px 18px;
+  }
 }
 </style>
