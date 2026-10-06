@@ -1,0 +1,978 @@
+{
+  "scope": "Seven fixed anonymous smoke regressions with limited assertions; not blind semantic or authenticated commerce E2E",
+  "status": {
+    "pipeline": [
+      "Query-time rewrite",
+      "BM25 recall",
+      "Policy quotation or Ollama generation"
+    ],
+    "ollamaOnline": true,
+    "chatModel": "ai-mall-eval-qwen3:0.6b",
+    "reranker": {
+      "localOnly": true,
+      "model": "Qwen3-Reranker-0.6B",
+      "enabled": false
+    },
+    "cache": {
+      "exactHits": 0,
+      "size": 0,
+      "semanticHits": 0,
+      "misses": 0,
+      "hitRate": "0%"
+    },
+    "knowledgeBase": {
+      "documents": 9,
+      "chunks": 9
+    },
+    "retrieval": "BM25 关键词检索（低内存模式）",
+    "vectorIndex": "BM25",
+    "online": true,
+    "vectorStore": "未启用",
+    "embeddingModel": "未启用"
+  },
+  "total": 7,
+  "passed": 7,
+  "trials": [
+    {
+      "id": "refund-time",
+      "query": "退款一般多久到账？",
+      "passed": true,
+      "sourceRevisionReadback": true,
+      "elapsedSeconds": 0.469,
+      "response": {
+        "sessionId": "ui-smoke-de8fb6f32d7b441f9d8409d14e406f9d",
+        "message": "退款一般多久到账？",
+        "answer": "根据商城已公布的政策，相关原文如下：\n\n【政策依据 1】\n退款金额以实际支付金额为准，不含运费。符合退货条件的订单，在申请审核通过后一到三个工作日内退款至原支付账户。",
+        "selectedModel": "ai-mall-eval-qwen3:0.6b",
+        "modelProvider": "ollama",
+        "usedModels": [],
+        "generationUsed": false,
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 342,
+        "sources": [
+          {
+            "id": "52b96d07-8f9b-356e-a9a8-97e3499fe236",
+            "source": "docs/knowledge/refund-policy.md",
+            "type": "policy",
+            "content": "退款金额以实际支付金额为准，不含运费。符合退货条件的订单，在申请审核通过后一到三个工作日内退款至原支付账户。",
+            "contentKind": "selected-excerpt",
+            "score": 0.016129032258064516,
+            "retrievalSource": "bm25",
+            "version": "d3ddbfb6f1880c62efb47e624457318d05ae80a0e0fe295f32a4860d4b21d707",
+            "contentHash": "d67585a2cbc375bcb82c64974878f01ca80c3d62b82f351b81b88193eceedb35",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          }
+        ],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "已找到政策依据（关键词检索），请核对适用条件",
+        "evidenceScore": 0.6,
+        "retrievalRoute": "exact",
+        "reranker": "recall-order",
+        "correctionCount": 1,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "e5baa1f18be2f95f8245793a0869fbd5",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 2,
+              "outcome": "success"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 0,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 216,
+              "outcome": "success"
+            },
+            {
+              "name": "chat",
+              "durationMs": 342,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 4,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "根据商城已公布的政策，相关原文如下：",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "【政策依据 1】",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "退款金额以实际支付金额为准，不含运费。",
+              "evidenceIds": [
+                "52b96d07-8f9b-356e-a9a8-97e3499fe236"
+              ],
+              "support": "lexical-match"
+            },
+            {
+              "text": "符合退货条件的订单，在申请审核通过后一到三个工作日内退款至原支付账户。",
+              "evidenceIds": [
+                "52b96d07-8f9b-356e-a9a8-97e3499fe236"
+              ],
+              "support": "lexical-match"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      }
+    },
+    {
+      "id": "payment-method",
+      "query": "支持哪些支付方式？",
+      "passed": true,
+      "sourceRevisionReadback": true,
+      "elapsedSeconds": 0.203,
+      "response": {
+        "sessionId": "ui-smoke-4753bd55924a4e3fb4aa77db51d1fab2",
+        "message": "支持哪些支付方式？",
+        "answer": "根据商城已公布的政策，相关原文如下：\n\n【政策依据 1】\n支持的支付方式：微信支付、支付宝、银联云闪付。本地演示环境使用模拟支付，支付成功后订单状态会自动更新为待发货。",
+        "selectedModel": "ai-mall-eval-qwen3:0.6b",
+        "modelProvider": "ollama",
+        "usedModels": [],
+        "generationUsed": false,
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 152,
+        "sources": [
+          {
+            "id": "bfb841b9-45a3-3389-b981-43fbee571ab3",
+            "source": "docs/knowledge/payment-faq.md",
+            "type": "policy",
+            "content": "支持的支付方式：微信支付、支付宝、银联云闪付。本地演示环境使用模拟支付，支付成功后订单状态会自动更新为待发货。",
+            "contentKind": "selected-excerpt",
+            "score": 0.01639344262295082,
+            "retrievalSource": "bm25",
+            "version": "433850f26f796fb4274103bddb3a4a8c9e0e13982053dc1c11643bdea3f7df49",
+            "contentHash": "e03eebd5efc5ce7432262d1481a91f8bc616eb5d2695f7765271d2dda7c7ce5b",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          }
+        ],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "已找到政策依据（关键词检索），请核对适用条件",
+        "evidenceScore": 0.6,
+        "retrievalRoute": "exact",
+        "reranker": "recall-order",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "2302fb437e550bfe490ab2107f37367e",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 0,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 94,
+              "outcome": "success"
+            },
+            {
+              "name": "chat",
+              "durationMs": 152,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 4,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "根据商城已公布的政策，相关原文如下：",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "【政策依据 1】",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "支持的支付方式：微信支付、支付宝、银联云闪付。",
+              "evidenceIds": [
+                "bfb841b9-45a3-3389-b981-43fbee571ab3"
+              ],
+              "support": "lexical-match"
+            },
+            {
+              "text": "本地演示环境使用模拟支付，支付成功后订单状态会自动更新为待发货。",
+              "evidenceIds": [
+                "bfb841b9-45a3-3389-b981-43fbee571ab3"
+              ],
+              "support": "lexical-match"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      }
+    },
+    {
+      "id": "refund-next-step",
+      "query": "我不知道如何才能拿到退款",
+      "passed": true,
+      "sourceRevisionReadback": true,
+      "elapsedSeconds": 0.406,
+      "response": {
+        "sessionId": "ui-smoke-f2a162ad66c94f79932401e4007046e2",
+        "message": "我不知道如何才能拿到退款",
+        "answer": "根据商城已公布的政策，相关原文如下：\n\n【政策依据 1】\n退货操作路径：进入智能客服或会员中心选择对应订单，提交退货原因与说明，等待平台审核即可。发票、赠品需随商品一并退回。",
+        "selectedModel": "ai-mall-eval-qwen3:0.6b",
+        "modelProvider": "ollama",
+        "usedModels": [],
+        "generationUsed": false,
+        "intent": "general",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 382,
+        "sources": [
+          {
+            "id": "52b96d07-8f9b-356e-a9a8-97e3499fe236",
+            "source": "docs/knowledge/refund-policy.md",
+            "type": "policy",
+            "content": "退货操作路径：进入智能客服或会员中心选择对应订单，提交退货原因与说明，等待平台审核即可。发票、赠品需随商品一并退回。",
+            "contentKind": "selected-excerpt",
+            "score": 0.01639344262295082,
+            "retrievalSource": "bm25",
+            "version": "d3ddbfb6f1880c62efb47e624457318d05ae80a0e0fe295f32a4860d4b21d707",
+            "contentHash": "d67585a2cbc375bcb82c64974878f01ca80c3d62b82f351b81b88193eceedb35",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          }
+        ],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "已找到政策依据（关键词检索），请核对适用条件",
+        "evidenceScore": 0.6,
+        "retrievalRoute": "exact",
+        "reranker": "recall-order",
+        "correctionCount": 1,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "ea3c94c4c49fcb64d871818bf4dd98d0",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "success"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 0,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 312,
+              "outcome": "success"
+            },
+            {
+              "name": "chat",
+              "durationMs": 382,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 4,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "根据商城已公布的政策，相关原文如下：",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "【政策依据 1】",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "退货操作路径：进入智能客服或会员中心选择对应订单，提交退货原因与说明，等待平台审核即可。",
+              "evidenceIds": [
+                "52b96d07-8f9b-356e-a9a8-97e3499fe236"
+              ],
+              "support": "lexical-match"
+            },
+            {
+              "text": "发票、赠品需随商品一并退回。",
+              "evidenceIds": [
+                "52b96d07-8f9b-356e-a9a8-97e3499fe236"
+              ],
+              "support": "lexical-match"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      }
+    },
+    {
+      "id": "same-city",
+      "query": "同城订单多久送到？",
+      "passed": true,
+      "sourceRevisionReadback": true,
+      "elapsedSeconds": 0.203,
+      "response": {
+        "sessionId": "ui-smoke-fb35ac70d77f48ce82e332467c7b1607",
+        "message": "同城订单多久送到？",
+        "answer": "根据商城已公布的政策，相关原文如下：\n\n【政策依据 1】\n配送时效：同城订单支持半日达，最快四小时送达；省内一般一到两天，外省二到四天，偏远地区三到五天。",
+        "selectedModel": "ai-mall-eval-qwen3:0.6b",
+        "modelProvider": "ollama",
+        "usedModels": [],
+        "generationUsed": false,
+        "intent": "order_task",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 187,
+        "sources": [
+          {
+            "id": "86d4a27a-189c-334e-913a-d26910221a96",
+            "source": "docs/knowledge/shipping-policy.md",
+            "type": "policy",
+            "content": "配送时效：同城订单支持半日达，最快四小时送达；省内一般一到两天，外省二到四天，偏远地区三到五天。",
+            "contentKind": "selected-excerpt",
+            "score": 0.01639344262295082,
+            "retrievalSource": "bm25",
+            "version": "fc6fbc7b165c6378579938a1864798c0bb366ce738d2b13a7ff06102b28eb6bf",
+            "contentHash": "339b38fcbfcb24401a8ae3d1888dea04d77eaa9237b65263d2937eade3e7c677",
+            "effectiveAt": null,
+            "scope": "public",
+            "knowledgeVersion": "9",
+            "evidenceVerified": true
+          }
+        ],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "已找到政策依据（关键词检索），请核对适用条件",
+        "evidenceScore": 0.6,
+        "retrievalRoute": "exact",
+        "reranker": "recall-order",
+        "correctionCount": 1,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "b2a457c6e034a2d9795572cadd3e3f12",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "success"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 0,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 127,
+              "outcome": "success"
+            },
+            {
+              "name": "chat",
+              "durationMs": 187,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 4,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "根据商城已公布的政策，相关原文如下：",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "【政策依据 1】",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "配送时效：同城订单支持半日达，最快四小时送达；",
+              "evidenceIds": [
+                "86d4a27a-189c-334e-913a-d26910221a96"
+              ],
+              "support": "lexical-match"
+            },
+            {
+              "text": "省内一般一到两天，外省二到四天，偏远地区三到五天。",
+              "evidenceIds": [
+                "86d4a27a-189c-334e-913a-d26910221a96"
+              ],
+              "support": "lexical-match"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      }
+    },
+    {
+      "id": "human-guidance",
+      "query": "请转人工客服",
+      "passed": true,
+      "sourceRevisionReadback": null,
+      "elapsedSeconds": 0.031,
+      "response": {
+        "sessionId": "ui-smoke-6231dbaa939145299dbc2def2e35a104",
+        "message": "请转人工客服",
+        "answer": "当前演示环境尚未接入人工客服，未转接会话，也未创建工单。请通过商城公布的客服渠道联系人工客服，并准备订单编号和问题说明。",
+        "selectedModel": "ai-mall-eval-qwen3:0.6b",
+        "modelProvider": "ollama",
+        "usedModels": [],
+        "generationUsed": false,
+        "intent": "general",
+        "resolutionStatus": "HANDOFF_RECOMMENDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 8,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "处理指引 · 人工客服尚未接入",
+        "evidenceScore": null,
+        "retrievalRoute": "human-guidance",
+        "reranker": null,
+        "correctionCount": 0,
+        "knowledgeVersion": null,
+        "trace": {
+          "traceId": "9895b209df447fbcf6952f6946d62cc4",
+          "stages": [
+            {
+              "name": "chat",
+              "durationMs": 8,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 0,
+          "unsupportedNumericClaims": 0,
+          "claims": [],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      }
+    },
+    {
+      "id": "out-of-scope",
+      "query": "请介绍量子纠缠的原理",
+      "passed": true,
+      "sourceRevisionReadback": null,
+      "elapsedSeconds": 0.078,
+      "response": {
+        "sessionId": "ui-smoke-067992b682ac45cd949717abaf39b32f",
+        "message": "请介绍量子纠缠的原理",
+        "answer": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。建议您联系人工客服；当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+        "selectedModel": "ai-mall-eval-qwen3:0.6b",
+        "modelProvider": "ollama",
+        "usedModels": [],
+        "generationUsed": false,
+        "intent": "general",
+        "resolutionStatus": "HANDOFF_RECOMMENDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 77,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "检索判定 · 依据不足，建议联系人工客服（证据强度 0.00）",
+        "evidenceScore": 0.0,
+        "retrievalRoute": "exact",
+        "reranker": "recall-order",
+        "correctionCount": 0,
+        "knowledgeVersion": "9",
+        "trace": {
+          "traceId": "85e125ce67387942f10342adfc35d20d",
+          "stages": [
+            {
+              "name": "rewrite",
+              "durationMs": 0,
+              "outcome": "miss"
+            },
+            {
+              "name": "rerank",
+              "durationMs": 0,
+              "outcome": "success"
+            },
+            {
+              "name": "retrieve",
+              "durationMs": 15,
+              "outcome": "refusal"
+            },
+            {
+              "name": "chat",
+              "durationMs": 77,
+              "outcome": "refusal"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 3,
+          "unsupportedNumericClaims": 0,
+          "claims": [
+            {
+              "text": "抱歉，我在知识库中没有找到相关的资料，无法给您准确的答复。",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "建议您联系人工客服；",
+              "evidenceIds": [],
+              "support": "unverified"
+            },
+            {
+              "text": "当前演示环境尚未接入人工客服，未转接会话或创建工单。",
+              "evidenceIds": [],
+              "support": "unverified"
+            }
+          ],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      }
+    },
+    {
+      "id": "anonymous-order",
+      "query": "查询我的订单",
+      "passed": true,
+      "sourceRevisionReadback": null,
+      "elapsedSeconds": 0.032,
+      "response": {
+        "sessionId": "ui-smoke-d6f1d1500fec45d2a4c267b3c7e19450",
+        "message": "查询我的订单",
+        "answer": "该操作需要登录后才能进行，请先登录",
+        "selectedModel": "ai-mall-eval-qwen3:0.6b",
+        "modelProvider": "ollama",
+        "usedModels": [],
+        "generationUsed": false,
+        "intent": "order_task",
+        "resolutionStatus": "RESPONSE_PROVIDED",
+        "handoffStatus": "NOT_CONNECTED",
+        "responseTime": 18,
+        "sources": [],
+        "collaboration": {
+          "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+          "activeAgent": "order",
+          "agents": [
+            {
+              "id": "router",
+              "name": "接待分流 Agent",
+              "role": "接待",
+              "description": "识别意图并分派专家",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "order",
+              "name": "订单管理 Agent",
+              "role": "专家",
+              "description": "查询订单、退换货与物流",
+              "status": "completed",
+              "active": true
+            },
+            {
+              "id": "technical",
+              "name": "技术支持 Agent",
+              "role": "专家",
+              "description": "定位故障并给出处理方案",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "complaint",
+              "name": "投诉处理 Agent",
+              "role": "专家",
+              "description": "安抚情绪、记录反馈并闭环",
+              "status": "standby",
+              "active": false
+            },
+            {
+              "id": "coordinator",
+              "name": "协同汇总 Agent",
+              "role": "编排",
+              "description": "融合知识库与专家结果后回复",
+              "status": "completed",
+              "active": true
+            }
+          ]
+        },
+        "retrievalDecision": "已提供回复；未展示政策引用，请按具体业务页面核对",
+        "evidenceScore": null,
+        "retrievalRoute": "tool-or-cache",
+        "reranker": null,
+        "correctionCount": 0,
+        "knowledgeVersion": null,
+        "trace": {
+          "traceId": "65a915f7be3bfde413f0638d3e5bfaa2",
+          "stages": [
+            {
+              "name": "chat",
+              "durationMs": 18,
+              "outcome": "success"
+            }
+          ],
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0
+        },
+        "evidenceReport": {
+          "method": "lexical-quotation-and-numeric",
+          "checkedClaims": 0,
+          "unsupportedNumericClaims": 0,
+          "claims": [],
+          "conflicts": []
+        },
+        "graph": {
+          "status": "disabled",
+          "paths": [],
+          "retrievalHints": []
+        }
+      }
+    }
+  ]
+}

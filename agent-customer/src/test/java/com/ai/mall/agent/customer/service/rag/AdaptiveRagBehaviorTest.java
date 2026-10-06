@@ -22,6 +22,18 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class AdaptiveRagBehaviorTest {
+    @Test void chunkStrategyChangeCreatesNewVersionWithoutChangingSourceHash() {
+        var redis=mock(StringRedisTemplate.class,RETURNS_DEEP_STUBS);
+        when(redis.execute(any(RedisScript.class),anyList(),any(Object[].class))).thenReturn(1L);
+        var vector=mock(VectorStore.class);
+        var rag=service(vector,redis);
+        var whole=Document.builder().id("policy").source("policy.md").type("policy").content("# 退货\n支持七日内退货。\n但定制商品除外。").build();
+        var section=whole.toBuilder().build();
+        rag.indexDocuments(List.of(whole));
+        rag.indexDocuments(List.of(section),"policy_section");
+        assertEquals(whole.getContentHash(),section.getContentHash());
+        assertNotEquals(whole.getVersion(),section.getVersion());
+    }
     @Test void publicRefundProcedureExpansionPreservesQuestionAndPrivateProgressBoundary() {
         String query = "我不知道如何才能拿到退款";
         String expanded = RetrievalQueryRewriter.expand(query);

@@ -1,0 +1,97 @@
+{
+  "corpusCharacters" : 2363,
+  "rulePairs" : 8,
+  "rows" : [ {
+    "totalIndexedCharacters" : 2363,
+    "averageCharacters" : 2363.0,
+    "chunks" : 1,
+    "completeRulePairs" : 8,
+    "strategy" : "whole-document",
+    "pairCoverage" : 1.0,
+    "maxCharacters" : 2363,
+    "targetCharacters" : 2363
+  }, {
+    "totalIndexedCharacters" : 4603,
+    "averageCharacters" : 127.86111111111111,
+    "chunks" : 36,
+    "completeRulePairs" : 1,
+    "strategy" : "fixed_size",
+    "pairCoverage" : 0.125,
+    "maxCharacters" : 128,
+    "targetCharacters" : 128
+  }, {
+    "totalIndexedCharacters" : 3067,
+    "averageCharacters" : 255.58333333333334,
+    "chunks" : 12,
+    "completeRulePairs" : 4,
+    "strategy" : "fixed_size",
+    "pairCoverage" : 0.5,
+    "maxCharacters" : 256,
+    "targetCharacters" : 256
+  }, {
+    "totalIndexedCharacters" : 2683,
+    "averageCharacters" : 447.1666666666667,
+    "chunks" : 6,
+    "completeRulePairs" : 5,
+    "strategy" : "fixed_size",
+    "pairCoverage" : 0.625,
+    "maxCharacters" : 512,
+    "targetCharacters" : 512
+  }, {
+    "totalIndexedCharacters" : 2339,
+    "averageCharacters" : 155.93333333333334,
+    "chunks" : 15,
+    "completeRulePairs" : 1,
+    "strategy" : "sentence",
+    "pairCoverage" : 0.125,
+    "maxCharacters" : 574,
+    "targetCharacters" : 128
+  }, {
+    "totalIndexedCharacters" : 2339,
+    "averageCharacters" : 212.63636363636363,
+    "chunks" : 11,
+    "completeRulePairs" : 4,
+    "strategy" : "sentence",
+    "pairCoverage" : 0.5,
+    "maxCharacters" : 574,
+    "targetCharacters" : 256
+  }, {
+    "totalIndexedCharacters" : 2339,
+    "averageCharacters" : 389.8333333333333,
+    "chunks" : 6,
+    "completeRulePairs" : 6,
+    "strategy" : "sentence",
+    "pairCoverage" : 0.75,
+    "maxCharacters" : 574,
+    "targetCharacters" : 512
+  }, {
+    "totalIndexedCharacters" : 2424,
+    "averageCharacters" : 303.0,
+    "chunks" : 8,
+    "completeRulePairs" : 8,
+    "strategy" : "policy_section",
+    "pairCoverage" : 1.0,
+    "maxCharacters" : 609,
+    "targetCharacters" : 128
+  }, {
+    "totalIndexedCharacters" : 2424,
+    "averageCharacters" : 303.0,
+    "chunks" : 8,
+    "completeRulePairs" : 8,
+    "strategy" : "policy_section",
+    "pairCoverage" : 1.0,
+    "maxCharacters" : 609,
+    "targetCharacters" : 256
+  }, {
+    "totalIndexedCharacters" : 2424,
+    "averageCharacters" : 303.0,
+    "chunks" : 8,
+    "completeRulePairs" : 8,
+    "strategy" : "policy_section",
+    "pairCoverage" : 1.0,
+    "maxCharacters" : 609,
+    "targetCharacters" : 512
+  } ],
+  "scope" : "Eight synthetic long-rule/exception pairs; structural coverage only; development regression, not blind retrieval or answer accuracy",
+  "modelCalls" : 0
+}

@@ -94,6 +94,9 @@ public class KnowledgeController {
                     org.springframework.http.HttpStatus.FORBIDDEN, "Knowledge write access denied");
         }
         Map<String, Object> result = new HashMap<>();
+        if(request.getChunkStrategy()!=null && !request.getChunkStrategy().isBlank()
+                && !java.util.Set.of("fixed_size","sentence","semantic","table_aware","code","smart","policy_section").contains(request.getChunkStrategy()))
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,"Unsupported chunk strategy");
         if (request.getContent() == null || request.getContent().isBlank()) {
             result.put("indexedChunks", 0);
             result.put("docId", null);
@@ -112,7 +115,9 @@ public class KnowledgeController {
                 .scope(request.getScope() != null ? request.getScope() : "public")
                 .build();
         ragService.indexDocuments(List.of(doc), request.getChunkStrategy());
-        result.put("indexedChunks", 1);
+        result.put("indexedChunks",request.getChunkStrategy()==null || request.getChunkStrategy().isBlank()
+                ? 1 : RagService.DocumentChunker.chunkWithMetadata(doc,request.getChunkStrategy()).size());
+        result.put("chunkStrategy",request.getChunkStrategy()==null || request.getChunkStrategy().isBlank()?"whole":request.getChunkStrategy());
         result.put("docId", docId);
         result.put("version", doc.getVersion());
         result.put("contentHash", doc.getContentHash());
@@ -174,6 +179,8 @@ public class KnowledgeController {
         result.put("contentHash", document.getOrDefault("contentHash", ""));
         result.put("effectiveAt", document.getOrDefault("effectiveAt", ""));
         result.put("scope", document.getOrDefault("scope", "public"));
+        result.put("chunkStrategy",document.getOrDefault("chunkStrategy","legacy-unspecified"));
+        result.put("chunkCount",document.getOrDefault("chunkCount","unknown"));
         return result;
     }
 

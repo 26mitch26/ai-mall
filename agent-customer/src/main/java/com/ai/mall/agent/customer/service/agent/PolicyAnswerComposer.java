@@ -21,13 +21,13 @@ public final class PolicyAnswerComposer {
             for(Document document:documents) {
                 if(!document.isEvidenceVerified() || document.getContent()==null) continue;
                 List<Paragraph> ranked=new ArrayList<>(); int order=0;
-                for(String line:document.getContent().split("\\R+")) {
+                for(String line:com.ai.mall.agent.customer.service.rag.PolicySectionChunker.evidenceUnits(document.getContent())) {
                     String text=line.trim(); int position=order++;
                     if(text.isBlank() || text.startsWith("#")) continue;
                     long topics=facet.topics.stream().filter(text::contains).count();
                     long focused=facet.focus.stream().filter(text::contains).count();
                     if(topics==0 || (!facet.focus.isEmpty() && focused==0)) continue;
-                    if(text.length()>700) { int end=text.lastIndexOf('。',699); if(end<0) continue; text=text.substring(0,end+1); }
+                    if(text.length()>700) continue; // Do not quote a prefix that silently drops a later exception.
                     double score=topics+focused*4;
                     if(facet.procedure && text.matches("^(?:[^：:]{0,12})?(?:流程|操作路径|申请)[：:].*")) score+=6;
                     ranked.add(new Paragraph(text,score,position));
@@ -41,7 +41,10 @@ public final class PolicyAnswerComposer {
             }
             if(best==null) return null; // Never silently omit a requested facet.
             String key=String.valueOf(best.source.getSource())+":"+String.valueOf(best.source.getVersion());
-            originals.putIfAbsent(key,best.source);
+            Document previous=originals.get(key);
+            if(previous==null) originals.put(key,best.source);
+            else if(!previous.getContent().equals(best.source.getContent()))
+                originals.put(key,previous.toBuilder().content(previous.getContent()+"\n"+best.source.getContent()).build());
             var snippets=excerpts.computeIfAbsent(key,k->new LinkedHashSet<>());
             best.paragraphs.stream().sorted(Comparator.comparingInt(Paragraph::order)).forEach(p->snippets.add(p.text));
         }

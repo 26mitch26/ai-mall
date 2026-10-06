@@ -296,9 +296,10 @@
         </el-form-item>
         <el-form-item label="分块策略">
           <el-radio-group v-model="knowledgeForm.chunkStrategy">
+            <el-radio-button value="policy_section">政策章节与例外保护</el-radio-button>
             <el-radio-button value="sentence">按句分块</el-radio-button>
             <el-radio-button value="fixed_size">固定长度</el-radio-button>
-            <el-radio-button value="semantic">语义分块</el-radio-button>
+            <el-radio-button value="semantic">段落规则分块</el-radio-button>
           </el-radio-group>
         </el-form-item>
       </el-form>
@@ -390,7 +391,7 @@ const visionResult = ref<VisionInspectionResult | null>(null)
 const knowledgeForm = ref({
   source: 'course-demo-policy.md',
   content: '',
-  chunkStrategy: 'sentence',
+  chunkStrategy: 'policy_section',
   type: 'policy',
 })
 

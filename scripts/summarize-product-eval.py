@@ -96,6 +96,8 @@ def run():
     login = read('member-login-verification.json')
     latest['memberLoginReadOnly'] = login
     latest['sources'].append('member-login-verification.json')
+    chunk = read('chunk-upgrade/validation.json') if (RESULTS/'chunk-upgrade/validation.json').exists() else None
+    boundary = read('chunk-upgrade/boundary-experiment.json') if chunk else None
     summary = {'schemaVersion':2,'generatedAt':datetime.now(timezone.utc).isoformat(),'reportAsOf':latest['asOf'],
         'decision':'Research prototype; archived proxy benchmark and current scoped regressions available; fresh semantic and business review pending',
         'historicalBenchmarkDate':'2026-10-06','latestVerification':latest,
@@ -106,6 +108,9 @@ def run():
         'testAllTwoTrialsSuccessWilson95':wilson(stable_successes,len(stable_groups)),'memorySnapshots':memory,
         'multiTurnRegressionBefore':before['passed'],'multiTurnRegressionAfter':after['passed'],
         'semanticCorrectness':None,'humanReviewed':False,'businessOutcomeSuccess':None,'embeddingUsage':None}
+    if chunk:
+        summary['chunkVerification'] = {'validation':chunk,'boundaryExperiment':boundary,
+                                      'scope':'Synthetic structural coverage; not a blind retrieval or answer-quality benchmark'}
     (RESULTS/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
     module_labels = '、'.join(f"{row['name']} {row['tests']}" for row in latest['modules'])
     config = latest['anonymousRegression']['configuration']
@@ -116,11 +121,11 @@ def run():
 
 报告证据截至 **{latest['asOf']}**。当前结论是**可复查的研发原型**：历史中文任务代理门槛达标，后续版本通过了有限软件与访客回归；真实用户、业务专家和新版本完整语义验证尚未完成。不得把这些成绩写成线上解决率、满意度、营收或零幻觉。
 
-## 当前版本的验证范围
+## 最近完成的验证记录
 
 | 项目 | 最新证据 | 能证明什么与限制 |
 |---|---|---|
-| 相关软件测试 | {latest['totalTests']}项，失败{latest['failures']}、错误{latest['errors']}、跳过{latest['skipped']} | {module_labels}；不是最新全项目全量成绩 |
+| 模型选择阶段软件测试 | {latest['totalTests']}项，失败{latest['failures']}、错误{latest['errors']}、跳过{latest['skipped']} | {module_labels}；保留该阶段范围，不能与后续分块阶段相加 |
 | 政策组件回归 | {latest['componentRegression']['before']}/12 → {latest['componentRegression']['after']}/12 | 已检索资料的选段、来源、数值和路由断言；不是端到端准确率 |
 | 访客界面/API回归 | {latest['anonymousRegression']['before']}/7 → {latest['anonymousRegression']['after']}/7，生成调用{latest['anonymousRegression']['generationCalls']} | 输入一致的已知场景，包含来源版本读取；不是新的独立盲测 |
 | 当前演示模式 | {config['retrieval']}；{config['knowledgeBase']['documents']}篇政策；embedding：{config['embeddingModel']}，向量库：{config['vectorStore']} | 与历史语义对照配置不同，不能直接比较成绩或时延 |
@@ -195,6 +200,11 @@ def run():
 
 简历应突出产品取舍、可靠性与失败迭代，保留当前原型阶段。个人周期、职责、开源来源和 AI 辅助方式需要本人核对；不写无证据的客户规模、营收、CSAT 或上线降本。
 '''
+    if chunk:
+        selected_rows = {r['strategy']:r for r in boundary['rows'] if r['targetCharacters']==512 or r['strategy']=='whole-document'}
+        fixed,sentence,policy,whole = (selected_rows[name] for name in ('fixed_size','sentence','policy_section','whole-document'))
+        chunk_modules = '、'.join(f"{m['name']} {m['tests']}" for m in chunk['modules'])
+        body += f'''\n## 分块策略后续验证\n\n分块阶段客服/公共模块{chunk['totalTests']}项测试通过（{chunk_modules}），与上面的模型选择阶段不是同一范围，不能累加。管理端新增并推荐policy_section；当前共享资料未重建，保留历史输入和版本。\n\n在{boundary['corpusCharacters']}字符、{boundary['rulePairs']}组规则/例外的合成夹具上，固定512保留{fixed['completeRulePairs']}/{boundary['rulePairs']}完整组、按句512为{sentence['completeRulePairs']}/{boundary['rulePairs']}、政策章节策略为{policy['completeRulePairs']}/{boundary['rulePairs']}；整篇不切也为{whole['completeRulePairs']}/{boundary['rulePairs']}，但上下文为{whole['maxCharacters']}字符。政策512产生{policy['chunks']}块，平均{policy['averageCharacters']:.1f}、最大{policy['maxCharacters']}字符；完整结构优先可能超过目标，因此证据不证明512最优或RAG回答准确率提升。\n\n新增保护还覆盖连续段落、表格/代码围栏、标题上下文、选段阶段例外保留、同来源多块证据及策略变化的新版本。过长原文不再截前半段，可能增加拒答；真实召回、token预算与语义正确率需在新独立样本验证。Late Chunking和真实Semantic Chunking尚未实现，不写成已采用技术。[原始结构实验](results/chunk-upgrade/boundary-experiment.json)、[验证范围](results/chunk-upgrade/validation.json)、[策略取舍](../docs/product/chunk-strategy-review.md)。\n'''
     (ROOT/'eval/product-evaluation-report.md').write_text(body,encoding='utf-8')
     print(json.dumps({'historicalTests':summary['tests'],'latestScopedTests':latest['totalTests'],
                       'historicalProxyTestPassRate':t['taskProxyPassRate'],'historicalCallReduction':summary['modelCallReductionPercent']}))

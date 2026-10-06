@@ -1,0 +1,26 @@
+{
+  "date": "2026-10-07",
+  "scope": "Policy chunk structural regressions; shared knowledge not reindexed; no live semantic benchmark",
+  "modules": [
+    {
+      "name": "mall-common",
+      "tests": 62
+    },
+    {
+      "name": "agent-customer",
+      "tests": 154
+    }
+  ],
+  "totalTests": 216,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "newTests": 11,
+  "modelCalls": 0,
+  "liveSemanticRun": false,
+  "adminTypeCheck": "passed",
+  "adminBuild": "passed",
+  "existingKnowledgeReindexed": false,
+  "sourceStrategyVersion": "policy_section:v1",
+  "defaultAdminIngestStrategy": "policy_section"
+}

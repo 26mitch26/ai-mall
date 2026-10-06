@@ -674,7 +674,8 @@ public class RagService {
             String hash = sha256(document.getContent());
             String version = sha256(hash + "|" + (document.getVersion() == null ? "" : document.getVersion())
                     + "|" + (document.getEffectiveAt() == null ? "" : document.getEffectiveAt())
-                    + "|" + (document.getScope() == null ? "public" : document.getScope()));
+                    + "|" + (document.getScope() == null ? "public" : document.getScope())
+                    + (chunkStrategy == null || chunkStrategy.isBlank() ? "" : "|chunk:" + chunkStrategy + ":512:64:v1"));
             document.setVersion(version);
             document.setContentHash(hash);
             if (document.getScope() == null || document.getScope().isBlank()) document.setScope("public");
@@ -796,7 +797,9 @@ public class RagService {
                     "source", document.getSource(), "type", document.getType() == null ? "general" : document.getType(),
                     "content", document.getContent(), "version", version, "contentHash", document.getContentHash(),
                     "effectiveAt", document.getEffectiveAt() == null ? "" : document.getEffectiveAt().toString(),
-                    "scope", document.getScope() == null ? "public" : document.getScope()));
+                    "scope", document.getScope() == null ? "public" : document.getScope(),
+                    "chunkStrategy",chunkStrategy == null || chunkStrategy.isBlank() ? "whole" : chunkStrategy,
+                    "chunkCount",Long.toString(docsToIndex.stream().filter(d -> d.getSource().equals(document.getSource())).count())));
         }
 
         List<String> publicationArgs = new ArrayList<>();
@@ -901,6 +904,8 @@ public class RagService {
                 item.put("contentHash", String.valueOf(values.getOrDefault("contentHash", "")));
                 item.put("effectiveAt", String.valueOf(values.getOrDefault("effectiveAt", "")));
                 item.put("scope", String.valueOf(values.getOrDefault("scope", "public")));
+                item.put("chunkStrategy",String.valueOf(values.getOrDefault("chunkStrategy","legacy-unspecified")));
+                item.put("chunkCount",String.valueOf(values.getOrDefault("chunkCount","unknown")));
                 item.put("title", extractTitle(content, source));
                 result.add(item);
             }
@@ -1586,6 +1591,7 @@ public class RagService {
         public static List<DocumentChunk> chunkWithMetadata(Document doc, String strategy,
                                                             int chunkSize, int overlap) {
             List<String> rawChunks = switch (strategy) {
+                case "policy_section" -> PolicySectionChunker.chunk(doc.getContent(),chunkSize);
                 case "sentence" -> chunkBySentence(doc.getContent(), chunkSize);
                 case "semantic" -> chunkBySemantic(doc.getContent(), chunkSize);
                 case "table_aware" -> chunkByTableAware(doc.getContent(), chunkSize);
