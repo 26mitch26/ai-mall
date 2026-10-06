@@ -1,0 +1,171 @@
+{
+  "generatedAt": "2026-10-06T14:17:13.781896+00:00",
+  "decision": "Research prototype; offline engineering gate met, business/human review pending",
+  "baseline": {
+    "attempts": 20,
+    "passed": 13,
+    "taskProxyPassRate": 0.65,
+    "infraErrors": 0,
+    "p50Ms": 17018.829999999998,
+    "p95Ms": 28746.57,
+    "modelCalls": 25,
+    "inputTokens": 30584,
+    "outputTokens": 1615,
+    "semanticCorrectness": null,
+    "businessOutcomeSuccess": null,
+    "humanReviewed": false,
+    "reliability": [
+      {
+        "k": 1,
+        "eligibleTasks": 10,
+        "passAtK": 0.65,
+        "passPowerK": 0.65
+      },
+      {
+        "k": 2,
+        "eligibleTasks": 10,
+        "passAtK": 0.8,
+        "passPowerK": 0.5
+      },
+      {
+        "k": 3,
+        "eligibleTasks": 0,
+        "passAtK": null,
+        "passPowerK": null
+      }
+    ]
+  },
+  "candidate": {
+    "attempts": 20,
+    "passed": 20,
+    "taskProxyPassRate": 1,
+    "infraErrors": 0,
+    "p50Ms": 459.28499999999997,
+    "p95Ms": 8308.76,
+    "modelCalls": 2,
+    "inputTokens": 2232,
+    "outputTokens": 82,
+    "semanticCorrectness": null,
+    "businessOutcomeSuccess": null,
+    "humanReviewed": false,
+    "reliability": [
+      {
+        "k": 1,
+        "eligibleTasks": 10,
+        "passAtK": 1.0,
+        "passPowerK": 1.0
+      },
+      {
+        "k": 2,
+        "eligibleTasks": 10,
+        "passAtK": 1.0,
+        "passPowerK": 1.0
+      },
+      {
+        "k": 3,
+        "eligibleTasks": 0,
+        "passAtK": null,
+        "passPowerK": null
+      }
+    ]
+  },
+  "firstFrozenTest": {
+    "attempts": 20,
+    "passed": 18,
+    "taskProxyPassRate": 0.9,
+    "infraErrors": 0,
+    "p50Ms": 402.195,
+    "p95Ms": 7813.36,
+    "modelCalls": 2,
+    "inputTokens": 2228,
+    "outputTokens": 43,
+    "semanticCorrectness": null,
+    "businessOutcomeSuccess": null,
+    "humanReviewed": false,
+    "reliability": [
+      {
+        "k": 1,
+        "eligibleTasks": 10,
+        "passAtK": 0.9,
+        "passPowerK": 0.9
+      },
+      {
+        "k": 2,
+        "eligibleTasks": 10,
+        "passAtK": 0.9,
+        "passPowerK": 0.9
+      },
+      {
+        "k": 3,
+        "eligibleTasks": 0,
+        "passAtK": null,
+        "passPowerK": null
+      }
+    ]
+  },
+  "englishExploration": {
+    "attempts": 10,
+    "passed": 3,
+    "taskProxyPassRate": 0.3,
+    "infraErrors": 0,
+    "p50Ms": 13101.810000000001,
+    "p95Ms": 22764.91,
+    "modelCalls": 12,
+    "inputTokens": 13725,
+    "outputTokens": 697,
+    "semanticCorrectness": null,
+    "businessOutcomeSuccess": null,
+    "humanReviewed": false,
+    "reliability": [
+      {
+        "k": 1,
+        "eligibleTasks": 10,
+        "passAtK": 0.3,
+        "passPowerK": 0.3
+      },
+      {
+        "k": 2,
+        "eligibleTasks": 0,
+        "passAtK": null,
+        "passPowerK": null
+      },
+      {
+        "k": 3,
+        "eligibleTasks": 0,
+        "passAtK": null,
+        "passPowerK": null
+      }
+    ]
+  },
+  "tests": {
+    "run": 368,
+    "passed": 368,
+    "failures": 0
+  },
+  "modelCallReductionPercent": 92.0,
+  "p95ReductionPercent": 71.1,
+  "testAllTwoTrialsSuccessWilson95": [
+    0.5958,
+    0.9821
+  ],
+  "memorySnapshots": {
+    "baseline": {
+      "afterTrialUsedPercentMin": 76,
+      "afterTrialUsedPercentMax": 82
+    },
+    "candidate": {
+      "afterTrialUsedPercentMin": 82,
+      "afterTrialUsedPercentMax": 90
+    },
+    "test": {
+      "afterTrialUsedPercentMin": 81,
+      "afterTrialUsedPercentMax": 88
+    }
+  },
+  "multiTurnRegressionBefore": 0,
+  "multiTurnRegressionAfter": 3,
+  "semanticCorrectness": null,
+  "humanReviewed": false,
+  "businessOutcomeSuccess": null,
+  "embeddingUsage": null
+}

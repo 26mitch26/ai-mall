@@ -1,6 +1,118 @@
 {
-  "generatedAt": "2026-10-06T14:17:13.781896+00:00",
-  "decision": "Research prototype; offline engineering gate met, business/human review pending",
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-06T18:19:45.972088+00:00",
+  "reportAsOf": "2026-10-07",
+  "decision": "Research prototype; archived proxy benchmark and current scoped regressions available; fresh semantic and business review pending",
+  "historicalBenchmarkDate": "2026-10-06",
+  "latestVerification": {
+    "asOf": "2026-10-07",
+    "scope": "Three-module software and known anonymous regressions; not a fresh full-reactor or semantic benchmark",
+    "modules": [
+      {
+        "name": "mall-common",
+        "tests": 62
+      },
+      {
+        "name": "agent-customer",
+        "tests": 143
+      },
+      {
+        "name": "ai-gateway",
+        "tests": 10
+      }
+    ],
+    "totalTests": 215,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "liveSemanticRun": false,
+    "realCloudCalls": 0,
+    "frontend": {
+      "adminTypeCheck": "passed",
+      "adminBuild": "passed",
+      "memberH5Build": "passed"
+    },
+    "componentRegression": {
+      "before": 3,
+      "after": 12,
+      "total": 12,
+      "blind": false
+    },
+    "anonymousRegression": {
+      "before": 6,
+      "after": 7,
+      "total": 7,
+      "blind": false,
+      "inputSignaturesMatch": true,
+      "generationCalls": 0,
+      "configuration": {
+        "pipeline": [
+          "Query-time rewrite",
+          "BM25 recall",
+          "Policy quotation or Ollama generation"
+        ],
+        "ollamaOnline": true,
+        "chatModel": "ai-mall-eval-qwen3:0.6b",
+        "reranker": {
+          "localOnly": true,
+          "model": "Qwen3-Reranker-0.6B",
+          "enabled": false
+        },
+        "cache": {
+          "exactHits": 0,
+          "size": 0,
+          "semanticHits": 0,
+          "misses": 0,
+          "hitRate": "0%"
+        },
+        "knowledgeBase": {
+          "documents": 9,
+          "chunks": 9
+        },
+        "retrieval": "BM25 关键词检索（低内存模式）",
+        "vectorIndex": "BM25",
+        "online": true,
+        "vectorStore": "未启用",
+        "embeddingModel": "未启用"
+      }
+    },
+    "modelSelection": {
+      "installed": 7,
+      "chatCapable": 4,
+      "selectedModel": "qwen3.5-noVL:latest",
+      "generationUsedInSelectionCheck": false,
+      "localProbe": {
+        "status": "guarded-or-unavailable",
+        "message": "当前可用内存不足，建议选择小模型或先释放内存；本次未加载模型",
+        "code": 503
+      },
+      "transportEvidence": "Mock HTTP tests; live metadata/selection/guard checks"
+    },
+    "freshSemanticCorrectness": null,
+    "businessOutcomeSuccess": null,
+    "humanReviewed": false,
+    "sources": [
+      "model-selection/validation.json",
+      "model-selection/policy-regression.json",
+      "model-selection/local-probe.json",
+      "model-selection/policy-selection.json",
+      "ui-smoke/anonymous-before-procedure-expansion.json",
+      "rag-upgrade/component-before.json",
+      "rag-upgrade/component-after.json",
+      "member-login-verification.json"
+    ],
+    "memberLoginReadOnly": {
+      "date": "2026-10-07",
+      "account": "demo",
+      "databaseAuthentication": "verified with user-provided credential; not persisted",
+      "portalPort": 8087,
+      "loginCode": 200,
+      "memberInfoCode": 200,
+      "orderReadCode": 200,
+      "scope": "Login and authenticated read only; no order writes or payment verification",
+      "credentialsChanged": false
+    }
+  },
   "baseline": {
     "attempts": 20,
     "passed": 13,
@@ -140,7 +252,8 @@
   "tests": {
     "run": 368,
     "passed": 368,
-    "failures": 0
+    "failures": 0,
+    "scope": "Archived full-reactor snapshot, 2026-10-06; not current scoped tests"
   },
   "modelCallReductionPercent": 92.0,
   "p95ReductionPercent": 71.1,

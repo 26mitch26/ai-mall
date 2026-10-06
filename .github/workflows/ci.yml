@@ -32,7 +32,7 @@ jobs:
         run: mvn compile -DskipTests=true --no-transfer-progress
 
       - name: Run Agent evaluation harness regression tests
-        run: python3 -m unittest discover -s scripts -p 'test_eval*.py'
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
 
       - name: Run tests (all modules)
         run: mvn test --no-transfer-progress

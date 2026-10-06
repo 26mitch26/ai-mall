@@ -1,0 +1,11 @@
+{
+  "date": "2026-10-07",
+  "account": "demo",
+  "databaseAuthentication": "verified with user-provided credential; not persisted",
+  "portalPort": 8087,
+  "loginCode": 200,
+  "memberInfoCode": 200,
+  "orderReadCode": 200,
+  "scope": "Login and authenticated read only; no order writes or payment verification",
+  "credentialsChanged": false
+}
