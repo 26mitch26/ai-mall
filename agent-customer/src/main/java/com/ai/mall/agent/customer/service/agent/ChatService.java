@@ -33,11 +33,18 @@ public class ChatService {
     private final MemoryService memoryService;
     private final AuditService auditService;
     private final com.ai.mall.agent.customer.service.graph.PolicyGraphService policyGraph;
+    @org.springframework.beans.factory.annotation.Value("${ai.model.llm.model:qwen3.5-noVL:latest}")
+    private String defaultChatModel = "qwen3.5-noVL:latest";
 
     public ChatResponse chat(ChatRequest request) {
-        try (AgentTelemetry.Scope trace = AgentTelemetry.open()) {
+        try (AgentTelemetry.Scope trace = AgentTelemetry.open();
+             var modelScope = com.ai.mall.agent.customer.service.llm.RequestModelContext.open(request.getModelConfig(), defaultChatModel)) {
             ChatResponse response = processChat(request);
             response.setTrace(trace.summary());
+            response.setSelectedModel(modelScope.selectedModel());
+            response.setModelProvider(modelScope.provider());
+            response.setUsedModels(modelScope.usedModels());
+            response.setGenerationUsed(trace.summary().modelCalls() > 0);
             return response;
         }
     }

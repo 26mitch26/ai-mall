@@ -15,6 +15,10 @@ public class ChatResponse {
     private String sessionId;
     private String message;
     private String answer;
+    private String selectedModel;
+    private String modelProvider;
+    private List<String> usedModels;
+    private Boolean generationUsed;
     private String intent;
     /** Explicit handling state; does not certify semantic correctness or business completion. */
     private String resolutionStatus;

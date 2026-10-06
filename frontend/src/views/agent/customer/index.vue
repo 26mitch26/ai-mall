@@ -173,6 +173,7 @@
 
           </div>
         </details>
+        <ChatModelPicker v-model="selectedModelConfig" :disabled="loading" />
         <div ref="messageListRef" class="message-list">
           <div v-for="(message, index) in messages" :key="index" :class="['message-row', message.role]">
             <div class="avatar">
@@ -180,6 +181,7 @@
             </div>
             <div class="bubble-wrap">
               <div class="bubble">{{ message.content }}</div>
+              <div v-if="message.modelInfo" class="message-meta">{{ message.modelInfo }}</div>
               <div v-if="message.latency" class="message-meta">
                 {{ message.intent || 'general' }} · {{ message.latency }} ms · {{ message.retrievalRoute || '路由未返回' }}
               </div>
@@ -310,6 +312,8 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
+import ChatModelPicker from '@/components/ChatModelPicker.vue'
+import type { ChatModelConfig } from '@/apis/agent'
 import { ArrowRight, Connection, Document as DocumentIcon, Promotion, Refresh, Service, UploadFilled, User } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import {
@@ -333,6 +337,7 @@ import {
 } from '@/apis/agent'
 
 interface ChatMessage {
+  modelInfo?: string
   role: 'user' | 'assistant'
   content: string
   latency?: number
@@ -354,6 +359,7 @@ const messages = ref<ChatMessage[]>([
 ])
 const inputMessage = ref('')
 const loading = ref(false)
+const selectedModelConfig = ref<ChatModelConfig>()
 const ragStatus = ref<RagStatus | null>(null)
 const sessionId = ref(`mall_${Date.now()}`)
 const messageListRef = ref<HTMLElement | null>(null)
@@ -427,12 +433,13 @@ const sendMessage = async () => {
   loading.value = true
   scrollToBottom()
   try {
-    const response = await sendChatMessageAPI({ message: content, sessionId: sessionId.value }, memberToken.value)
+    const response = await sendChatMessageAPI({ message: content, sessionId: sessionId.value, modelConfig: selectedModelConfig.value }, memberToken.value)
     sessionId.value = response.data.sessionId
     lastLatency.value = response.data.responseTime
     messages.value.push({
       role: 'assistant',
       content: response.data.answer,
+      modelInfo: response.data.generationUsed ? response.data.usedModels?.length ? `模型调用：${response.data.usedModels.join('、')}` : '模型调用未成功' : response.data.selectedModel ? '本条未调用生成模型' : undefined,
       latency: response.data.responseTime,
       intent: response.data.intent,
       sources: response.data.sources || [],

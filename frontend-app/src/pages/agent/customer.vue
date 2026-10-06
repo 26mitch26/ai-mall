@@ -12,6 +12,7 @@
       <view class="workspace">
         <view class="chat-card">
           <view class="chat-heading"><view><text class="heading-title">和智能客服对话</text><text class="heading-subtitle">访客可咨询政策和公开商品信息</text></view><button class="history-button" @click="clearConversation">新对话</button></view>
+          <ChatModelPicker v-model="selectedModelConfig" :disabled="loading" :reset-key="modelSecretReset" />
           <scroll-view class="message-list" scroll-y :scroll-into-view="scrollTarget">
             <view v-for="(message, index) in messages" :id="`message-${index}`" :key="`${message.id || index}`" :class="['message-row', message.role]">
               <view class="message-avatar">{{ message.role === 'assistant' ? 'AI' : '我' }}</view>
@@ -80,12 +81,14 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { onLoad, onShow } from '@dcloudio/uni-app'
+import { onLoad, onShow, onHide } from '@dcloudio/uni-app'
 import { agentStatusAPI, confirmAfterSaleAPI, customerChatAPI, getAfterSaleAPI, inspectAfterSaleImageAPI, knowledgeDocumentsAPI, knowledgeSourceAPI, prepareAfterSaleAPI, type AfterSaleWorkflowState, type AgentSource, type AgentStatus, type CustomerChatResponse, type KnowledgeDocument, type VisionInspection } from '@/apis/agent'
 import { getMemberInfoAPI } from '@/apis/member'
 import { getOrderListAPI } from '@/apis/order'
 import { useMemberStore } from '@/stores/member'
 import PcStorefrontNav from '@/components/pc-storefront-nav.vue'
+import ChatModelPicker from '@/components/ChatModelPicker.vue'
+import type { ChatModelConfig } from '@/apis/agent'
 
 interface Message {
   id?: string
@@ -106,6 +109,8 @@ const sessionId = ref(`guest_${Date.now()}`)
 const accountScope = ref('guest')
 const inputMessage = ref('')
 const loading = ref(false)
+const selectedModelConfig = ref<ChatModelConfig>()
+const modelSecretReset = ref(0)
 const loadingText = ref('正在为你查找答案…')
 const hasToken = ref(false)
 const serviceOnline = ref(false)
@@ -196,10 +201,11 @@ const syncMemberScope = async () => {
 }
 
 const loadStatus = async () => {
-  try { const response = await agentStatusAPI(); agentStatus.value = response.data; serviceOnline.value = Boolean(response.data?.online && response.data?.ollamaOnline) }
+  try { const response = await agentStatusAPI(); agentStatus.value = response.data; serviceOnline.value = Boolean(response.data?.online && (selectedModelConfig.value?.provider === 'openai-compatible' || response.data?.ollamaOnline)) }
   catch { serviceOnline.value = false }
 }
 const loadHelp = async () => { try { helpDocuments.value = (await knowledgeDocumentsAPI()).data?.documents || [] } catch { helpDocuments.value = [] } }
+watch(() => selectedModelConfig.value?.provider, () => { serviceOnline.value = Boolean(agentStatus.value?.online && (selectedModelConfig.value?.provider === 'openai-compatible' || agentStatus.value?.ollamaOnline)) })
 
 const toggleSourceFull = async (source: AgentSource) => {
   const key = sourceKey(source)
@@ -221,10 +227,11 @@ const sendMessage = async () => {
   loadingTimer = setTimeout(() => { loadingText.value = '正在整理答案，请稍候…' }, 3500)
   saveConversation()
   try {
-    const response = await customerChatAPI({ sessionId: sessionId.value, message: content })
+    const response = await customerChatAPI({ sessionId: sessionId.value, message: content, modelConfig: selectedModelConfig.value })
     sessionId.value = response.data.sessionId || sessionId.value
     const data = response.data
-    messages.value.push({ id: `a-${Date.now()}`, role: 'assistant', content: data.answer, meta: typeof data.responseTime === 'number' ? `客服回复 · ${(data.responseTime / 1000).toFixed(1)} 秒` : '客服回复', route: data.actualRoute || data.retrievalRoute, retrievalDecision: data.retrievalDecision, sources: data.sources || [], trace: data.trace, evidenceReport: data.evidenceReport })
+    const modelMeta = data.generationUsed ? data.usedModels?.length ? ` · 模型调用 ${data.usedModels.join('、')}` : ' · 模型调用未成功' : data.selectedModel ? ' · 本条未调用生成模型' : ''
+    messages.value.push({ id: `a-${Date.now()}`, role: 'assistant', content: data.answer, meta: (typeof data.responseTime === 'number' ? `客服回复 · ${(data.responseTime / 1000).toFixed(1)} 秒` : '客服回复') + modelMeta, route: data.actualRoute || data.retrievalRoute, retrievalDecision: data.retrievalDecision, sources: data.sources || [], trace: data.trace, evidenceReport: data.evidenceReport })
   } catch {
     messages.value.push({ id: `a-${Date.now()}`, role: 'assistant', content: '暂时无法连接客服服务，请稍后再试。若刚才的问题涉及订单操作，请先核对订单状态。' })
   } finally {
@@ -311,6 +318,7 @@ const chooseEvidenceImage = () => {
 
 onLoad(() => { hasToken.value = Boolean(uni.getStorageSync('token')); loadStatus(); loadHelp() })
 onShow(() => { void syncMemberScope(); if (!serviceOnline.value) void loadStatus() })
+onHide(() => { modelSecretReset.value++; if (selectedModelConfig.value?.provider === 'openai-compatible') selectedModelConfig.value = undefined })
 watch(() => memberStore.memberInfo?.id, () => { void syncMemberScope() })
 </script>
 

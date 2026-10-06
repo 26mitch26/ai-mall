@@ -1,0 +1,147 @@
+{
+  "sessionId": "model-selection-live",
+  "message": "退款一般多久到账？",
+  "answer": "根据商城已公布的政策，相关原文如下：\n\n【政策依据 1】\n退款金额以实际支付金额为准，不含运费。符合退货条件的订单，在申请审核通过后一到三个工作日内退款至原支付账户。",
+  "selectedModel": "qwen3.5-noVL:latest",
+  "modelProvider": "ollama",
+  "usedModels": [],
+  "generationUsed": false,
+  "intent": "general",
+  "resolutionStatus": "RESPONSE_PROVIDED",
+  "handoffStatus": "NOT_CONNECTED",
+  "responseTime": 347,
+  "sources": [
+    {
+      "id": "52b96d07-8f9b-356e-a9a8-97e3499fe236",
+      "source": "docs/knowledge/refund-policy.md",
+      "type": "policy",
+      "content": "退款金额以实际支付金额为准，不含运费。符合退货条件的订单，在申请审核通过后一到三个工作日内退款至原支付账户。",
+      "contentKind": "selected-excerpt",
+      "score": 0.016129032258064516,
+      "retrievalSource": "bm25",
+      "version": "d3ddbfb6f1880c62efb47e624457318d05ae80a0e0fe295f32a4860d4b21d707",
+      "contentHash": "d67585a2cbc375bcb82c64974878f01ca80c3d62b82f351b81b88193eceedb35",
+      "effectiveAt": null,
+      "scope": "public",
+      "knowledgeVersion": "9",
+      "evidenceVerified": true
+    }
+  ],
+  "collaboration": {
+    "routeSummary": "接待分流 → 订单管理 Agent → 协同汇总",
+    "activeAgent": "order",
+    "agents": [
+      {
+        "id": "router",
+        "name": "接待分流 Agent",
+        "role": "接待",
+        "description": "识别意图并分派专家",
+        "status": "completed",
+        "active": true
+      },
+      {
+        "id": "order",
+        "name": "订单管理 Agent",
+        "role": "专家",
+        "description": "查询订单、退换货与物流",
+        "status": "completed",
+        "active": true
+      },
+      {
+        "id": "technical",
+        "name": "技术支持 Agent",
+        "role": "专家",
+        "description": "定位故障并给出处理方案",
+        "status": "standby",
+        "active": false
+      },
+      {
+        "id": "complaint",
+        "name": "投诉处理 Agent",
+        "role": "专家",
+        "description": "安抚情绪、记录反馈并闭环",
+        "status": "standby",
+        "active": false
+      },
+      {
+        "id": "coordinator",
+        "name": "协同汇总 Agent",
+        "role": "编排",
+        "description": "融合知识库与专家结果后回复",
+        "status": "completed",
+        "active": true
+      }
+    ]
+  },
+  "retrievalDecision": "已找到政策依据（关键词检索），请核对适用条件",
+  "evidenceScore": 0.6,
+  "retrievalRoute": "exact",
+  "reranker": "recall-order",
+  "correctionCount": 1,
+  "knowledgeVersion": "9",
+  "trace": {
+    "traceId": "6d1c7deff5317eabf83e7137aca9e376",
+    "stages": [
+      {
+        "name": "rewrite",
+        "durationMs": 1,
+        "outcome": "success"
+      },
+      {
+        "name": "rerank",
+        "durationMs": 0,
+        "outcome": "success"
+      },
+      {
+        "name": "retrieve",
+        "durationMs": 217,
+        "outcome": "success"
+      },
+      {
+        "name": "chat",
+        "durationMs": 347,
+        "outcome": "success"
+      }
+    ],
+    "modelCalls": 0,
+    "inputTokens": 0,
+    "outputTokens": 0
+  },
+  "evidenceReport": {
+    "method": "lexical-quotation-and-numeric",
+    "checkedClaims": 4,
+    "unsupportedNumericClaims": 0,
+    "claims": [
+      {
+        "text": "根据商城已公布的政策，相关原文如下：",
+        "evidenceIds": [],
+        "support": "unverified"
+      },
+      {
+        "text": "【政策依据 1】",
+        "evidenceIds": [],
+        "support": "unverified"
+      },
+      {
+        "text": "退款金额以实际支付金额为准，不含运费。",
+        "evidenceIds": [
+          "52b96d07-8f9b-356e-a9a8-97e3499fe236"
+        ],
+        "support": "lexical-match"
+      },
+      {
+        "text": "符合退货条件的订单，在申请审核通过后一到三个工作日内退款至原支付账户。",
+        "evidenceIds": [
+          "52b96d07-8f9b-356e-a9a8-97e3499fe236"
+        ],
+        "support": "lexical-match"
+      }
+    ],
+    "conflicts": []
+  },
+  "graph": {
+    "status": "disabled",
+    "paths": [],
+    "retrievalHints": []
+  }
+}

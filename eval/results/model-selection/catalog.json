@@ -1,0 +1,54 @@
+{
+  "defaultModel": "ai-mall-eval-qwen3:0.6b",
+  "models": [
+    {
+      "name": "ai-mall-eval-qwen3:0.6b",
+      "size": 639446839,
+      "parameterSize": "596.05M",
+      "canChat": true,
+      "thinking": true
+    },
+    {
+      "name": "bge-m3:latest",
+      "size": 1157672605,
+      "parameterSize": "566.70M",
+      "canChat": false,
+      "thinking": false
+    },
+    {
+      "name": "mxbai-embed-large:latest",
+      "size": 669615493,
+      "parameterSize": "334M",
+      "canChat": false,
+      "thinking": false
+    },
+    {
+      "name": "nomic-embed-text:latest",
+      "size": 274302450,
+      "parameterSize": "137M",
+      "canChat": false,
+      "thinking": false
+    },
+    {
+      "name": "qwen3-vl:latest",
+      "size": 3333462354,
+      "parameterSize": "4.0B",
+      "canChat": true,
+      "thinking": false
+    },
+    {
+      "name": "qwen3.5-4b:latest",
+      "size": 3413361936,
+      "parameterSize": "4.2B",
+      "canChat": true,
+      "thinking": true
+    },
+    {
+      "name": "qwen3.5-noVL:latest",
+      "size": 2740938246,
+      "parameterSize": "4.2B",
+      "canChat": true,
+      "thinking": true
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+{
+  "status": "guarded-or-unavailable",
+  "message": "当前可用内存不足，建议选择小模型或先释放内存；本次未加载模型",
+  "code": 503
+}

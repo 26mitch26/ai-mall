@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-07",
+  "modules": [
+    {
+      "name": "mall-common",
+      "tests": 62
+    },
+    {
+      "name": "agent-customer",
+      "tests": 143
+    },
+    {
+      "name": "ai-gateway",
+      "tests": 10
+    }
+  ],
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "liveSemanticRun": false,
+  "realCloudCalls": 0,
+  "adminTypeCheck": "passed",
+  "adminBuild": "passed",
+  "memberH5Build": "passed",
+  "installedModels": 7,
+  "chatModels": 4,
+  "localProbe": "paused by memory guard; no model load",
+  "policyRegression": "7/7 known anonymous cases"
+}

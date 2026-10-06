@@ -27,6 +27,7 @@ public class ChatController {
 
     private final ChatService chatService;
     private final MemberIdentityResolver memberIdentityResolver;
+    private final com.ai.mall.agent.customer.service.llm.OllamaModelCatalog modelCatalog;
     private final ExecutorService executor = Executors.newCachedThreadPool();
 
     @PostMapping
@@ -34,6 +35,7 @@ public class ChatController {
     public ChatResponse chat(@RequestBody ChatRequest request,
                              @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
         attachUserToken(request, authorization);
+        request.setModelConfig(modelCatalog.validate(request.getModelConfig()));
         log.info("Chat request: {}", request.getMessage());
         return chatService.chat(request);
     }
@@ -43,6 +45,7 @@ public class ChatController {
     public SseEmitter chatStream(@RequestBody ChatRequest request,
                                  @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
         attachUserToken(request, authorization);
+        request.setModelConfig(modelCatalog.validate(request.getModelConfig()));
         SseEmitter emitter = new SseEmitter(60000L);
 
         executor.execute(() -> {

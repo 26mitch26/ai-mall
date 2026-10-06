@@ -43,6 +43,7 @@ public class AgentLlmClient {
     private final String model;
     private final int maxTokens;
     private final double temperature;
+    private CloudEndpointPolicy cloudEndpoints = new CloudEndpointPolicy();
 
     @org.springframework.beans.factory.annotation.Value("${ai.model.llm.context-tokens:4096}")
     private int contextTokens = 4096;
@@ -76,10 +77,16 @@ public class AgentLlmClient {
         this.maxTokens = maxTokens;
         this.temperature = temperature;
 
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory() {
+            @Override protected void prepareConnection(java.net.HttpURLConnection connection, String method) throws java.io.IOException {
+                super.prepareConnection(connection, method);
+                connection.setInstanceFollowRedirects(false);
+            }
+        };
         factory.setConnectTimeout(5_000);
         factory.setReadTimeout(30_000);
         this.restTemplate = new RestTemplate(factory);
+        this.restTemplate.setErrorHandler(new org.springframework.web.client.NoOpResponseErrorHandler());
         log.info("AgentLlmClient 初始化: baseUrl={}, model={}, maxTokens={}, temperature={}",
                 baseUrl, model, maxTokens, temperature);
     }
@@ -95,6 +102,7 @@ public class AgentLlmClient {
         if (prompt == null || prompt.length() > Math.max(1, maxPromptCharacters)) {
             throw new IllegalArgumentException("Prompt exceeds configured character budget");
         }
+        if (!RequestModelContext.cloud()) LocalModelMemoryGuard.check(RequestModelContext.modelSize());
         if (!com.ai.mall.agent.customer.service.telemetry.AgentTelemetry.reserveModelCall()) {
             throw new IllegalStateException("Request model-call budget exhausted");
         }
@@ -102,6 +110,8 @@ public class AgentLlmClient {
     }
 
     private String doChat(String prompt) {
+        if (RequestModelContext.cloud()) return doCloudChat(prompt);
+        String effectiveModel = RequestModelContext.modelOr(model);
         long requestStart = System.currentTimeMillis();
         if (releaseEmbeddingBeforeGeneration) {
             try {
@@ -114,19 +124,19 @@ public class AgentLlmClient {
             }
         }
         Map<String, Object> body = new HashMap<>();
-        body.put("model", model);
+        body.put("model", effectiveModel);
         List<Map<String, String>> messages = new ArrayList<>();
         messages.add(Map.of("role", "user", "content", prompt));
         body.put("messages", messages);
         body.put("stream", false);
         // 关闭 qwen3 思维链：OpenAI 兼容端点不支持该顶层参数，必须走 /api/chat
-        body.put("think", false);
+        if (RequestModelContext.sendThinkFlag()) body.put("think", false);
         // 保持模型常驻内存，压测期间避免冷加载（默认 keep_alive 5 分钟偏短）
-        body.put("keep_alive", keepAlive);
+        body.put("keep_alive", RequestModelContext.probe() ? "0" : keepAlive);
         Map<String, Object> options = new HashMap<>();
-        options.put("num_predict", maxTokens);
+        options.put("num_predict", RequestModelContext.probe() ? 32 : maxTokens);
         options.put("temperature", temperature);
-        options.put("num_ctx", Math.max(1024, contextTokens));
+        options.put("num_ctx", RequestModelContext.probe() ? 1024 : Math.max(1024, contextTokens));
         options.put("num_thread", Math.max(1, threads));
         if (gpuLayers >= 0) options.put("num_gpu", gpuLayers);
         body.put("options", options);
@@ -148,17 +158,52 @@ public class AgentLlmClient {
             }
 
             JsonNode node = objectMapper.readTree(response.getBody());
+            RequestModelContext.used(node.path("model").asText(effectiveModel));
             String content = node.path("message").path("content").asText("");
             int evalCount = node.path("eval_count").asInt(-1);
             com.ai.mall.agent.customer.service.telemetry.AgentTelemetry.recordLlm(costMs,
                     node.path("prompt_eval_count").asLong(-1), evalCount, "success");
             log.info("LLM 调用成功 model={}, 耗时{}ms, eval_count={}, contentLength={}",
-                    model, costMs, evalCount, content.length());
+                    effectiveModel, costMs, evalCount, content.length());
             return content;
         } catch (Exception e) {
             com.ai.mall.agent.customer.service.telemetry.AgentTelemetry.recordLlm(System.currentTimeMillis() - requestStart, -1, -1, "failure");
             log.error("LLM 调用异常 model={}, err={}", model, e.getMessage());
             throw new RuntimeException("LLM 调用失败: " + e.getMessage(), e);
+        }
+    }
+
+    private String doCloudChat(String prompt) {
+        long started = System.currentTimeMillis();
+        String effectiveModel=RequestModelContext.modelOr(model);
+        try {
+            URI endpoint=URI.create(cloudEndpoints.validate(RequestModelContext.endpoint()));
+            HttpHeaders headers=new HttpHeaders(); headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setBearerAuth(RequestModelContext.key());
+            Map<String,Object> body=Map.of("model",effectiveModel,"messages",List.of(Map.of("role","user","content",prompt)),
+                    "stream",false,"max_tokens",RequestModelContext.probe()?32:maxTokens,"temperature",temperature);
+            byte[] payload=objectMapper.writeValueAsBytes(body);
+            String responseBody=restTemplate.execute(endpoint,HttpMethod.POST,request -> {
+                request.getHeaders().putAll(headers); request.getBody().write(payload);
+            },response -> {
+                if(!response.getStatusCode().is2xxSuccessful()) throw new IllegalStateException("Cloud HTTP failure");
+                byte[] responseBytes=response.getBody().readNBytes(1_048_577);
+                if(responseBytes.length>1_048_576) throw new IllegalStateException("Cloud response too large");
+                return new String(responseBytes,java.nio.charset.StandardCharsets.UTF_8);
+            });
+            JsonNode json=objectMapper.readTree(responseBody);
+            String content=json.path("choices").path(0).path("message").path("content").asText("");
+            content=content.replace(RequestModelContext.key(),"[已隐藏]");
+            if(content.isBlank()) throw new IllegalStateException("Empty response");
+            RequestModelContext.used(json.path("model").asText(effectiveModel).replace(RequestModelContext.key(),"[已隐藏]"));
+            com.ai.mall.agent.customer.service.telemetry.AgentTelemetry.recordLlm(System.currentTimeMillis()-started,
+                    json.path("usage").path("prompt_tokens").asLong(-1),json.path("usage").path("completion_tokens").asLong(-1),"success");
+            return content;
+        } catch(Exception failure) {
+            com.ai.mall.agent.customer.service.telemetry.AgentTelemetry.recordLlm(System.currentTimeMillis()-started,-1,-1,"failure");
+            // Provider error bodies can echo credentials; do not expose them in logs or user errors.
+            log.warn("Cloud generation failed for selected model {}",effectiveModel);
+            throw new IllegalStateException("云端接口调用失败，请检查接口地址、模型名和密钥");
         }
     }
 }

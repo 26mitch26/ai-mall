@@ -50,6 +50,9 @@ public class JwtAuthenticationFilter implements GlobalFilter, Ordered {
             "/agent/customer/api/v1/knowledge/status",
             "/agent/customer/api/v1/knowledge/source",
             "/agent/customer/api/v1/knowledge/documents",
+            // Local model metadata and a fixed, bounded probe expose no member data or saved credentials.
+            "/agent/customer/api/v1/models",
+            "/agent/customer/api/v1/models/test",
             // Public support and protocol entrypoints enforce member ownership at each private tool.
             "/agent/customer/api/v1/chat",
             "/agent/customer/api/v1/chat/stream",

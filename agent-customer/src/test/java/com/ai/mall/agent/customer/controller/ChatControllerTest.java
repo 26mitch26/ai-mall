@@ -34,6 +34,8 @@ class ChatControllerTest {
 
     @MockitoBean
     private ChatService chatService;
+    @MockitoBean
+    private com.ai.mall.agent.customer.service.llm.OllamaModelCatalog modelCatalog;
 
     @MockitoBean
     private com.ai.mall.agent.customer.service.security.MemberIdentityResolver memberIdentityResolver;

@@ -1,11 +1,20 @@
 import http from '@/utils/http'
+export interface ChatModelConfig { provider: 'ollama' | 'openai-compatible'; model: string; baseUrl?: string; apiKey?: string }
+export interface ChatModelCatalog { defaultModel: string; models: Array<{ name: string; size: number; parameterSize: string; canChat: boolean }> }
+export const getChatModelsAPI = (refresh = false) => http<ChatModelCatalog>({ url: '/agent/customer/api/v1/models', method: 'get', params: { refresh }, headers: { Authorization: '' } })
+export const testChatModelAPI = (data: ChatModelConfig) => http<{ selectedModel: string; usedModels: string[]; reply: string }>({ url: '/agent/customer/api/v1/models/test', method: 'post', data, timeout: 60000, headers: { Authorization: '' } })
 
 export interface ChatRequest {
+  modelConfig?: ChatModelConfig
   message: string
   sessionId?: string
 }
 
 export interface ChatResponse {
+  selectedModel?: string
+  modelProvider?: string
+  usedModels?: string[]
+  generationUsed?: boolean
   resolutionStatus?: 'HANDOFF_RECOMMENDED' | 'RESPONSE_PROVIDED'
   handoffStatus?: 'NOT_CONNECTED'
   sessionId: string

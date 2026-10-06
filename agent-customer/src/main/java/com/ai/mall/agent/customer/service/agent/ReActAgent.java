@@ -194,11 +194,12 @@ public class ReActAgent {
         // 语义缓存（LLM 回答复用）：相同/同义问句且会话上下文一致时直接命中，
         // 跳过整条 LLM 推理链路（本机 2~3s → <50ms）。仅缓存不涉实时数据的通用回答
         // （含工具取数的回答不入缓存），并有 TTL/LRU 边界，见 SemanticAnswerCacheService。
-        String ctxKey = memoryContextKey(history);
+        String ctxKey = memoryContextKey(history) + com.ai.mall.agent.customer.service.llm.RequestModelContext.cacheNamespace();
         // Avoid attaching an earlier turn's evidence to a cache hit or refusal.
         retrievalTrace.remove(sessionId);
         evidenceTrace.remove(sessionId);
-        Optional<SemanticAnswerCacheService.CachedAnswer> cached = policyDirectEnabled && PolicyQuestionIntent.matches(query)
+        Optional<SemanticAnswerCacheService.CachedAnswer> cached = com.ai.mall.agent.customer.service.llm.RequestModelContext.cloud()
+                || policyDirectEnabled && PolicyQuestionIntent.matches(query)
                 ? Optional.empty() : semanticAnswerCache.lookup(query, ctxKey);
         if (cached.isPresent()) {
             log.info("ReAct 语义缓存命中, session={}, query={}", sessionId, query);
@@ -304,13 +305,16 @@ public class ReActAgent {
                     packed.prompt().length(), packed.omittedDocuments(), packed.omittedMessages());
 
             // 通过熔断器路由调用模型，MiMo不可用时自动降级到本地模型
-            String selectedModel = modelRouterService.route();
-            ModelCircuitBreaker mimoBreaker = modelRouterService.getMimoCircuitBreaker();
+            String selectedModel = com.ai.mall.agent.customer.service.llm.RequestModelContext.explicit()
+                    ? com.ai.mall.agent.customer.service.llm.RequestModelContext.modelOr("selected") : modelRouterService.route();
+            ModelCircuitBreaker mimoBreaker = com.ai.mall.agent.customer.service.llm.RequestModelContext.explicit()
+                    ? null : modelRouterService.getMimoCircuitBreaker();
             if (mimoBreaker != null && mimoBreaker.getState() != ModelCircuitBreaker.CircuitState.CLOSED) {
                 log.warn("MiMo熔断器状态: {}，当前路由到: {}模型，发生降级", mimoBreaker.getState(), selectedModel);
             }
 
-            String response = modelRouterService.callWithFallback(packed.prompt());
+            String response = com.ai.mall.agent.customer.service.llm.RequestModelContext.explicit()
+                    ? agentLlmClient.chat(packed.prompt()) : modelRouterService.callWithFallback(packed.prompt());
             log.info("Agent response (model={}): {}", selectedModel, response);
 
             // 先处理 Action，再考虑 Final Answer：本地小模型实测出现过
@@ -372,6 +376,7 @@ public class ReActAgent {
 
     private void storeVerifiedRagAnswer(String query, String contextKey, String answer,
                                         List<Document> documents, RagService.RetrievalOutcome outcome) {
+        if (com.ai.mall.agent.customer.service.llm.RequestModelContext.cloud()) return;
         if (answer == null || answer.isBlank() || RagService.NO_CONTEXT_ANSWER.equals(answer)
                 || documents == null || documents.isEmpty() || outcome == null || outcome.weakEvidence()
                 || outcome.knowledgeVersion() == null || "unknown".equals(outcome.knowledgeVersion())

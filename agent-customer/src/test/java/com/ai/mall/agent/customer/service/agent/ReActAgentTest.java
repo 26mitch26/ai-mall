@@ -822,6 +822,18 @@ class ReActAgentTest {
     }
 
     @Test
+    void explicitCloudModelBypassesSharedRouterAndAnswerCache() {
+        when(agentLlmClient.chat(anyString())).thenReturn("Final Answer: 无法确认余额。");
+        var config=com.ai.mall.agent.customer.model.ChatModelConfig.builder().provider("openai-compatible").model("unit-cloud").build();
+        try(var scope=com.ai.mall.agent.customer.service.llm.RequestModelContext.open(config,"default")) {
+            assertEquals("无法确认余额。",agent.think("explicit-cloud", "我的账户余额是多少"));
+        }
+        verify(agentLlmClient,times(1)).chat(anyString());
+        verify(modelRouterService,never()).callWithFallback(anyString());
+        verify(semanticAnswerCache,never()).lookup(anyString(),anyString());
+    }
+
+    @Test
     void degradedRouteDoesNotFetchUnseenEvidenceToJustifyAnAnswer() {
         ModelCircuitBreaker breaker = mock(ModelCircuitBreaker.class);
         when(breaker.getState()).thenReturn(ModelCircuitBreaker.CircuitState.OPEN);
