@@ -39,7 +39,7 @@ def build(output_dir: Path):
                 p.add_run(body)
         else:
             p = doc.add_paragraph(block)
-            if block.startswith('评测口径：'):
+            if block.startswith(('评测口径：', '范围与口径：', '项目范围：')):
                 for run in p.runs:
                     run.font.size = Pt(9)
     path = output_dir / 'AI产品经理项目简历.docx'

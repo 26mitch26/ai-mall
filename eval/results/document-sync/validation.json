@@ -81,11 +81,11 @@
     },
     {
       "path": "docs/product/document-sync-audit.md",
-      "sha256": "0dd7ea6bd2f283f5fdfc2976c09e080ec18fe51758c2cc934350d1af70cf598a"
+      "sha256": "1b9873ea138db4067f16b650ac768fc43dd8cafbe70962e8c71a02a45784c17d"
     },
     {
       "path": "docs/product/interview-evidence-guide.md",
-      "sha256": "668d4e97607ab7d052701adfa51e934e482289f0e6d72d943795b47d486a0139"
+      "sha256": "cb1379fc658e7505eda90f70c36b91ca25871ede64e735ee50d9f4c1852eb935"
     },
     {
       "path": "docs/product/model-selection.md",
@@ -97,15 +97,15 @@
     },
     {
       "path": "docs/product/recruiter-review.md",
-      "sha256": "e2dd0deefce43ac56f057c3ece16664daa4e5a26add60e2fe60ac642a7fac8dd"
+      "sha256": "086d7b61d10bd13d0a8c2f4f150ab3c852af69bb6c05cb001ebb99f734813a58"
     },
     {
       "path": "docs/product/resume-project-section.md",
-      "sha256": "effba6298d59cf71d4f800476eea05bf302904b0607c4538e1ecb4ff11589c47"
+      "sha256": "b1cb610fd9ba5844a1577c93cb1605778c1ceacfa28903dd8a1b2ccec6627132"
     },
     {
       "path": "docs/product/resume-reference-review.md",
-      "sha256": "86675ab253068170a7c7ab92af2c0b94fb1a2a45b701ca6b155f892b13002efe"
+      "sha256": "ddc40215e19ac32eed3f066805135c6b2f65433108ed34ef19b6075a4ff60f5e"
     },
     {
       "path": "docs/rag-interview-notes.md",
@@ -161,13 +161,13 @@
       "source": "docs/product/interview-evidence-guide.md",
       "destination": "AI-Mall面试讲解与待补齐项.md",
       "matches": true,
-      "sha256": "839f24aebfc5df1318d2eb24934f0c1f4c72c250acaa18a320af0c628ba63538"
+      "sha256": "3d04b067b4fbbf76f17fea4eb98e24de99ed9a8dd8bb54e8d4554f54462caa6f"
     },
     {
       "source": "docs/product/recruiter-review.md",
       "destination": "AI产品经理招聘审查与技术应用.md",
       "matches": true,
-      "sha256": "eade36a81f254a000750d97081f1f9c5f985736731eefb3203818fe1e77f539e"
+      "sha256": "e761ddcc1b0f4d7dfdab5693ed1ba3b9e92b7516f5a6ecd72962c44caeb6bfed"
     },
     {
       "source": "docs/product/rag-gap-and-upgrade.md",
@@ -179,13 +179,13 @@
       "source": "docs/product/resume-reference-review.md",
       "destination": "AI产品经理简历参考与改写依据.md",
       "matches": true,
-      "sha256": "d45f4ca371e606356d15658fd4671ededf0b1b7ffda09d569e16dab2dcb9611c"
+      "sha256": "9c89443d0fcd3ec1995209782cc66c19258609d80a7a6e8cd165d393e781e0f0"
     },
     {
       "source": "docs/product/resume-project-section.md",
       "destination": "AI产品经理项目简历_STAR文字版.md",
       "matches": true,
-      "sha256": "7eb0a14591520c3bf0820417c152f0beb0a9c3a7677110fdcf62d417963d9f79"
+      "sha256": "4c96dcc1d7ccccbab458dccdb3d2218452b3bcd9aca807bb03158c2c3acf78b8"
     },
     {
       "source": "docs/product/model-selection.md",
@@ -203,7 +203,7 @@
       "source": "docs/product/document-sync-audit.md",
       "destination": "文档更新核验清单.md",
       "matches": true,
-      "sha256": "0f3a0ab6595c44cad3611b55a45d728d5e10c0e026fd4f3e0551ac498efc255b"
+      "sha256": "0a89796368a9b43751ed4883a1e7bdf61a7e9b67e94562c7c4980c7ad5fde5d4"
     },
     {
       "sources": [
