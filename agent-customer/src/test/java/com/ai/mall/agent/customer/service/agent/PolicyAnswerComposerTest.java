@@ -6,6 +6,17 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PolicyAnswerComposerTest {
+    @Test void commonRefundArrivalQuestionUsesPublishedPolicyWithoutPrivateOrderLookup() {
+        assertTrue(PolicyQuestionIntent.matches("退款一般多久到账？"));
+        assertFalse(PolicyQuestionIntent.matches("我的退款一般多久到账？"));
+        var doc = Document.builder().source("refund.md").evidenceVerified(true)
+                .content("退款时效：申请审核通过后一到三个工作日内退回原支付账户。").build();
+        var irrelevant = Document.builder().source("inspection.md").evidenceVerified(true)
+                .content("七天无理由退货后可申请退款。质量问题可退款。").build();
+        var result = PolicyAnswerComposer.compose("退款一般多久到账？", List.of(irrelevant, doc));
+        assertTrue(result.answer().contains("一到三个工作日"));
+        assertFalse(result.answer().contains("七天无理由"));
+    }
     @Test void warrantyExclusionsAndSameCityDurationRemainExplicitInQuotedEvidence() {
         Document warranty = Document.builder().source("warranty.md").content("保修期内非人为原因可免费维修。\n维修流程：提交维修申请。\n以下情形不在保修范围内：人为损坏。")
                 .evidenceVerified(true).build();

@@ -80,6 +80,10 @@ public final class RetrievalQueryRewriter {
         String normalized = query.trim();
 
         Set<String> extra = new LinkedHashSet<>();
+        if (!normalized.contains("我的退款") && !normalized.contains("退款进度")
+                && normalized.matches(".*(?:如何|怎么|怎样).{0,10}(?:退款|退货).*")) {
+            extra.addAll(java.util.List.of("退货", "操作路径", "会员中心", "选择订单", "提交原因"));
+        }
         // 长触发词优先命中，避免「运费」「到账」等短词提前消费公共子串
         EXPANSIONS.entrySet().stream()
                 .sorted((a, b) -> Integer.compare(b.getKey().length(), a.getKey().length()))

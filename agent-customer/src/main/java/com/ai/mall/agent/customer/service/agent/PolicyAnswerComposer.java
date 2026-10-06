@@ -67,7 +67,8 @@ public final class PolicyAnswerComposer {
                 has(q,"问题","失败","重复","扣款")?List.of("失败","扣款","问题"):List.of();
             add(result,q,List.of("支付","付款","扣款"),List.of("支付","付款"),focus);
         }
-        if(has(q,"退款","退货")) add(result,q,List.of("退款","退货"),List.of("退款","退货"),List.of());
+        if(has(q,"退款","退货")) add(result,q,List.of("退款","退货"),List.of("退款","退货"),
+                has(q,"多久","到账","时效")?List.of("退款时效","退款到账","工作日","到账时间"):List.of());
         if(has(q,"运费","邮费","包邮")) result.add(new Facet(List.of("运费","包邮"),
             has(q,"质量","退货","换货")?List.of("退货运费","退回运费","质量问题","换货"):
             has(q,"门槛","包邮","满")?List.of("门槛","包邮","免运费"):List.of(),false));

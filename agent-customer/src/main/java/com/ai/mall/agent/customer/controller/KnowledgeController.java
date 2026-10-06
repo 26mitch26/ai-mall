@@ -57,6 +57,8 @@ public class KnowledgeController {
 
     @Value("${ai.rag.reranker.enabled:false}")
     private boolean neuralRerankerEnabled;
+    @Value("${ai.rag.vector-store.enabled:true}")
+    private boolean vectorStoreEnabled = true;
 
     @Value("${agent.knowledge.admin-token:}")
     private String knowledgeAdminToken = "";
@@ -134,11 +136,18 @@ public class KnowledgeController {
         result.put("online", true);
         result.put("ollamaOnline", isOllamaOnline());
         result.put("chatModel", chatModel);
-        result.put("embeddingModel", embeddingModel);
-        result.put("vectorStore", "Milvus");
-        result.put("vectorIndex", "ANN");
-        result.put("retrieval", "Adaptive semantic/exact/hybrid + ANN/BM25 + RRF + configurable local neural rerank");
-        result.put("pipeline", List.of("Query-time rewrite/decompose", "Adaptive ANN/BM25 recall", "RRF fusion", "Qwen3 local rerank with feature fallback", "Ollama generation"));
+        result.put("embeddingModel", vectorStoreEnabled ? embeddingModel : "未启用");
+        result.put("vectorStore", vectorStoreEnabled ? "Milvus" : "未启用");
+        result.put("vectorIndex", vectorStoreEnabled ? "ANN" : "BM25");
+        result.put("retrieval", vectorStoreEnabled
+                ? "Adaptive semantic/exact/hybrid + ANN/BM25 + RRF"
+                : "BM25 关键词检索（低内存模式）");
+        java.util.ArrayList<String> pipeline = new java.util.ArrayList<>();
+        pipeline.add("Query-time rewrite");
+        pipeline.add(vectorStoreEnabled ? "Adaptive ANN/BM25 recall + RRF" : "BM25 recall");
+        if (neuralRerankerEnabled) pipeline.add("Configured local neural rerank");
+        pipeline.add("Policy quotation or Ollama generation");
+        result.put("pipeline", List.copyOf(pipeline));
         result.put("reranker", Map.of("enabled", neuralRerankerEnabled,
                 "model", "Qwen3-Reranker-0.6B", "localOnly", true));
         result.put("cache", semanticAnswerCacheService.stats());

@@ -53,6 +53,8 @@ public class RagService {
 
     @Value("${ai.rag.reranker.enabled:false}")
     private boolean neuralRerankerEnabled;
+    @Value("${ai.rag.reranker.feature-enabled:true}")
+    private boolean featureRerankerEnabled = true;
 
     @Value("${ai.rag.retrieval.strategy:auto}")
     private String retrievalStrategy;
@@ -499,6 +501,7 @@ public class RagService {
 
             // 3. 对每个查询词，从倒排索引中获取候选文档并计算BM25分数
             Map<String, Double> docScores = new HashMap<>();
+            Map<String, RetrievedDocument> eligibleDocuments = new HashMap<>();
 
             for (String term : queryTerms) {
                 Set<String> docIds = redisTemplate.opsForSet().members("bm25:inverted:" + term);
@@ -506,11 +509,18 @@ public class RagService {
                     continue;
                 }
 
-                // IDF = log((N - df + 0.5) / (df + 0.5))
-                long df = docIds.size();
-                double idf = Math.log((totalDocs - df + 0.5) / (df + 0.5));
-
+                // Archived revisions must not inflate df or turn the live-corpus IDF into NaN.
+                Set<String> activeIds = new java.util.HashSet<>();
                 for (String docId : docIds) {
+                    RetrievedDocument doc = readEligibleBm25Document(docId, revisions);
+                    if (doc != null) { activeIds.add(docId); eligibleDocuments.put(docId, doc); }
+                }
+                if (activeIds.isEmpty()) continue;
+                long df = activeIds.size();
+                // Positive BM25 IDF: frequent matching terms provide weak evidence, never negative evidence.
+                double idf = Math.log1p((Math.max(totalDocs, df) - df + 0.5) / (df + 0.5));
+
+                for (String docId : activeIds) {
                     // 获取词频tf和文档长度docLen
                     Object tfObj = redisTemplate.opsForHash().get("bm25:doc:" + docId + ":tf", term);
                     Object docLenObj = redisTemplate.opsForHash().get("bm25:doc:" + docId, "length");
@@ -533,19 +543,9 @@ public class RagService {
                     .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
                     .map(entry -> {
                         String docId = entry.getKey();
-                        Map<Object, Object> docInfo = redisTemplate.opsForHash().entries("bm25:doc:" + docId);
-                        return RetrievedDocument.builder()
-                                .id(docId)
-                                .content(String.valueOf(docInfo.getOrDefault("content", "")))
-                                .source(String.valueOf(docInfo.getOrDefault("source", "unknown")))
-                                .type(String.valueOf(docInfo.getOrDefault("type", "unknown")))
-                                .version(String.valueOf(docInfo.getOrDefault("version", "")))
-                                .contentHash(String.valueOf(docInfo.getOrDefault("contentHash", "")))
-                                .effectiveAt(parseInstant(String.valueOf(docInfo.getOrDefault("effectiveAt", ""))))
-                                .scope(String.valueOf(docInfo.getOrDefault("scope", "public")))
-                                .score(entry.getValue())
-                                .retrievalSource("bm25")
-                                .build();
+                        RetrievedDocument doc = eligibleDocuments.get(docId);
+                        doc.setScore(entry.getValue());
+                        return doc;
                     })
                     .filter(doc -> isEligibleLegacyRecord(doc.getSource(), doc.getVersion(), revisions))
                     .map(this::enrichLegacyEvidence)
@@ -564,6 +564,21 @@ public class RagService {
             log.error("BM25关键词检索失败: {}", e.getMessage(), e);
             return Collections.emptyList();
         }
+    }
+
+    private RetrievedDocument readEligibleBm25Document(String docId, Set<String> revisions) {
+        Map<Object,Object> info = redisTemplate.opsForHash().entries("bm25:doc:" + docId);
+        RetrievedDocument doc = RetrievedDocument.builder().id(docId)
+                .content(String.valueOf(info.getOrDefault("content", "")))
+                .source(String.valueOf(info.getOrDefault("source", "unknown")))
+                .type(String.valueOf(info.getOrDefault("type", "unknown")))
+                .version(String.valueOf(info.getOrDefault("version", "")))
+                .contentHash(String.valueOf(info.getOrDefault("contentHash", "")))
+                .effectiveAt(parseInstant(String.valueOf(info.getOrDefault("effectiveAt", ""))))
+                .scope(String.valueOf(info.getOrDefault("scope", "public"))).retrievalSource("bm25").build();
+        if (!isEligibleLegacyRecord(doc.getSource(), doc.getVersion(), revisions)) return null;
+        doc = enrichLegacyEvidence(doc);
+        return isCurrentlyApplicable(doc.getSource(), doc.getVersion(), doc.getEffectiveAt(), doc.getScope()) ? doc : null;
     }
 
     // ==================== RRF融合排序 ====================
@@ -2153,10 +2168,17 @@ public class RagService {
 
     RerankSelection rerankCandidates(String query, List<FusedDocument> candidates, int topK) {
         long started = System.nanoTime();
-        List<RerankedDocument> featureRanked = new CrossEncoderReranker().rerank(query, candidates, candidates.size());
+        List<RerankedDocument> featureRanked = featureRerankerEnabled
+                ? new CrossEncoderReranker().rerank(query, candidates, candidates.size())
+                : candidates.stream().map(d -> RerankedDocument.builder().id(d.getId()).content(d.getContent())
+                        .source(d.getSource()).type(d.getType()).rrfScore(d.getRrfScore()).version(d.getVersion())
+                        .contentHash(d.getContentHash()).effectiveAt(d.getEffectiveAt()).scope(d.getScope())
+                        .retrievalSource(d.getRetrievalSource()).rerankScore(d.getRrfScore()).build())
+                        .sorted(Comparator.comparingDouble(RerankedDocument::getRerankScore).reversed()).toList();
+        String fallbackName = featureRerankerEnabled ? "feature" : "recall-order";
         if (!neuralRerankerEnabled || neuralReranker == null || candidates.isEmpty()) {
             AgentTelemetry.recordStage("rerank", (System.nanoTime() - started) / 1_000_000, "success");
-            return new RerankSelection(featureRanked.stream().limit(topK).toList(), "feature");
+            return new RerankSelection(featureRanked.stream().limit(topK).toList(), fallbackName);
         }
         try {
             List<Double> scores = neuralReranker.score(query, candidates.stream().map(FusedDocument::getContent).toList());
@@ -2177,7 +2199,7 @@ public class RagService {
             log.warn("Local neural reranker failed; using feature reranker: {}", e.getMessage());
             if (e instanceof InterruptedException) Thread.currentThread().interrupt();
             AgentTelemetry.recordStage("rerank", (System.nanoTime() - started) / 1_000_000, "fallback");
-            return new RerankSelection(featureRanked.stream().limit(topK).toList(), "feature");
+            return new RerankSelection(featureRanked.stream().limit(topK).toList(), fallbackName);
         }
     }
 

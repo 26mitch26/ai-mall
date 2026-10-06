@@ -22,6 +22,25 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class AdaptiveRagBehaviorTest {
+    @Test void publicRefundProcedureExpansionPreservesQuestionAndPrivateProgressBoundary() {
+        String query = "我不知道如何才能拿到退款";
+        String expanded = RetrievalQueryRewriter.expand(query);
+        assertTrue(expanded.startsWith(query));
+        assertTrue(expanded.contains("操作路径"));
+        assertTrue(expanded.contains("选择订单"));
+        assertFalse(RetrievalQueryRewriter.expand("如何查询我的退款进度").contains("操作路径"));
+    }
+    @Test void explicitFeatureOptOutPreservesFusedRecallOrder() throws Exception {
+        RagService rag = service(null, null);
+        set(rag, "featureRerankerEnabled", false);
+        var first = RagService.FusedDocument.builder().id("refund").source("refund.md").content("退款到账规则")
+                .rrfScore(.2).build();
+        var second = RagService.FusedDocument.builder().id("payment").source("payment.md").content("其他支付规则")
+                .rrfScore(.01).build();
+        var result = rag.rerankCandidates("退款多久到账？", List.of(second, first), 1);
+        assertEquals("recall-order", result.name());
+        assertEquals("refund", result.documents().get(0).getId());
+    }
 
     @Test
     void queryDictionaryExpansionRunsOnceAndKeepsTheOriginalQuestion() {
@@ -274,6 +293,40 @@ class AdaptiveRagBehaviorTest {
 
     private static RagService service(VectorStore store, StringRedisTemplate redis) {
         return new RagService(null, null, store, redis, null, null);
+    }
+
+    @Test void frequentTermsHaveFinitePositiveBm25Weight() {
+        StringRedisTemplate redis = bm25PublishedFixture(false);
+        var results = service(null, redis).bm25KeywordRetrieve("退款", 3);
+        assertEquals(1, results.size());
+        assertTrue(Double.isFinite(results.get(0).getScore()));
+        assertTrue(results.get(0).getScore() > 0);
+    }
+
+    @Test void archivedVersionsDoNotInflateBm25DocumentFrequency() {
+        var clean = service(null, bm25PublishedFixture(false)).bm25KeywordRetrieve("退款", 3);
+        var archived = service(null, bm25PublishedFixture(true)).bm25KeywordRetrieve("退款", 3);
+        assertEquals(List.of("active"), archived.stream().map(RagService.RetrievedDocument::getId).toList());
+        assertEquals(clean.get(0).getScore(), archived.get(0).getScore(), 1e-9);
+    }
+
+    private static StringRedisTemplate bm25PublishedFixture(boolean includeArchived) {
+        StringRedisTemplate redis = mock(StringRedisTemplate.class, RETURNS_DEEP_STUBS);
+        when(redis.opsForSet().members("rag:revision:sources")).thenReturn(Set.of("refund.md"));
+        when(redis.opsForSet().members("bm25:inverted:退款")).thenReturn(includeArchived ? Set.of("active", "archived") : Set.of("active"));
+        when(redis.opsForValue().get("rag:knowledge:epoch")).thenReturn("1");
+        when(redis.opsForValue().get("bm25:stats:knowledge_epoch")).thenReturn("1");
+        when(redis.opsForValue().get("bm25:stats:total_docs")).thenReturn("1");
+        when(redis.opsForValue().get("bm25:stats:avg_doc_length")).thenReturn("2");
+        when(redis.opsForZSet().zCard("rag:revisions:refund.md")).thenReturn(1L);
+        when(redis.opsForZSet().reverseRangeByScore(eq("rag:revisions:refund.md"), anyDouble(), anyDouble())).thenReturn(Set.of("v1"));
+        when(redis.opsForHash().get("bm25:source:refund.md:v1", "scope")).thenReturn("public");
+        when(redis.opsForValue().get("rag:active:refund.md:public")).thenReturn("v1");
+        when(redis.opsForHash().entries("bm25:doc:active")).thenReturn(Map.of("content", "退款", "source", "refund.md", "version", "v1", "scope", "public"));
+        when(redis.opsForHash().entries("bm25:doc:archived")).thenReturn(Map.of("content", "退款", "source", "refund.md", "version", "v0", "scope", "public"));
+        when(redis.opsForHash().get("bm25:doc:active:tf", "退款")).thenReturn("1");
+        when(redis.opsForHash().get("bm25:doc:active", "length")).thenReturn("2");
+        return redis;
     }
 
     private static void set(Object target, String fieldName, Object value) throws Exception {
