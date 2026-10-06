@@ -69,7 +69,7 @@
     },
     {
       "path": "docs/product/ai-pm-star-project.md",
-      "sha256": "78fa5bf881934d19589f70412f2509b187a86bffcb5478f5582b60b719c79272"
+      "sha256": "d6f84f3fe97d3cb4e8757015977167238327706da9dacd5edc8037736162436a"
     },
     {
       "path": "docs/product/chunk-strategy-review.md",
@@ -77,15 +77,15 @@
     },
     {
       "path": "docs/product/competitive-and-commercial-plan.md",
-      "sha256": "0474a13e15b19efb0003a4db57947907012dc159d47d384e5e619a95037c3711"
+      "sha256": "a209c72e389304ba8d64419c71c572349c551f4511d6e639e74462489dd53604"
     },
     {
       "path": "docs/product/document-sync-audit.md",
-      "sha256": "0bb138dcbfd4ea0699407f23c6754634b85de29ad89d04e203092b5ba16b39d9"
+      "sha256": "0dd7ea6bd2f283f5fdfc2976c09e080ec18fe51758c2cc934350d1af70cf598a"
     },
     {
       "path": "docs/product/interview-evidence-guide.md",
-      "sha256": "b5c38e3f0fbb7a19fbcee80083b4f1575afd41a6b9a3d0d90ecd827df0dce9b1"
+      "sha256": "668d4e97607ab7d052701adfa51e934e482289f0e6d72d943795b47d486a0139"
     },
     {
       "path": "docs/product/model-selection.md",
@@ -97,15 +97,15 @@
     },
     {
       "path": "docs/product/recruiter-review.md",
-      "sha256": "3c15dc9ec412d707890236da2b023aba92247237e64112c2888fbbca6f19ccab"
+      "sha256": "e2dd0deefce43ac56f057c3ece16664daa4e5a26add60e2fe60ac642a7fac8dd"
     },
     {
       "path": "docs/product/resume-project-section.md",
-      "sha256": "bdeb6689304742c7ff177b92b213b895f045814434ffe38d8094ed8910858133"
+      "sha256": "effba6298d59cf71d4f800476eea05bf302904b0607c4538e1ecb4ff11589c47"
     },
     {
       "path": "docs/product/resume-reference-review.md",
-      "sha256": "bcea5ee1478bb54813f9b800a951a39354d2547eaca79ac00827d28a1e4cfbd0"
+      "sha256": "86675ab253068170a7c7ab92af2c0b94fb1a2a45b701ca6b155f892b13002efe"
     },
     {
       "path": "docs/rag-interview-notes.md",
@@ -155,19 +155,19 @@
       "source": "docs/product/ai-pm-star-project.md",
       "destination": "AI-Mall_STAR面试稿与AI指挥方法.md",
       "matches": true,
-      "sha256": "5c277ea7deb364eb02ff6c95f1f2fbbdebb8b40db3526326bd66523aa5927938"
+      "sha256": "30d9cefcbf22639e5b68dc34e198e394b593429d70e6d348889e97d66696d04a"
     },
     {
       "source": "docs/product/interview-evidence-guide.md",
       "destination": "AI-Mall面试讲解与待补齐项.md",
       "matches": true,
-      "sha256": "f59392463c03f471ce8527b801e3ce419aa7e4772cdc9d09156cd49abb37bfd0"
+      "sha256": "839f24aebfc5df1318d2eb24934f0c1f4c72c250acaa18a320af0c628ba63538"
     },
     {
       "source": "docs/product/recruiter-review.md",
       "destination": "AI产品经理招聘审查与技术应用.md",
       "matches": true,
-      "sha256": "8aaa0ace29a9b19898492346d166ce5c415e97032d28f58449d422b1ae791b4e"
+      "sha256": "eade36a81f254a000750d97081f1f9c5f985736731eefb3203818fe1e77f539e"
     },
     {
       "source": "docs/product/rag-gap-and-upgrade.md",
@@ -179,13 +179,13 @@
       "source": "docs/product/resume-reference-review.md",
       "destination": "AI产品经理简历参考与改写依据.md",
       "matches": true,
-      "sha256": "b2d4692501109759c08b38f3e09ebdbc0fa8bbfc0e6604ed32fe42f8bb987155"
+      "sha256": "d45f4ca371e606356d15658fd4671ededf0b1b7ffda09d569e16dab2dcb9611c"
     },
     {
       "source": "docs/product/resume-project-section.md",
       "destination": "AI产品经理项目简历_STAR文字版.md",
       "matches": true,
-      "sha256": "748972290e7147805ca8ed03c148d3b7c3d6431620e80130b8aa428bfdee1716"
+      "sha256": "7eb0a14591520c3bf0820417c152f0beb0a9c3a7677110fdcf62d417963d9f79"
     },
     {
       "source": "docs/product/model-selection.md",
@@ -203,7 +203,7 @@
       "source": "docs/product/document-sync-audit.md",
       "destination": "文档更新核验清单.md",
       "matches": true,
-      "sha256": "850937d3a85595c89a4768eead04d95ca3a5c10c0236be3eb0415cc4879c2dce"
+      "sha256": "0f3a0ab6595c44cad3611b55a45d728d5e10c0e026fd4f3e0551ac498efc255b"
     },
     {
       "sources": [
@@ -212,7 +212,7 @@
       ],
       "destination": "AI-Mall产品方案与竞争力.md",
       "matches": true,
-      "sha256": "23c140a007d4bd28801d3f556fe5b331c222551f6f53f81e0cb255b2fda16939"
+      "sha256": "2e1bf04d8941a035e5a8589c35e66f80c8b6c643311d5893408285415d463d30"
     }
   ],
   "evidence": [
@@ -509,7 +509,7 @@
   ],
   "resume": {
     "docxMatchesCanonical": true,
-    "pdfContainsLatestChunkDecision": true,
+    "pdfMatchesCanonical": true,
     "pdfPages": 1,
     "visualInspection": "Manual PNG review is separate; see document-sync/resume-page.png and the audit checklist"
   },

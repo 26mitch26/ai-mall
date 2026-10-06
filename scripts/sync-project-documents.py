@@ -175,7 +175,11 @@ def audit(delivery, synchronize=False):
         reader = PdfReader(pdf)
         pdf_pages = len(reader.pages)
         extracted = ''.join(page.extract_text() or '' for page in reader.pages)
-        pdf_matches = '政策分块' in extracted and '18/20' in extracted and '25' in extracted
+        # Compare the reviewed text, so an equivalent rewrite such as "20次中18次"
+        # cannot fail merely because an obsolete literal "18/20" disappeared.
+        pdf_text = normalized(extracted).replace('\u2022', '').replace('\u25cf', '')
+        canonical = text(ROOT/'docs/product/resume-project-section.md')
+        pdf_matches = all(normalized(block) in pdf_text for block in canonical.strip().split('\n\n'))
     if not pdf_matches or pdf_pages != 1:
         issues.append({'kind': 'stale_or_wrong_length_pdf_resume', 'pages': pdf_pages})
     report = text(ROOT/'实验报告-最终版.md')
@@ -190,7 +194,7 @@ def audit(delivery, synchronize=False):
             'scope': 'Current reports, product/resume/interview documents, delivery mirrors and tracked evidence; no benchmark rerun',
             'sourceDocuments': source_records, 'deliveryDocuments': mirrors,
             'evidence': evidence_records,
-            'resume': {'docxMatchesCanonical': resume_matches, 'pdfContainsLatestChunkDecision': pdf_matches, 'pdfPages': pdf_pages,
+            'resume': {'docxMatchesCanonical': resume_matches, 'pdfMatchesCanonical': pdf_matches, 'pdfPages': pdf_pages,
                        'visualInspection': 'Manual PNG review is separate; see document-sync/resume-page.png and the audit checklist'},
             'modelCalls': 0, 'databaseWrites': 0,
             'issues': issues, 'passed': not issues}

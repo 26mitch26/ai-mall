@@ -1,16 +1,16 @@
 # AI-Mall 竞品定位与商业验证方案
 
-资料核对日期：2026-10-06。这里区分官方能力资料与产品判断；未实测竞品效果，没有报价、客户访谈或采购合同。
+原资料核对日期：2026-10-06；2026-10-07复核官方应用类型、人工参与与SDK能力。这里区分官方能力资料与产品判断；未实测竞品效果，没有报价、客户访谈或采购合同。
 
 ## 竞品与替代方案
 
 | 方案 | 官方可确认能力 | 对本项目的启示 |
 |---|---|---|
-| 网易七鱼 | SDK 支持机器人/人工会话，API 包含转接关联字段 | 人工接入必须有真实接收状态；本项目的联系指引还不具备这种能力 |
-| 阿里云百炼电商客服方案 | 提供问答、RAG、Agent 和复杂流程应用模式 | 按任务选择服务方式，基础平台采购可减少搭建工作 |
+| 网易七鱼客服接入 | 官方SDK支持机器人与人工客服会话及指定客服 | 人工接入必须有真实接收状态；本项目的联系指引还不具备这种能力 |
+| 阿里云百炼应用构建 | 官方应用类型区分Agent、工作流与高代码，支持知识及外部工具集成 | 按开放问题、固定流程与定制业务分别设计；未实际采购/部署百炼 |
 | Dify | 知识检索、工作流、Human Input 人参与节点 | 编排平台可用于快速原型，业务 API 与结果验收仍需要设计 |
 
-来源：[七鱼官方 SDK](https://github.com/qiyukf/QIYU_iOS_SDK)、[七鱼会话字段](https://qiyukf.apifox.cn/doc-437028)、[百炼电商客服方案](https://help.aliyun.com/zh/model-studio/build-ai-applications-based-on-alibaba-cloud-model-studio)、[Dify 官方平台](https://www.dify.ai/)、[Human Input](https://dify.ai/blog/the-human-input-node-bringing-human-judgment-into-automated-workflows)。这些资料不支持“竞品没有确认流程”或“自研必然更好、更便宜”的结论。
+来源：[七鱼官方 SDK](https://github.com/qiyukf/QIYU_iOS_SDK)、[百炼应用类型](https://help.aliyun.com/zh/model-studio/application-introduction)、[Dify 官方平台](https://www.dify.ai/)、[Human Input](https://dify.ai/blog/the-human-input-node-bringing-human-judgment-into-automated-workflows)。原百炼电商案例链接本次直接读取为404，七鱼API页面本次未能读取，已改用可核验的官方资料。这些资料不支持“竞品没有确认流程”或“自研必然更好、更便宜”的结论。
 
 产品判断：中小商家需要接待渠道、订单系统接入、可靠回答和异常恢复，未必需要重建商城。本项目应把现有电商系统作为验证环境，把带证据的政策服务、确认后的业务动作和可复现评测作为作品重点。商用探索优先接成熟客服渠道并复用业务系统。
 
