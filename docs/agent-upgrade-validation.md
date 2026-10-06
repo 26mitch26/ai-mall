@@ -1,5 +1,8 @@
 # 智能客服升级验收记录
 
+> **2026-10-07核验：** 本文保留早期工程/选型阶段的记录，未重测的数值不是当前结果。当前任务评测、模型入口、分块与登录状态以 [产品评测报告](../eval/product-evaluation-report.md)、[最终实验报告](../实验报告-最终版.md) 和 [Chunk策略审查](product/chunk-strategy-review.md) 为准。旧子块实验不否定完整父段恢复；历史来源命中与测试通过不能当作真实解决率。
+
+
 日期：2026-10-03。验证使用本机 Java 21、Spring Boot 3.5、Spring AI 1.0、本地 Ollama/bge-m3、Milvus 2.4、Redis 7、MySQL 8。MySQL 验收端口为 13308、Redis 为 16389，Milvus 使用专用集合；没有向正式订单数据库写入测试记录，没有调用付费推理 API。
 
 ## 已完成的验证

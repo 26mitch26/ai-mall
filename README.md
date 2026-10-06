@@ -1,6 +1,6 @@
 # AI-Mall：AI 增强电商系统
 
-AI 产品经理作品主线：**电商客服从政策咨询到确认办理的任务闭环**。
+AI 产品经理作品主线：**电商客服任务设计与分层评测**，确认办理为原型能力，完整真实交易及人工接收尚待验收。
 需求假设、MVP 取舍、业务指标与灰度计划见 [产品方案](docs/product/ai-pm-product-brief.md)；
 公开数据来源、评测方法与实际运行记录见 [Agent 产品评测](eval/README.md)。
 本项目为研发原型，离线召回与程序检查成绩不代表线上用户解决率。
@@ -315,3 +315,7 @@ AI-Mall 的运行入口、AI Agent、网关、数据初始化、本地演示链�
 不依赖公众号、外部体验账号或上游在线 API。项目演进自 Apache-2.0 许可的 mall 生态代码，
 许可证与第三方来源说明保留在 `LICENSE`/各前端许可证及 `THIRD_PARTY_NOTICES.md` 中；
 保留这些法定归属不影响本项目独立运行和自主维护。
+
+## 最新文档与分块验证
+
+课程提交以 [实验报告最终版](实验报告-最终版.md) 为入口；任务与资源实证见 [产品评测报告](eval/product-evaluation-report.md)。新导入推荐政策章节与例外保护policy_section，当前共享知识未重建；8/8是开发夹具结构完整性，不是回答准确率。详细取舍见 [Chunk审查](docs/product/chunk-strategy-review.md)，文件同步与范围见 [文档核验清单](docs/product/document-sync-audit.md)。

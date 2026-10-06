@@ -1,5 +1,8 @@
 # 三、智能客服 Agent 专项（RAG + ReAct + 护栏）
 
+> **2026-10-07核验：** 本文保留早期工程/选型阶段的记录，未重测的数值不是当前结果。当前任务评测、模型入口、分块与登录状态以 [产品评测报告](../eval/product-evaluation-report.md)、[最终实验报告](../实验报告-最终版.md) 和 [Chunk策略审查](product/chunk-strategy-review.md) 为准。旧子块实验不否定完整父段恢复；历史来源命中与测试通过不能当作真实解决率。
+
+
 > 面向后端/AI 混合岗位。这篇按"链路 → 每个环节的工程决策 → 效果证据 → 短板"组织，
 > 每一节都能直接对应到代码。数字口径见 `docs/agent-quality-evaluation.md` 与 `docs/rag-recall-validation.md`。
 

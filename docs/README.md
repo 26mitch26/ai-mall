@@ -52,7 +52,7 @@ mvn -pl mall-core/mall-common test "-Dtest=CacheBenchmarkLiveTest" "-Dexcluded.g
 
 测试类 / 引擎：
 [CacheBenchmarkLiveTest.java](../mall-core/mall-common/src/test/java/com/ai/mall/common/benchmark/CacheBenchmarkLiveTest.java)
-[CacheBenchmarkService.java](../mall-core/mall-common/src/main/java/com/ai/mall/common/common/benchmark/CacheBenchmarkService.java)
+[CacheBenchmarkService.java](../mall-core/mall-common/src/test/java/com/ai/mall/common/benchmark/CacheBenchmarkService.java)
 
 ## §3 RAG 召回率评测（离线可复现，零外部依赖）
 
@@ -85,3 +85,7 @@ mvn -pl agent-customer test "-Dtest=RagRecallSemanticTest" "-Drag.embed.model=bg
 - 完整链路与数据落盘 `agent-customer/target/rag-recall-semantic-report.txt`
 - 语义模型封装：[OllamaEmbeddingModel.java](../agent-customer/src/test/java/com/ai/mall/agent/customer/rag/OllamaEmbeddingModel.java)
 - 语义评测入口：[RagRecallSemanticTest.java](../agent-customer/src/test/java/com/ai/mall/agent/customer/rag/RagRecallSemanticTest.java)
+
+## 当前文档入口（2026-10-07）
+
+[最终实验报告](../实验报告-最终版.md)、[Agent产品评测](../eval/product-evaluation-report.md)、[分块取舍](product/chunk-strategy-review.md)、[模型入口](product/model-selection.md)、[投递项目段落](product/resume-project-section.md) 与 [文档核验清单](product/document-sync-audit.md)。历史工程数值仍保留其原条件，不能覆盖后续任务失败或合并阶段测试数。

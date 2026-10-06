@@ -18,7 +18,7 @@
 
 依据：[验证记录](results/model-selection/validation.json)、[访客回归](results/model-selection/policy-regression.json)、[本地试测暂停](results/model-selection/local-probe.json)、[界面截图](results/model-selection/model-settings.jpg)。本次仅汇总已有记录，没有重新运行模型评测。各阶段测试数量不能叠加，12项组件断言也不能加到软件测试总数中。
 
-会员登录排障发现8087服务未运行，随后启动时缺少本机数据库密码注入。用户提供连接凭据后，原有demo账号登录及受保护的会员信息、订单列表读取均成功；没有修改账号密码、重置数据库或执行交易写入。[登录只读验证](results/member-login-verification.json)。数据库密码只临时注入进程环境，没有写入报告、README或证据。
+会员登录排障发现8087服务未运行，随后启动时缺少本机数据库密码注入。用户提供连接凭据后，原有demo账号登录及受保护的会员信息、订单列表读取均成功；没有修改账号密码、重置数据库或执行交易写入。[登录只读验证](results/member-login-verification.json)。连接凭据临时注入进程环境，当前启动说明采用安全输入；文档核验已移除旧课程报告中的明文数据库密码。
 
 ## 2026年10月6日的历史开发集对照
 
@@ -88,3 +88,7 @@
 在2363字符、8组规则/例外的合成夹具上，固定512保留5/8完整组、按句512为6/8、政策章节策略为8/8；整篇不切也为8/8，但上下文为2363字符。政策512产生8块，平均303.0、最大609字符；完整结构优先可能超过目标，因此证据不证明512最优或RAG回答准确率提升。
 
 新增保护还覆盖连续段落、表格/代码围栏、标题上下文、选段阶段例外保留、同来源多块证据及策略变化的新版本。过长原文不再截前半段，可能增加拒答；真实召回、token预算与语义正确率需在新独立样本验证。Late Chunking和真实Semantic Chunking尚未实现，不写成已采用技术。[原始结构实验](results/chunk-upgrade/boundary-experiment.json)、[验证范围](results/chunk-upgrade/validation.json)、[策略取舍](../docs/product/chunk-strategy-review.md)。
+
+## 当前课程报告与文档核验
+
+课程提交正文见 [实验报告最终版](../实验报告-最终版.md)，完整文档范围、交付副本和证据同步见 [文档核验清单](../docs/product/document-sync-audit.md)。本次文档核验不重跑历史模型评测，不改写冻结成绩。

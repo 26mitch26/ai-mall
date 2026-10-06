@@ -34,7 +34,7 @@ python scripts/eval-agent-product.py --split dev --trials 2 --model ai-mall-eval
 python scripts/eval-agent-product.py --split test --trials 2 --model ai-mall-eval-qwen3:0.6b --local-only --report eval/results/test.json
 python scripts/eval-agent-product.py --split test --language en --trials 1 --model ai-mall-eval-qwen3:0.6b --local-only --report eval/results/english-challenge.json
 python scripts/evaluate-customer.py --base-url http://localhost:8083 --split test --model-budget 0 --report eval/results/retrieval-test.json
-python -m unittest discover -s scripts -p 'test_eval*.py'
+python -m unittest discover -s scripts -p 'test_*.py'
 ```
 
 `prepare-public-eval.py` 只读取 `.run/bitext-public` 中固定版本的 CSV。下载公开数据到本地时 checkout manifest 的 revision，然后运行脚本。已有冻结样本可直接运行，不必重新下载或抽样。
@@ -58,3 +58,7 @@ python -m unittest discover -s scripts -p 'test_eval*.py'
 完整语义对照使用 `scripts/start-product-eval.ps1 -FullSemantic`，消融配置加 `-Ablation`；纯词法模式不带 `-FullSemantic`。复现前需按 `results/model-manifest.json` 的 revision 下载官方 GGUF 并导入为 `ai-mall-eval-qwen3:0.6b`，准备 Redis/Milvus 与 9 篇政策。权重不随 Git 分发。
 
 三组新发现的多轮事实回归输入为 `regression/multiturn-cases.jsonl`，用原 `evaluate-customer.py --mode chat` 回放，再通过 `scripts/grade-multiturn-regression.py` 检查三个指定事实。旧结果和修复后结果均保留；这种回归不能作为新预留成绩。
+
+## 分块与当前文档入口
+
+政策章节策略与结构对照见 [Chunk审查](../docs/product/chunk-strategy-review.md)，216项两模块验证见 [记录](results/chunk-upgrade/validation.json)，不与模型阶段215项相加。现有共享9篇政策未重建，结构夹具不证明真实语义召回收益。完整课程报告见 [实验报告最终版](../实验报告-最终版.md)；交付同步状态见 [核验清单](../docs/product/document-sync-audit.md)。

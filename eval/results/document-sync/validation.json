@@ -1,0 +1,520 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-10-07",
+  "scope": "Current reports, product/resume/interview documents, delivery mirrors and tracked evidence; no benchmark rerun",
+  "sourceDocuments": [
+    {
+      "path": "README.md",
+      "sha256": "cc0ee38a8d4cbfbc3b3b50a68c230e25d37343284195317489cb02dcbf1fac1c"
+    },
+    {
+      "path": "docs/README.md",
+      "sha256": "7d47fa0e16f7591dcf9f61bd1c32408b2564877ef9e60ae5c852f4d0adfbf43e"
+    },
+    {
+      "path": "docs/agent-quality-evaluation.md",
+      "sha256": "c9036df2311f86483453f7a724baee759a2950f06cfad55803b314c045b35d3a"
+    },
+    {
+      "path": "docs/agent-upgrade-guide.md",
+      "sha256": "f5b7e00c77c3bc6069e8eafbf53496b1b8bbcdc087c506e20785f2c0b23e16b8"
+    },
+    {
+      "path": "docs/agent-upgrade-validation.md",
+      "sha256": "980c51575ae0bb67185c71c2e852a7c7ef19a0725eeb2b3d8c99ebeaa8cfe6c9"
+    },
+    {
+      "path": "docs/cache-qps-validation.md",
+      "sha256": "0648f5866d0fde70e70fc91c953764eb3599b53d1762e28b4f5071d83b75395b"
+    },
+    {
+      "path": "docs/docker-footprint.md",
+      "sha256": "7776b4ac8a88c90cc5f0a5103b3e0e4231aba9b9e90eee93786dc83a41d0f019"
+    },
+    {
+      "path": "docs/interview-agent-understanding.md",
+      "sha256": "f168b2af088b8ad8cf017112dad5eb32deab7bf2d6a1899a7dddb28aee26bd30"
+    },
+    {
+      "path": "docs/interview-backend.md",
+      "sha256": "eb22fb9b4f1e7dedad065401088030e7ad3e3c115c687b06f2c4446f838046f8"
+    },
+    {
+      "path": "docs/interview-customer-agent.md",
+      "sha256": "b479831ef3551e0189ec51f16aba74c67478518fcd7cd0494819d4a1b4043ca4"
+    },
+    {
+      "path": "docs/interview-ops-agent.md",
+      "sha256": "b630b398c3c1e051fb0775c9268521471e04a43b15b1f59828846f604e2faf13"
+    },
+    {
+      "path": "docs/interview-qa.md",
+      "sha256": "8b0bf51a6513ba7d70989cd28aa2b7ca7d730e2c26c7cb578701ab97247edbab"
+    },
+    {
+      "path": "docs/interview-story.md",
+      "sha256": "528e7793b76b14b3c9bef6382425eae7a1b6a580efe6a1ac1627d28711fe854e"
+    },
+    {
+      "path": "docs/interview-test-agent.md",
+      "sha256": "56c6eeb6e82e7a8d7468f48b0dab6fa694a58a927e8015efe507413652a8ecca"
+    },
+    {
+      "path": "docs/member-agent-interview.md",
+      "sha256": "64665d325f4a3916cad7ec418b9e6be03c3bd8f7a282e63fcae7aca22bd66f57"
+    },
+    {
+      "path": "docs/product/ai-pm-product-brief.md",
+      "sha256": "86b51cf4055c643ff447bbf4882055da33deb6d9b05ac6e6732fa62594cdd2a6"
+    },
+    {
+      "path": "docs/product/ai-pm-star-project.md",
+      "sha256": "78fa5bf881934d19589f70412f2509b187a86bffcb5478f5582b60b719c79272"
+    },
+    {
+      "path": "docs/product/chunk-strategy-review.md",
+      "sha256": "ff4f68df3a38f52528ab2a97f372a57e3699fcb9ad5a3872acde628bf1054147"
+    },
+    {
+      "path": "docs/product/competitive-and-commercial-plan.md",
+      "sha256": "0474a13e15b19efb0003a4db57947907012dc159d47d384e5e619a95037c3711"
+    },
+    {
+      "path": "docs/product/document-sync-audit.md",
+      "sha256": "0bb138dcbfd4ea0699407f23c6754634b85de29ad89d04e203092b5ba16b39d9"
+    },
+    {
+      "path": "docs/product/interview-evidence-guide.md",
+      "sha256": "b5c38e3f0fbb7a19fbcee80083b4f1575afd41a6b9a3d0d90ecd827df0dce9b1"
+    },
+    {
+      "path": "docs/product/model-selection.md",
+      "sha256": "5ae0c01137f6397c8be2d437c80f3676dd41e5a97a60a60644bf6dacfd0fd7bb"
+    },
+    {
+      "path": "docs/product/rag-gap-and-upgrade.md",
+      "sha256": "bfe668126814ef29bc46f77be5ada56f0d0fc901d8ab29d6d8031a80cfc51273"
+    },
+    {
+      "path": "docs/product/recruiter-review.md",
+      "sha256": "3c15dc9ec412d707890236da2b023aba92247237e64112c2888fbbca6f19ccab"
+    },
+    {
+      "path": "docs/product/resume-project-section.md",
+      "sha256": "bdeb6689304742c7ff177b92b213b895f045814434ffe38d8094ed8910858133"
+    },
+    {
+      "path": "docs/product/resume-reference-review.md",
+      "sha256": "bcea5ee1478bb54813f9b800a951a39354d2547eaca79ac00827d28a1e4cfbd0"
+    },
+    {
+      "path": "docs/rag-interview-notes.md",
+      "sha256": "b3567f2704567e5483f0a18c52e4de310e1b50b8a3927bab66f50e1be14c9375"
+    },
+    {
+      "path": "docs/rag-recall-validation.md",
+      "sha256": "2e59d3f083f12aaa1e73a1d6c44f25ff2d4cf03d2cfa1aa64207a66565118492"
+    },
+    {
+      "path": "eval/README.md",
+      "sha256": "c723eff9bc471276c0170ba0cbbc7dc57610f5f893d7350f063b802396ea9dad"
+    },
+    {
+      "path": "eval/product-evaluation-report.md",
+      "sha256": "d84ca7d798376a8a929012e2705c23a3c8071e26beef1e50a055d72173df584c"
+    },
+    {
+      "path": "实验报告-最终版.md",
+      "sha256": "623234fe2f316d31e345b3513bd6e42fe628dc367b1631f885f7ae1ac8899070"
+    },
+    {
+      "path": "汇报演讲稿-智能客服RAG系统.md",
+      "sha256": "b9725f3ec0c865567b97a5aa97f049465bf337653fb05ba66ac3d276d69057ed"
+    }
+  ],
+  "deliveryDocuments": [
+    {
+      "source": "实验报告-最终版.md",
+      "destination": "实验报告-最终版.md",
+      "matches": true,
+      "sha256": "b5186bd8521b43e2db0f37fd7d13c01a05ad1e92c64f43178f4b6673f5fc1395"
+    },
+    {
+      "source": "汇报演讲稿-智能客服RAG系统.md",
+      "destination": "汇报演讲稿-智能客服RAG系统.md",
+      "matches": true,
+      "sha256": "68331f0d0a85a53c777a57b016c62df678d646be09bcb5e6f217272a0bc4d20d"
+    },
+    {
+      "source": "eval/product-evaluation-report.md",
+      "destination": "AI-Mall评测报告.md",
+      "matches": true,
+      "sha256": "abff6b9771aeab952aba4bfea76070bce6641b3594fd33e75ac71600c9212cd0"
+    },
+    {
+      "source": "docs/product/ai-pm-star-project.md",
+      "destination": "AI-Mall_STAR面试稿与AI指挥方法.md",
+      "matches": true,
+      "sha256": "5c277ea7deb364eb02ff6c95f1f2fbbdebb8b40db3526326bd66523aa5927938"
+    },
+    {
+      "source": "docs/product/interview-evidence-guide.md",
+      "destination": "AI-Mall面试讲解与待补齐项.md",
+      "matches": true,
+      "sha256": "f59392463c03f471ce8527b801e3ce419aa7e4772cdc9d09156cd49abb37bfd0"
+    },
+    {
+      "source": "docs/product/recruiter-review.md",
+      "destination": "AI产品经理招聘审查与技术应用.md",
+      "matches": true,
+      "sha256": "8aaa0ace29a9b19898492346d166ce5c415e97032d28f58449d422b1ae791b4e"
+    },
+    {
+      "source": "docs/product/rag-gap-and-upgrade.md",
+      "destination": "RAG优化与产品取舍.md",
+      "matches": true,
+      "sha256": "7035947bf9c8b0478ab776b396a7def578d071b8b05bc157f3c05ec164c4af4d"
+    },
+    {
+      "source": "docs/product/resume-reference-review.md",
+      "destination": "AI产品经理简历参考与改写依据.md",
+      "matches": true,
+      "sha256": "b2d4692501109759c08b38f3e09ebdbc0fa8bbfc0e6604ed32fe42f8bb987155"
+    },
+    {
+      "source": "docs/product/resume-project-section.md",
+      "destination": "AI产品经理项目简历_STAR文字版.md",
+      "matches": true,
+      "sha256": "748972290e7147805ca8ed03c148d3b7c3d6431620e80130b8aa428bfdee1716"
+    },
+    {
+      "source": "docs/product/model-selection.md",
+      "destination": "智能客服模型选择说明.md",
+      "matches": true,
+      "sha256": "000bdab1b617b9c60f8fb549961c8a6aea66cb1e7d514bd5420e1e81d6f93624"
+    },
+    {
+      "source": "docs/product/chunk-strategy-review.md",
+      "destination": "Chunk分块策略与验证.md",
+      "matches": true,
+      "sha256": "07170cf2e196fcadf1cbdb4e7354873d2b6bba7c152b81589b5462b7eaa3a586"
+    },
+    {
+      "source": "docs/product/document-sync-audit.md",
+      "destination": "文档更新核验清单.md",
+      "matches": true,
+      "sha256": "850937d3a85595c89a4768eead04d95ca3a5c10c0236be3eb0415cc4879c2dce"
+    },
+    {
+      "sources": [
+        "docs/product/ai-pm-product-brief.md",
+        "docs/product/competitive-and-commercial-plan.md"
+      ],
+      "destination": "AI-Mall产品方案与竞争力.md",
+      "matches": true,
+      "sha256": "23c140a007d4bd28801d3f556fe5b331c222551f6f53f81e0cb255b2fda16939"
+    }
+  ],
+  "evidence": [
+    {
+      "source": "eval/archives/2026-10-06/product-evaluation-report.md",
+      "matches": true,
+      "rawByteIdenticalRequired": false
+    },
+    {
+      "source": "eval/archives/2026-10-06/summary.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/public/LICENSE-bitext.txt",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/public/archives/bitext-cases-v1.jsonl",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/public/bitext-cases.jsonl",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/public/manifest.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/regression/multiturn-cases.jsonl",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/README-for-resume.md",
+      "matches": true,
+      "rawByteIdenticalRequired": false
+    },
+    {
+      "source": "eval/results/ablation-dev.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/baseline-dev-bounded.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/baseline-dev-exact.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/baseline-dev.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/bm25-dev-calibration.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/chunk-upgrade/boundary-experiment.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/chunk-upgrade/legacy-short-corpus.txt",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/chunk-upgrade/policy-smoke.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/chunk-upgrade/validation.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/comparison-provenance.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/diagnostic-cache-confounded-ablation-dev.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/diagnostic-cpu-overlap-ablation-dev.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/diagnostic-gpu-memory-interrupted-ablation-dev.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/diagnostic-milvus-startup-ablation-dev.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/diagnostic-resource-interrupted-candidate-dev.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/diagnostic-source-loss-candidate-dev.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/document-sync/resume-page.png",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/english-test.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/knowledge-write-denial-live.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/low-memory-ablation-dev.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/member-login-verification.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/member-login-verified.jpg",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/model-manifest.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/model-selection/README.md",
+      "matches": true,
+      "rawByteIdenticalRequired": false
+    },
+    {
+      "source": "eval/results/model-selection/catalog.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/model-selection/local-probe.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/model-selection/model-settings.jpg",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/model-selection/policy-regression.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/model-selection/policy-selection.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/model-selection/validation.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/multiturn-after-fact-checks.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/multiturn-before-fact-checks.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/multiturn-chat.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/multiturn-regression-after.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/rag-upgrade/README.md",
+      "matches": true,
+      "rawByteIdenticalRequired": false
+    },
+    {
+      "source": "eval/results/rag-upgrade/component-after.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/rag-upgrade/component-before.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/recruiter-upgrade/validation.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/redis-integration-tests.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/retrieval-all.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/retrieval-test.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/semantic-ablation-dev.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/semantic-candidate-dev.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/semantic-test.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/summary.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/ui-smoke/README.md",
+      "matches": true,
+      "rawByteIdenticalRequired": false
+    },
+    {
+      "source": "eval/results/ui-smoke/anonymous-before-procedure-expansion.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/ui-smoke/anonymous-smoke.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/ui-smoke/member-customer.jpg",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/unit-tests.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    }
+  ],
+  "resume": {
+    "docxMatchesCanonical": true,
+    "pdfContainsLatestChunkDecision": true,
+    "pdfPages": 1,
+    "visualInspection": "Manual PNG review is separate; see document-sync/resume-page.png and the audit checklist"
+  },
+  "modelCalls": 0,
+  "databaseWrites": 0,
+  "issues": [],
+  "passed": true
+}
