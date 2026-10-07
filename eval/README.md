@@ -1,5 +1,7 @@
 # AI-Mall Agent 产品评测
 
+四岗位工程优化与报告比较的验收另存于 [career-readiness](results/career-readiness/validation.json) 和 [验收说明](../docs/career/report-comparison-acceptance.md)：385 项离线 Java 测试、15 项 Python 脚本回归、后台类型检查与构建，以及合成适配器的 UI 检查。这是工程验证范围，不能与下方历史客服生成质量、检索或用户任务结果相加。
+
 本轮实际成绩、失败、成本与竞争力边界见 [产品评测报告](product-evaluation-report.md)。
 
 这里保存可复查的输入、评分器和真实运行记录。模型生成是否正确、工具是否真的改变业务状态、接口测试是否通过，分别记录，不能互相替代。

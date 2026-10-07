@@ -58,6 +58,38 @@
           <div><span>平均响应</span><strong>{{ latestReport ? `${Math.round(latestReport.averageResponseTime)} ms` : '--' }}</strong></div>
         </div>
 
+        <el-card class="comparison-panel" shadow="never">
+          <template #header><strong>基线报告对比</strong></template>
+          <p class="comparison-help">选择同一模块的两轮报告，查看新增失败、修复与用例变化。</p>
+          <div class="comparison-controls">
+            <el-select v-model="baselineId" placeholder="选择基线报告" aria-label="基线报告">
+              <el-option v-for="report in reports" :key="report.id" :value="report.id" :label="reportLabel(report)" />
+            </el-select>
+            <el-select v-model="currentId" placeholder="选择当前报告" aria-label="当前报告">
+              <el-option v-for="report in reports" :key="report.id" :value="report.id" :label="reportLabel(report)" />
+            </el-select>
+            <el-button type="primary" :disabled="!canCompare" :loading="comparing" @click="compareReports">比较报告</el-button>
+          </div>
+          <p v-if="comparisonSelectionError" class="error-text">{{ comparisonSelectionError }}</p>
+          <el-alert v-if="comparisonError" :title="comparisonError" type="error" :closable="false" />
+          <template v-if="comparison">
+            <el-alert v-if="!comparison.comparable" title="报告数据或环境未满足比较条件，本次不作业务回归结论" type="warning" :closable="false" />
+            <p v-for="warning in comparison.warnings" :key="warning" class="comparison-help">{{ warning }}</p>
+            <div v-if="comparison.comparable" class="comparison-counts">
+              <el-tag v-for="category in comparisonCategories" :key="category.key" :type="category.type">
+                {{ category.label }} {{ comparison.counts[category.key] ?? 0 }}
+              </el-tag>
+            </div>
+            <el-table v-if="comparison.entries.length" :data="comparison.entries" stripe max-height="330">
+              <el-table-column label="变化" width="115"><template #default="{ row }">{{ categoryLabel(row.category) }}</template></el-table-column>
+              <el-table-column prop="testCaseName" label="用例" min-width="220" />
+              <el-table-column label="基线 → 当前" width="160"><template #default="{ row }">{{ resultLabel(row.baselinePassed, row.baselineStatusCode) }} → {{ resultLabel(row.currentPassed, row.currentStatusCode) }}</template></el-table-column>
+              <el-table-column label="失败原因" min-width="180"><template #default="{ row }">{{ row.currentError || row.baselineError || '—' }}</template></el-table-column>
+            </el-table>
+            <p v-else-if="comparison.comparable" class="comparison-help">可匹配用例状态无变化；这只说明所选报告的差异。</p>
+          </template>
+        </el-card>
+
         <el-card class="reports-panel" shadow="never">
           <template #header>
             <div class="panel-header">
@@ -87,7 +119,7 @@
       </div>
     </section>
 
-    <el-dialog v-model="detailVisible" :title="`${selectedReport?.moduleName || ''} 测试详情`" width="880px">
+    <el-dialog v-model="detailVisible" :title="`${selectedReport?.moduleName || ''} 测试详情`" width="min(880px, calc(100vw - 28px))">
       <div v-if="selectedReport" class="dialog-summary">
         <el-tag type="success">{{ selectedReport.assertionsPassed }} 个断言通过</el-tag>
         <el-tag :type="selectedReport.assertionsFailed ? 'danger' : 'info'">{{ selectedReport.assertionsFailed }} 个断言失败</el-tag>
@@ -124,15 +156,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { CircleCheck, Connection, DataAnalysis, DocumentChecked, Refresh, Tickets, VideoPlay, Warning } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import {
   generateTestReportAPI,
+  compareTestReportsAPI,
   getAllTestReportsAPI,
   getTestCapabilitiesAPI,
   type TestCapabilities,
   type TestReport,
+  type TestReportComparison,
 } from '@/apis/agent'
 
 const selectedModule = ref('mall-portal')
@@ -141,6 +175,47 @@ const reports = ref<TestReport[]>([])
 const capabilities = ref<TestCapabilities | null>(null)
 const detailVisible = ref(false)
 const selectedReport = ref<TestReport | null>(null)
+const baselineId = ref('')
+const currentId = ref('')
+const comparing = ref(false)
+const comparison = ref<TestReportComparison | null>(null)
+const comparisonError = ref('')
+const comparisonCategories = [
+  { key: 'NEW_FAILURE', label: '新增失败', type: 'danger' as const },
+  { key: 'FIXED', label: '已修复', type: 'success' as const },
+  { key: 'PERSISTING_FAILURE', label: '持续失败', type: 'warning' as const },
+  { key: 'NEW_CASE', label: '新增用例', type: 'info' as const },
+  { key: 'REMOVED_CASE', label: '移除用例', type: 'info' as const },
+  { key: 'ENVIRONMENT_UNAVAILABLE', label: '环境异常', type: 'warning' as const },
+  { key: 'UNVERIFIED', label: '待核对', type: 'warning' as const },
+]
+const comparisonSelectionError = computed(() => {
+  if (!baselineId.value || !currentId.value) return ''
+  if (baselineId.value === currentId.value) return '请选择两份不同的报告。'
+  const baseline = reports.value.find(report => report.id === baselineId.value)
+  const current = reports.value.find(report => report.id === currentId.value)
+  if (!baseline || !current) return '所选报告已不可用，请重新选择。'
+  return baseline.moduleName !== current.moduleName ? '两份报告须来自同一模块。' : ''
+})
+const canCompare = computed(() => !!baselineId.value && !!currentId.value && !comparisonSelectionError.value)
+watch([baselineId, currentId], () => { comparison.value = null; comparisonError.value = '' })
+const categoryLabel = (category: string) => comparisonCategories.find(item => item.key === category)?.label ?? category
+const resultLabel = (passed?: boolean | null, status?: number | null) => passed == null ? '—' : `${passed ? '通过' : '失败'} (${status ?? '—'})`
+const reportLabel = (report: TestReport) => `${report.moduleName} · ${formatTime(report.startTime)} · ${report.id.slice(0, 8)}`
+const compareReports = async () => {
+  if (!canCompare.value || comparing.value) return
+  const baseline = baselineId.value
+  const current = currentId.value
+  comparing.value = true
+  comparison.value = null
+  comparisonError.value = ''
+  try {
+    const response = await compareTestReportsAPI(baseline, current)
+    if (baselineId.value === baseline && currentId.value === current) comparison.value = response.data
+  } catch (error: any) {
+    if (baselineId.value === baseline && currentId.value === current) comparisonError.value = error?.response?.data?.message || '比较失败，请检查报告与服务后重试。'
+  } finally { comparing.value = false }
+}
 
 const MODULE_DESCRIPTIONS: Record<string, string> = {
   'mall-admin': '发现后台管理 OpenAPI，并通过网关执行用例。',
@@ -182,11 +257,19 @@ const runTests = async () => {
 }
 
 const refreshReports = async () => {
+  comparison.value = null
+  comparisonError.value = ''
   try {
     const response = await getAllTestReportsAPI()
     reports.value = [...(response.data || [])].sort(
       (a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime(),
     )
+    if (currentId.value && !reports.value.some(report => report.id === currentId.value)) currentId.value = ''
+    if (baselineId.value && !reports.value.some(report => report.id === baselineId.value)) baselineId.value = ''
+    if (!currentId.value && !baselineId.value && reports.value[0]) {
+      currentId.value = reports.value[0].id
+      baselineId.value = reports.value.slice(1).find(report => report.moduleName === reports.value[0]?.moduleName)?.id ?? ''
+    }
   } catch {
     reports.value = []
   }
@@ -211,6 +294,18 @@ onMounted(() => Promise.all([refreshReports(), loadCapabilities()]))
 </script>
 
 <style scoped>
+.comparison-panel { margin-bottom: 14px; border-radius: 15px; }
+.comparison-help { color: #6e798b; font-size: 12px; line-height: 1.6; }
+.comparison-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 10px; }
+.comparison-counts { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; }
+@media (max-width: 700px) {
+  .comparison-controls { grid-template-columns: 1fr; }
+  .test-page { padding: 14px; }
+  .test-hero { padding: 24px 18px; }
+  .test-hero h1 { font-size: 24px; }
+  .flow-grid { grid-template-columns: 1fr !important; }
+  .score-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .test-page { padding: 22px; min-height: calc(100vh - 84px); color: #192237; background: #f4f7fb; }
 .test-hero { display: flex; justify-content: space-between; align-items: center; padding: 27px 30px; color: white; border-radius: 18px; background: radial-gradient(circle at 18% 30%, rgba(67,209,167,.25), transparent 28%), linear-gradient(120deg, #142633, #164b55 55%, #1e7370); box-shadow: 0 18px 42px rgba(21,78,84,.18); }.eyebrow { color: #75efd1; font-size: 12px; font-weight: 800; letter-spacing: 2px; }.test-hero h1 { margin: 7px 0; font-size: 28px; }.test-hero p { margin: 0; color: #d5eeea; }.hero-badges { display: flex; gap: 8px; }
 .flow-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 16px 0; }.flow-card { display: flex; align-items: center; gap: 10px; padding: 14px; border: 1px solid #e3e8f0; border-radius: 12px; background: white; }.flow-card > span { color: #3b9d8b; font-size: 10px; font-weight: 800; }.flow-card > .el-icon { color: #278d7d; font-size: 19px; }.flow-card strong, .flow-card small { display: block; }.flow-card strong { font-size: 13px; }.flow-card small { margin-top: 3px; color: #929aab; font-size: 10px; }

@@ -15,6 +15,9 @@ import java.util.List;
 public class TestResult {
     private String testCaseId;
     private String testCaseName;
+    /** Stable contract identity; legacy reports may omit these fields. */
+    private String method;
+    private String apiPath;
     private boolean passed;
     private int actualStatusCode;
     private String actualResponse;

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-10-07",
+  "mode": "Manual browser interaction using the actual Vue testing page with a synthetic in-memory HTTP adapter",
+  "checks": [
+    {
+      "name": "five difference categories",
+      "passed": true,
+      "observed": "NEW_FAILURE, FIXED, PERSISTING_FAILURE, NEW_CASE, REMOVED_CASE each rendered once"
+    },
+    {
+      "name": "selection invalidates previous result",
+      "passed": true,
+      "observed": "Old business table disappeared after choosing unreachable fixture"
+    },
+    {
+      "name": "unavailable environment",
+      "passed": true,
+      "observed": "Warning rendered, no business table or zero-count success tags"
+    },
+    {
+      "name": "same report cannot compare",
+      "passed": true,
+      "observed": "Button disabled; choose two different reports message displayed"
+    },
+    {
+      "name": "390px responsive page",
+      "passed": true,
+      "observed": "Document width 390, viewport width 390; selectors stacked and pipeline cards readable"
+    },
+    {
+      "name": "1280px desktop page",
+      "passed": true,
+      "observed": "Viewport width 1280, document width 1265 including scrollbar; two-column workspace and comparison rows readable"
+    }
+  ],
+  "sourceSha256": {
+    "frontend/src/views/agent/test/index.vue": "f9fb0f0384ef87d34524d183e4dcd66b3d06139e671f3a56914c412260c4894f",
+    "frontend/report-comparison-preview.html": "812a887fef9bbd2e424bb8b142e166bfdecf60c7c7655f9ca814ff37049e6453",
+    "frontend/src/preview/report-comparison-example.json": "2965227185d798af9ac5bc9cda6cc5c4307b202171252c55479844af4729bcd2"
+  },
+  "screenshots": {
+    "comparison-preview.jpg": "e6256096d7820d2d3ed54aea4ee29c2899642476550bdbd6cf5ebbc6d0458f86",
+    "environment-preview.jpg": "5e00df4dea1cce799fe97a0a2a9f57f10dcf23420dcd50b4f41f7e94549bf96b",
+    "mobile-preview.jpg": "0c5d4397af298def52611fe62f5b0d38b393c8d4f9c62c2d464055fbf67f5ddc"
+  },
+  "limitations": [
+    "Synthetic fixtures do not establish live API wiring or production defect counts",
+    "Protected API behavior is validated separately by MockMvc, not this preview",
+    "No full commerce transaction or real-model evaluation"
+  ],
+  "passed": true
+}

@@ -229,6 +229,8 @@ public class TestReportStore {
                 results.add(TestResult.builder()
                         .testCaseId(result.getTestCaseId())
                         .testCaseName(result.getTestCaseName())
+                        .method(result.getMethod())
+                        .apiPath(result.getApiPath())
                         .passed(result.isPassed())
                         .actualStatusCode(result.getActualStatusCode())
                         .actualResponse(truncate(result.getActualResponse()))

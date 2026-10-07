@@ -49,6 +49,8 @@ class TestReportStoreTest {
         assertEquals("mall-portal", restored.getModuleName());
         assertEquals(1, restored.getTotalTests());
         assertNotNull(restored.getStartTime());
+        assertEquals("GET", restored.getResults().get(0).getMethod());
+        assertEquals("/home/content", restored.getResults().get(0).getApiPath());
     }
 
     @Test
@@ -101,6 +103,8 @@ class TestReportStoreTest {
         TestResult result = TestResult.builder()
                 .testCaseId("c1")
                 .testCaseName("normal case GET /home/content")
+                .method("GET")
+                .apiPath("/home/content")
                 .passed(true)
                 .actualStatusCode(200)
                 .actualResponse("ok")

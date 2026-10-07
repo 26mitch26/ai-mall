@@ -1,9 +1,11 @@
 # AI-Mall：AI 增强电商系统
 
-AI 产品经理作品主线：**电商客服任务设计与分层评测**，确认办理为原型能力，完整真实交易及人工接收尚待验收。
+岗位作品主线：**电商客服的任务设计、业务可靠性、Agent 工程与测试闭环**。产品经理、Java 后端、AI 应用开发、测试开发分别见 [四岗位证据手册](docs/career/role-playbook.md) 和 [四岗位简历段落](docs/career/resume-project-variants.md)。确认办理为原型能力，完整真实交易及人工接收尚待验收。
 需求假设、MVP 取舍、业务指标与灰度计划见 [产品方案](docs/product/ai-pm-product-brief.md)；
 公开数据来源、评测方法与实际运行记录见 [Agent 产品评测](eval/README.md)。
 本项目为研发原型，离线召回与程序检查成绩不代表线上用户解决率。
+
+2026-10-07 新增 [测试报告基线对比](docs/career/report-comparison-acceptance.md)：受保护 API 与后台测试中心按稳定用例身份展示新增失败、已修复、持续失败和用例增删，并对环境未验证、基线失效与匹配歧义明确提示。运行 `python scripts/verify-career-readiness.py` 可复现本轮离线工程验收；[当前记录](eval/results/career-readiness/validation.json)与历史模型/检索评测分开统计。求职材料通过同步脚本交付到 `E:\选修课\雪\简历`。
 
 知识库写入需要 `KNOWLEDGE_ADMIN_TOKEN` 和 `X-Knowledge-Admin-Token` 请求头，未配置时默认禁止写入。
 

@@ -27,7 +27,24 @@ DOCUMENTS = {
     'docs/product/model-selection.md': '智能客服模型选择说明.md',
     'docs/product/chunk-strategy-review.md': 'Chunk分块策略与验证.md',
     'docs/product/document-sync-audit.md': '文档更新核验清单.md',
+    'docs/career/role-playbook.md': 'AI-Mall四岗位面试与证据手册.md',
+    'docs/career/resume-project-variants.md': 'AI-Mall四岗位简历项目段落.md',
+    'docs/career/report-comparison-acceptance.md': '测试报告基线对比与验收.md',
 }
+# Explicit new evidence can be delivered before a Git commit. Historical evidence
+# still follows git ls-files; do not recursively copy arbitrary local outputs.
+EXTRA_EVIDENCE = [
+    'eval/results/career-readiness/validation.json',
+    'eval/results/career-readiness/report-comparison-example.json',
+    'eval/results/career-readiness/java-offline.log',
+    'eval/results/career-readiness/evaluation-harness.log',
+    'eval/results/career-readiness/admin-typecheck.log',
+    'eval/results/career-readiness/admin-build.log',
+    'eval/results/career-readiness/ui-validation.json',
+    'eval/results/career-readiness/comparison-preview.jpg',
+    'eval/results/career-readiness/environment-preview.jpg',
+    'eval/results/career-readiness/mobile-preview.jpg',
+]
 COMBINED = ['docs/product/ai-pm-product-brief.md',
             'docs/product/competitive-and-commercial-plan.md']
 COMBINED_NAME = 'AI-Mall产品方案与竞争力.md'
@@ -43,7 +60,7 @@ def text(path):
     return path.read_text(encoding='utf-8-sig')
 
 def evidence_destination(relative, delivery):
-    if relative == 'eval/results/document-sync/validation.json':
+    if relative in {'eval/results/document-sync/validation.json', 'eval/results/document-sync/career-validation.json'}:
         return None  # Avoid including this audit's own JSON in its checksum manifest.
     if relative.startswith('eval/results/'):
         return delivery/'AI-Mall证据'/relative.removeprefix('eval/results/')
@@ -77,6 +94,60 @@ def rebase_links(body, source, delivery):
 
 def normalized(body):
     return re.sub(r'\s+', '', body.replace('**', '').replace('# ', '').replace('- ', ''))
+
+def audit_career(delivery, synchronize=False):
+    """Narrow new-delivery audit; does not weaken the existing full resume audit."""
+    issues, mirrors, evidence_records, bodies = [], [], [], []
+    for source, name in DOCUMENTS.items():
+        if not source.startswith('docs/career/'):
+            continue
+        expected = rebase_links(text(ROOT/source), source, delivery)
+        destination = delivery/name
+        if synchronize:
+            destination.write_text(expected, encoding='utf-8')
+        equal = destination.is_file() and text(destination) == expected
+        mirrors.append({'source': source, 'destination': name, 'matches': equal,
+                        'sha256': digest(expected.encode('utf-8'))})
+        if not equal:
+            issues.append({'kind': 'stale_delivery_document', 'path': name})
+        bodies.append((name, expected))
+    for source in EXTRA_EVIDENCE:
+        path = ROOT/source
+        if not path.is_file():
+            issues.append({'kind': 'missing_source_evidence', 'path': source})
+            continue
+        data = path.read_bytes()
+        destination = evidence_destination(source, delivery)
+        if synchronize:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_bytes(data)
+        equal = destination.is_file() and digest(destination.read_bytes()) == digest(data)
+        evidence_records.append({'source': source, 'matches': equal, 'sha256': digest(data)})
+        if not equal:
+            issues.append({'kind': 'stale_evidence', 'path': source})
+    for name, body in bodies:
+        for match in re.finditer(r'\]\(([^)]+)\)', body):
+            target = match.group(1)
+            if re.match(r'^[a-zA-Z]+://', target) or target.startswith('#'):
+                continue
+            if not (delivery/target.split('#')[0]).is_file():
+                issues.append({'kind': 'broken_delivery_link', 'path': name, 'target': target})
+    # Check actual acceptance state and source hashes, not only copied-byte equality.
+    for filename in ['validation.json', 'ui-validation.json']:
+        source = 'eval/results/career-readiness/'+filename
+        if not (ROOT/source).is_file():
+            continue
+        validation = json.loads(text(ROOT/source))
+        if not validation.get('passed'):
+            issues.append({'kind': 'acceptance_failed', 'path': source})
+        for relative, checksum in validation.get('sourceSha256', {}).items():
+            path = ROOT/relative
+            if not path.is_file() or digest(path.read_bytes()) != checksum:
+                issues.append({'kind': 'acceptance_source_changed', 'path': relative})
+    return {'schemaVersion': 1, 'asOf': '2026-10-07',
+            'scope': 'Four-role Markdown deliverables and explicit career evidence; existing PM Word/PDF excluded',
+            'deliveryDocuments': mirrors, 'evidence': evidence_records,
+            'modelCalls': 0, 'databaseWrites': 0, 'issues': issues, 'passed': not issues}
 
 def audit(delivery, synchronize=False):
     issues = []
@@ -124,7 +195,7 @@ def audit(delivery, synchronize=False):
     if not equal:
         issues.append({'kind': 'stale_delivery_document', 'path': COMBINED_NAME})
     evidence_records = []
-    for source in tracked():
+    for source in sorted(set(tracked()) | set(EXTRA_EVIDENCE)):
         destination = evidence_destination(source, delivery)
         if not destination:
             continue
@@ -203,22 +274,24 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--delivery-dir', type=Path, required=True)
     parser.add_argument('--check', action='store_true', help='Read-only validation; no sync or report writes')
+    parser.add_argument('--career-only', action='store_true', help='Only the new four-role documents and acceptance evidence; no existing Word/PDF validation')
     args = parser.parse_args()
     delivery = args.delivery_dir.resolve()
     if not args.check:
         delivery.mkdir(parents=True, exist_ok=True)
-    result = audit(delivery, synchronize=not args.check)
+    result = (audit_career if args.career_only else audit)(delivery, synchronize=not args.check)
     if not args.check:
-        destination = ROOT/'eval/results/document-sync/validation.json'
+        audit_name = 'career-validation.json' if args.career_only else 'validation.json'
+        destination = ROOT/'eval/results/document-sync'/audit_name
         destination.parent.mkdir(parents=True, exist_ok=True)
         data = json.dumps(result, ensure_ascii=False, indent=2)+'\n'
         destination.write_text(data, encoding='utf-8')
-        mirror = delivery/'AI-Mall证据/document-sync/validation.json'
+        mirror = delivery/'AI-Mall证据/document-sync'/audit_name
         mirror.parent.mkdir(parents=True, exist_ok=True)
         mirror.write_text(data, encoding='utf-8')
-    print(json.dumps({'passed': result['passed'], 'sourceDocuments': len(result['sourceDocuments']),
+    print(json.dumps({'passed': result['passed'], 'scope': result['scope'], 'sourceDocuments': len(result.get('sourceDocuments', [])),
                       'deliveryDocuments': len(result['deliveryDocuments']), 'evidenceFiles': len(result['evidence']),
-                      'resume': result['resume'], 'issues': result['issues']}, ensure_ascii=False))
+                      'resume': result.get('resume'), 'issues': result['issues']}, ensure_ascii=False))
     raise SystemExit(0 if result['passed'] else 1)
 
 if __name__ == '__main__':

@@ -211,6 +211,8 @@ export interface AssertionDetail {
 export interface TestResult {
   testCaseId: string
   testCaseName: string
+  method?: string
+  apiPath?: string
   passed: boolean
   actualStatusCode: number
   actualResponse?: string
@@ -258,6 +260,33 @@ export interface TestCapabilities {
   /** MCP 端点是否启用 */
   mcpEnabled?: boolean
   pipeline: string[]
+}
+
+export interface TestReportComparison {
+  baselineReportId: string
+  currentReportId: string
+  comparable: boolean
+  warnings: string[]
+  counts: Record<string, number>
+  entries: Array<{
+    category: string
+    caseKey: string
+    testCaseName: string
+    baselinePassed?: boolean | null
+    currentPassed?: boolean | null
+    baselineStatusCode?: number | null
+    currentStatusCode?: number | null
+    baselineError?: string | null
+    currentError?: string | null
+  }>
+}
+
+export function compareTestReportsAPI(baselineId: string, currentId: string) {
+  return http<TestReportComparison>({
+    url: '/agent/test/api/v1/test/reports/compare',
+    method: 'get',
+    params: { baselineId, currentId },
+  })
 }
 
 // 客服 Agent

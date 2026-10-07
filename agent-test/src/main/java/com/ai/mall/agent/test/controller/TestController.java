@@ -1,9 +1,11 @@
 package com.ai.mall.agent.test.controller;
 
 import com.ai.mall.agent.test.model.TestReport;
+import com.ai.mall.agent.test.model.TestReportComparison;
 import com.ai.mall.agent.test.service.agent.TestAgent;
 import com.ai.mall.agent.test.service.report.TestReportGenerator;
 import com.ai.mall.agent.test.service.report.TestReportStore;
+import com.ai.mall.agent.test.service.report.TestReportComparisonService;
 import com.ai.mall.agent.test.config.AgentTestConfig;
 import com.ai.mall.agent.test.config.TestAccessInterceptor;
 import com.ai.mall.agent.test.service.security.TestAccessGuard;
@@ -14,6 +16,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -29,6 +33,7 @@ public class TestController {
     private final TestAgent testAgent;
     private final TestReportGenerator reportGenerator;
     private final TestReportStore reportStore;
+    private final TestReportComparisonService comparisonService;
     private final AgentTestConfig config;
     private final TestAccessGuard accessGuard;
 
@@ -62,6 +67,23 @@ public class TestController {
     public List<TestReport> getAllReports() {
         log.debug("Fetching all test reports");
         return reportStore.findAllAsList();
+    }
+
+    @GetMapping("/reports/compare")
+    @Operation(summary = "比较两轮测试报告", description = "按稳定身份标出新增失败、修复、持续失败和用例增删；环境未验证时不作业务结论")
+    public TestReportComparison compareReports(@RequestParam String baselineId,
+                                               @RequestParam String currentId) {
+        if (baselineId.isBlank() || currentId.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "两份报告 ID 必须填写");
+        }
+        if (reportStore.findById(baselineId) == null || reportStore.findById(currentId) == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "报告不存在或已被保留策略淘汰，请重新选择基线");
+        }
+        try {
+            return comparisonService.compare(baselineId, currentId);
+        } catch (IllegalArgumentException ex) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, ex.getMessage(), ex);
+        }
     }
 
     @GetMapping("/report/{reportId}")

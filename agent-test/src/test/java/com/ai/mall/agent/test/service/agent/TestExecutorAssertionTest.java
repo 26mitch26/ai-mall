@@ -18,6 +18,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -44,6 +45,21 @@ class TestExecutorAssertionTest {
         config.setBaseUrl("http://target");
         executor = new TestExecutor(config, restTemplate, new ObjectMapper(),
                 new SemanticAssertionService(new ObjectMapper(), new OpenApiSchemaValidator()));
+    }
+
+    @Test
+    void stableIdentitySurvivesSuccessfulAndFailedExecution() {
+        when(restTemplate.exchange(anyString(), any(HttpMethod.class), isNull(), eq(String.class), anyMap()))
+                .thenReturn(ResponseEntity.ok("{}"));
+        TestResult success = executor.execute(testCase(true, 200));
+        assertEquals("GET", success.getMethod());
+        assertEquals("/api/products/1", success.getApiPath());
+        when(restTemplate.exchange(anyString(), any(HttpMethod.class), isNull(), eq(String.class), anyMap()))
+                .thenThrow(new org.springframework.web.client.ResourceAccessException("Connection refused"));
+        TestResult failure = executor.execute(testCase(true, 200));
+        assertEquals("GET", failure.getMethod());
+        assertEquals("/api/products/1", failure.getApiPath());
+        assertFalse(failure.isPassed());
     }
 
     private TestCase testCase(boolean strict, int expectedStatus) {

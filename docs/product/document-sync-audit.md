@@ -45,6 +45,10 @@
 
 ## 可复查的同步与检查
 
+2026-10-07 工程后续新增[四岗位手册](../career/role-playbook.md)、[四岗位项目段落](../career/resume-project-variants.md)与[测试报告对比验收](../career/report-comparison-acceptance.md)，同步脚本将这三份明确文稿及 `career-readiness` 的指定新证据加入交付清单。新工程记录独立统计，不修改历史冻结模型/检索成绩；本轮原有 AI 产品经理 Word/PDF 正文保留，四岗位段落是单独 Markdown 交付。
+
+本轮全量同步发现交付 Word 正文与规范文本不同（规范化后 1260 与 794 字符），PDF 仍与规范文本一致且为一页。Word 没有修订标记可解释该差异，本轮没有覆盖它；全量审计保留 `stale_docx_resume` 问题。新增 `--career-only` 对三份新文稿、十项指定工程证据、验收通过状态及源码哈希单独检查，结果见[四岗位交付审计](../../eval/results/document-sync/career-validation.json)。这个范围不包含原有 Word/PDF，不能据它宣称整份简历全量一致。
+
 本次Word简历已重新生成，PDF从同一份Word导出并保持一页。打包的render_docx在本机缺少LibreOffice而未成功；改用本机Word兼容COM导出和PDFium渲染，已打开 [简历渲染页](../../eval/results/document-sync/resume-page.png) 检查文字、换行与边界，未见裁切、重叠或缺字。不把备用渲染说成打包工具成功。
 
 [同步脚本](../../scripts/sync-project-documents.py)只同步明确的交付文件与Git跟踪的评测证据，不删除文件、不改数据库、不运行模型。对Markdown按交付位置转换链接；原始JSON、TXT、图片及公开冻结任务按字节校验。文档副本比较转换链接后的全文，Word与规范项目段落比较正文，PDF检查新分块决策及一页数量，另由渲染页人工核对布局。自动文字检查不能替代视觉检查或语义质量评测。

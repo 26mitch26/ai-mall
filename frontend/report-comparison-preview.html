@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>AI-Mall 报告对比 · 合成样例预览</title></head>
+<body style="margin:0;font-family:system-ui,sans-serif">
+  <div style="padding:12px 22px;background:#fff4d6;color:#755300;line-height:1.6">
+    <strong>合成样例预览</strong>：复用实际测试中心页面。所有请求由内存适配器提供，不连接业务服务，不代表实时缺陷或生产结果。可选择两轮报告查看五种差异，或选择“环境不可达”样例检查提示。
+  </div>
+  <div id="app"></div>
+  <script type="module">
+    import { createApp } from 'vue'
+    import { createPinia } from 'pinia'
+    import ElementPlus from 'element-plus'
+    import 'element-plus/dist/index.css'
+    import TestPage from './src/views/agent/test/index.vue'
+    import http from './src/utils/http.ts'
+    import fixture from './src/preview/report-comparison-example.json'
+
+    const makeReport = (id, side, time, reachable = true) => {
+      const results = fixture.entries.filter(entry => entry[side + 'Passed'] != null).map(entry => ({
+        testCaseId: id + '-' + entry.testCaseName,
+        testCaseName: entry.testCaseName,
+        passed: entry[side + 'Passed'],
+        actualStatusCode: entry[side + 'StatusCode'],
+        errorMessage: entry[side + 'Error'],
+        executionTime: 12,
+      }))
+      const passed = results.filter(result => result.passed).length
+      return { id, moduleName: 'mall-portal', results, totalTests: results.length, passedTests: passed,
+        failedTests: results.length - passed, passRate: 100 * passed / results.length,
+        averageResponseTime: 12, totalExecutionTime: 48, assertionsTotal: 4, assertionsPassed: passed,
+        assertionsFailed: results.length - passed, startTime: time, endTime: time,
+        environment: { reachable, skipped: false, target: 'isolated synthetic fixture',
+          detail: reachable ? '合成输入，不是实时探针' : '环境不可达（合成样例）' } }
+    }
+    const reports = [makeReport('after', 'current', '2026-10-07T10:07:00+08:00'),
+      makeReport('before', 'baseline', '2026-10-07T10:06:00+08:00'),
+      makeReport('unreachable', 'current', '2026-10-07T10:05:00+08:00', false)]
+    http.defaults.adapter = async config => {
+      let data
+      if (config.url.endsWith('/reports/compare')) {
+        const { baselineId, currentId } = config.params
+        if (baselineId === 'unreachable' || currentId === 'unreachable') {
+          data = { baselineReportId: baselineId, currentReportId: currentId, comparable: false,
+            warnings: ['环境不可达样例：不输出业务回归结论。'], counts: {}, entries: [] }
+        } else if (baselineId === 'before' && currentId === 'after') data = fixture
+        else {
+          data = { ...fixture, baselineReportId: baselineId, currentReportId: currentId,
+            entries: fixture.entries.map(entry => ({ ...entry,
+              category: ({ NEW_FAILURE: 'FIXED', FIXED: 'NEW_FAILURE', NEW_CASE: 'REMOVED_CASE', REMOVED_CASE: 'NEW_CASE' })[entry.category] || entry.category,
+              baselinePassed: entry.currentPassed, currentPassed: entry.baselinePassed,
+              baselineStatusCode: entry.currentStatusCode, currentStatusCode: entry.baselineStatusCode,
+              baselineError: entry.currentError, currentError: entry.baselineError,
+            })) }
+          data.counts = Object.fromEntries(Object.keys(fixture.counts).map(category => [category,
+            data.entries.filter(entry => entry.category === category).length]))
+        }
+      } else if (config.url.endsWith('/reports')) data = reports
+      else if (config.url.endsWith('/capabilities')) data = { online: false, aiEnabled: false, modules: ['mall-portal'], pipeline: [] }
+      else throw new Error('合成预览不执行实际测试，请启动业务服务后在正式后台运行。')
+      return { data, status: 200, statusText: 'Synthetic preview', headers: {}, config }
+    }
+    createApp(TestPage).use(createPinia()).use(ElementPlus).mount('#app')
+  </script>
+</body>
+</html>

@@ -5,11 +5,11 @@
   "sourceDocuments": [
     {
       "path": "README.md",
-      "sha256": "cc0ee38a8d4cbfbc3b3b50a68c230e25d37343284195317489cb02dcbf1fac1c"
+      "sha256": "ea61b2bbb60108d8faa0b8107e3c803884f7cf262a05e13fad685b94f4e594f1"
     },
     {
       "path": "docs/README.md",
-      "sha256": "7d47fa0e16f7591dcf9f61bd1c32408b2564877ef9e60ae5c852f4d0adfbf43e"
+      "sha256": "ba7cc682ead35dceae754eface8fd18e17bd6a1edb80446d6c70e4193ecf6c37"
     },
     {
       "path": "docs/agent-quality-evaluation.md",
@@ -26,6 +26,18 @@
     {
       "path": "docs/cache-qps-validation.md",
       "sha256": "0648f5866d0fde70e70fc91c953764eb3599b53d1762e28b4f5071d83b75395b"
+    },
+    {
+      "path": "docs/career/report-comparison-acceptance.md",
+      "sha256": "68b0769c86618304efdd09ab383f726f92de8d91997f81bd31977962680998bd"
+    },
+    {
+      "path": "docs/career/resume-project-variants.md",
+      "sha256": "979a48125da4a733f81967e95bb2504814f82bdf55585864a3328392fef13bc6"
+    },
+    {
+      "path": "docs/career/role-playbook.md",
+      "sha256": "501ff56c3e282a0c1acba04d609ea0fd89c086f3c5e96392ebb22f719c12b07c"
     },
     {
       "path": "docs/docker-footprint.md",
@@ -57,7 +69,7 @@
     },
     {
       "path": "docs/interview-test-agent.md",
-      "sha256": "56c6eeb6e82e7a8d7468f48b0dab6fa694a58a927e8015efe507413652a8ecca"
+      "sha256": "6ed0b207eb0811bfeb7f21b5e1961e6618ea920b6c4c4999aae49db88e222acc"
     },
     {
       "path": "docs/member-agent-interview.md",
@@ -81,7 +93,7 @@
     },
     {
       "path": "docs/product/document-sync-audit.md",
-      "sha256": "1b9873ea138db4067f16b650ac768fc43dd8cafbe70962e8c71a02a45784c17d"
+      "sha256": "f2ad2fe029b89a384401c7126b4d541bde561772251e71994f0dbbae4867d120"
     },
     {
       "path": "docs/product/interview-evidence-guide.md",
@@ -117,7 +129,7 @@
     },
     {
       "path": "eval/README.md",
-      "sha256": "c723eff9bc471276c0170ba0cbbc7dc57610f5f893d7350f063b802396ea9dad"
+      "sha256": "b0dcf0978780502b8524a714301595b55c2c105dbab39d411e8f1b08d796aea6"
     },
     {
       "path": "eval/product-evaluation-report.md",
@@ -203,7 +215,25 @@
       "source": "docs/product/document-sync-audit.md",
       "destination": "文档更新核验清单.md",
       "matches": true,
-      "sha256": "0a89796368a9b43751ed4883a1e7bdf61a7e9b67e94562c7c4980c7ad5fde5d4"
+      "sha256": "bced8171cb889c4afb03394b58fc8e2c54c4e60c1c01b7a4b2dc96b156dfb07d"
+    },
+    {
+      "source": "docs/career/role-playbook.md",
+      "destination": "AI-Mall四岗位面试与证据手册.md",
+      "matches": true,
+      "sha256": "e400b24416ea39d30e3cb115559b505b4756a8a0efd88fab87d769f915812b4e"
+    },
+    {
+      "source": "docs/career/resume-project-variants.md",
+      "destination": "AI-Mall四岗位简历项目段落.md",
+      "matches": true,
+      "sha256": "2adef4156e5ddc263a501d04d553ab6ed1669df7a48b92557a65c81d9e09660d"
+    },
+    {
+      "source": "docs/career/report-comparison-acceptance.md",
+      "destination": "测试报告基线对比与验收.md",
+      "matches": true,
+      "sha256": "78f34bb3857973ac8d1133ebcd7f1e9cd405edae3039acb3c7d85e9f6a0b4be0"
     },
     {
       "sources": [
@@ -278,6 +308,56 @@
     },
     {
       "source": "eval/results/bm25-dev-calibration.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/career-readiness/admin-build.log",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/career-readiness/admin-typecheck.log",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/career-readiness/comparison-preview.jpg",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/career-readiness/environment-preview.jpg",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/career-readiness/evaluation-harness.log",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/career-readiness/java-offline.log",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/career-readiness/mobile-preview.jpg",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/career-readiness/report-comparison-example.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/career-readiness/ui-validation.json",
+      "matches": true,
+      "rawByteIdenticalRequired": true
+    },
+    {
+      "source": "eval/results/career-readiness/validation.json",
       "matches": true,
       "rawByteIdenticalRequired": true
     },
@@ -508,13 +588,17 @@
     }
   ],
   "resume": {
-    "docxMatchesCanonical": true,
+    "docxMatchesCanonical": false,
     "pdfMatchesCanonical": true,
     "pdfPages": 1,
     "visualInspection": "Manual PNG review is separate; see document-sync/resume-page.png and the audit checklist"
   },
   "modelCalls": 0,
   "databaseWrites": 0,
-  "issues": [],
-  "passed": true
+  "issues": [
+    {
+      "kind": "stale_docx_resume"
+    }
+  ],
+  "passed": false
 }

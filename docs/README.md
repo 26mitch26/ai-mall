@@ -1,5 +1,7 @@
 # 简历实证索引（Interview Evidence）
 
+产品经理、Java 后端、AI 应用开发、测试开发统一入口：[四岗位面试与证据手册](career/role-playbook.md)、[四岗位简历段落](career/resume-project-variants.md)、[新报告对比能力与验收](career/report-comparison-acceptance.md)。本轮离线检查见[独立运行记录](../eval/results/career-readiness/validation.json)，不累加历史成绩。
+
 AI 产品经理作品请优先阅读 [产品方案](product/ai-pm-product-brief.md)、[竞品与商业验证](product/competitive-and-commercial-plan.md)
 和 [本轮 Agent 产品评测](../eval/README.md)。下方为历史工程实证材料；未在本轮重跑的性能数字，不应混写成本轮效果，更不能当作线上商业收益。
 

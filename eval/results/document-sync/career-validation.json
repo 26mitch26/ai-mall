@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-10-07",
+  "scope": "Four-role Markdown deliverables and explicit career evidence; existing PM Word/PDF excluded",
+  "deliveryDocuments": [
+    {
+      "source": "docs/career/role-playbook.md",
+      "destination": "AI-Mall四岗位面试与证据手册.md",
+      "matches": true,
+      "sha256": "e400b24416ea39d30e3cb115559b505b4756a8a0efd88fab87d769f915812b4e"
+    },
+    {
+      "source": "docs/career/resume-project-variants.md",
+      "destination": "AI-Mall四岗位简历项目段落.md",
+      "matches": true,
+      "sha256": "2adef4156e5ddc263a501d04d553ab6ed1669df7a48b92557a65c81d9e09660d"
+    },
+    {
+      "source": "docs/career/report-comparison-acceptance.md",
+      "destination": "测试报告基线对比与验收.md",
+      "matches": true,
+      "sha256": "78f34bb3857973ac8d1133ebcd7f1e9cd405edae3039acb3c7d85e9f6a0b4be0"
+    }
+  ],
+  "evidence": [
+    {
+      "source": "eval/results/career-readiness/validation.json",
+      "matches": true,
+      "sha256": "9115b7b5e01215a126c216fce5ac48b1af1eb33bffa6f88b5574113699916d36"
+    },
+    {
+      "source": "eval/results/career-readiness/report-comparison-example.json",
+      "matches": true,
+      "sha256": "2965227185d798af9ac5bc9cda6cc5c4307b202171252c55479844af4729bcd2"
+    },
+    {
+      "source": "eval/results/career-readiness/java-offline.log",
+      "matches": true,
+      "sha256": "cabad09ac5e36196722ff69d9520e69a2b8ba1cd29ac8fedac0fd63e93215ec8"
+    },
+    {
+      "source": "eval/results/career-readiness/evaluation-harness.log",
+      "matches": true,
+      "sha256": "97ce16d37d739900c9967d832bfd256973d648db2ddd0d3efd41d69e94d5b5f1"
+    },
+    {
+      "source": "eval/results/career-readiness/admin-typecheck.log",
+      "matches": true,
+      "sha256": "b8cb4ed435de3cb3fc2afb173df3dad3bb53ea311536698c1b203b2a1ba3cf6d"
+    },
+    {
+      "source": "eval/results/career-readiness/admin-build.log",
+      "matches": true,
+      "sha256": "d0cb2ce353ca5b5a9840e55539e98b1e9711bc662bf756ca711bf4de2086b981"
+    },
+    {
+      "source": "eval/results/career-readiness/ui-validation.json",
+      "matches": true,
+      "sha256": "20b127ed1fe89f4f995828205c0b76df5e4a01eadb95bb62d8b343829f85ac7f"
+    },
+    {
+      "source": "eval/results/career-readiness/comparison-preview.jpg",
+      "matches": true,
+      "sha256": "e6256096d7820d2d3ed54aea4ee29c2899642476550bdbd6cf5ebbc6d0458f86"
+    },
+    {
+      "source": "eval/results/career-readiness/environment-preview.jpg",
+      "matches": true,
+      "sha256": "5e00df4dea1cce799fe97a0a2a9f57f10dcf23420dcd50b4f41f7e94549bf96b"
+    },
+    {
+      "source": "eval/results/career-readiness/mobile-preview.jpg",
+      "matches": true,
+      "sha256": "0c5d4397af298def52611fe62f5b0d38b393c8d4f9c62c2d464055fbf67f5ddc"
+    }
+  ],
+  "modelCalls": 0,
+  "databaseWrites": 0,
+  "issues": [],
+  "passed": true
+}
