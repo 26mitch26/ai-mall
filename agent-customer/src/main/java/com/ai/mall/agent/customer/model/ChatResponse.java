@@ -37,4 +37,6 @@ public class ChatResponse {
     private com.ai.mall.agent.customer.service.telemetry.AgentTelemetry.Summary trace;
     private com.ai.mall.agent.customer.service.evidence.EvidenceVerifier.Report evidenceReport;
     private com.ai.mall.agent.customer.service.graph.PolicyGraphService.Result graph;
+    /** 提示词上下文占用快照（字符预算与实际占用），未组装提示词的确定性路径为 null */
+    private com.ai.mall.agent.customer.model.ContextUsage contextUsage;
 }

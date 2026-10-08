@@ -64,6 +64,8 @@ public class ReActAgent {
     private final InputSanitizer inputSanitizer;
     private final OutputGuardrail outputGuardrail;
     private final AuditService auditService;
+    /** 闲聊意图语义路由（正则未命中时的兜底层，见 SemanticIntentRouter） */
+    private final SemanticIntentRouter semanticIntentRouter;
 
     @Autowired(required = false)
     private AfterSaleWorkflowService afterSaleWorkflowService;
@@ -71,10 +73,19 @@ public class ReActAgent {
     private static final int MAX_ITERATIONS = 5;
     @org.springframework.beans.factory.annotation.Value("${ai.agent.context.max-characters:12000}")
     private int contextMaxCharacters = 12000;
+    /** 模型上下文窗口 token 上限（与 AgentLlmClient 的 Ollama num_ctx 同一配置键，保证展示口径 = 真实窗口） */
+    @org.springframework.beans.factory.annotation.Value("${ai.model.llm.context-tokens:8192}")
+    private int contextWindowTokens = 8192;
     private final Map<String, List<Document>> retrievalTrace = new ConcurrentHashMap<>();
 
     /** 本轮检索的证据判定结果（相似度 / BM25 / 依据强弱），供对话接口在响应里展示"检索判定" */
     private final Map<String, RagService.RetrievalOutcome> evidenceTrace = new ConcurrentHashMap<>();
+
+    /** 本轮提示词上下文占用快照（字符预算），供对话接口在响应里展示"上下文占用" */
+    private final Map<String, com.ai.mall.agent.customer.model.ContextUsage> contextUsageTrace = new ConcurrentHashMap<>();
+
+    /** 会话内闲聊兜底触发次数（分层话术升级用）；演示环境用内存 Map，生产应换 Redis + TTL */
+    private final Map<String, Integer> fallbackAttempts = new ConcurrentHashMap<>();
 
     /** Durable, owner-scoped confirmation state; Redis is required for cross-instance safety. */
     @Autowired(required = false)
@@ -95,6 +106,34 @@ public class ReActAgent {
     /** 返回本轮的检索证据判定结果（可能为 null，例如确定性工具路径未走检索）。 */
     public RagService.RetrievalOutcome getLastEvidence(String sessionId) {
         return evidenceTrace.get(sessionId);
+    }
+
+    /** 返回本轮提示词上下文占用快照（可能为 null，例如寒暄/转人工等未组装提示词的路径）。 */
+    public com.ai.mall.agent.customer.model.ContextUsage getLastContextUsage(String sessionId) {
+        return contextUsageTrace.get(sessionId);
+    }
+
+    /**
+     * 组装一次提示词并记录占用快照。仅做统计，不影响行为；
+     * 拒答/缓存/政策直答路径也调用它，保证每条回复都有占用数据。
+     */
+    private PromptContextBudget.Packed recordContextUsage(String sessionId, String systemPrompt, String query,
+                                                           List<Document> documents, List<ChatMessage> history,
+                                                           List<String> toolSteps) {
+        var packed = PromptContextBudget.pack(systemPrompt, query, documents, history, toolSteps,
+                Math.max(1, contextMaxCharacters));
+        contextUsageTrace.put(sessionId, com.ai.mall.agent.customer.model.ContextUsage.builder()
+                .maxCharacters(packed.maxCharacters())
+                .promptCharacters(packed.promptCharacters())
+                .contextWindowTokens(Math.max(1, contextWindowTokens))
+                .estimatedTokens(packed.estimatedTokens())
+                .fits(packed.fits())
+                .documentsKept(packed.documents().size())
+                .documentsOmitted(packed.omittedDocuments())
+                .historyKept(history == null ? 0 : history.size() - packed.omittedMessages())
+                .historyOmitted(packed.omittedMessages())
+                .build());
+        return packed;
     }
 
     /**
@@ -155,6 +194,25 @@ public class ReActAgent {
             return HumanSupportIntent.GUIDANCE;
         }
 
+        // 寒暄/身份类闲聊短路（级联两层）：这类消息没有业务信息需求，进入 RAG 检索必然
+        // 弱证据、被"证据不足快路径"答成"知识库无资料"，体验割裂。
+        // 第 1 层正则：高精度零成本；第 2 层语义路由：泛化正则枚举不到的改写表述。
+        String casualAnswer = GreetingIntent.shortCircuit(query);
+        if (casualAnswer == null) {
+            casualAnswer = semanticIntentRouter.tryMatch(query);
+        }
+        if (casualAnswer != null) {
+            // 身份类闲聊插槽化：登录用户答"认识呀，{昵称}"，游客引导登录（业界 small talk 个性化）
+            if (GreetingIntent.IDENTITY_ANSWER.equals(casualAnswer)) {
+                casualAnswer = composeIdentityReply(effectiveContext);
+            }
+            retrievalTrace.remove(sessionId);
+            evidenceTrace.remove(sessionId);
+            contextUsageTrace.remove(sessionId);
+            finalizeDeterministicAnswer(sessionId, query, casualAnswer, effectiveContext, startTime);
+            return casualAnswer;
+        }
+
         // "帮我买/推荐下单"两段式流程（含待确认槽位的"确认/取消"回复）优先于其他确定性路径：
         // 确认话术（如"确认下单"）必须拦截，否则会落到通用链路。
         String orderCreateAnswer = tryDirectOrderCreate(sessionId, query, effectiveContext, startTime);
@@ -189,63 +247,8 @@ public class ReActAgent {
             return orderAnswer;
         }
 
-        List<ChatMessage> history = memoryService.getShortTermMemory(sessionId);
-
-        // 语义缓存（LLM 回答复用）：相同/同义问句且会话上下文一致时直接命中，
-        // 跳过整条 LLM 推理链路（本机 2~3s → <50ms）。仅缓存不涉实时数据的通用回答
-        // （含工具取数的回答不入缓存），并有 TTL/LRU 边界，见 SemanticAnswerCacheService。
-        String ctxKey = memoryContextKey(history) + com.ai.mall.agent.customer.service.llm.RequestModelContext.cacheNamespace();
-        // Avoid attaching an earlier turn's evidence to a cache hit or refusal.
-        retrievalTrace.remove(sessionId);
-        evidenceTrace.remove(sessionId);
-        Optional<SemanticAnswerCacheService.CachedAnswer> cached = com.ai.mall.agent.customer.service.llm.RequestModelContext.cloud()
-                || policyDirectEnabled && PolicyQuestionIntent.matches(query)
-                ? Optional.empty() : semanticAnswerCache.lookup(query, ctxKey);
-        if (cached.isPresent()) {
-            log.info("ReAct 语义缓存命中, session={}, query={}", sessionId, query);
-            String answer = applyGuardrail(sessionId, effectiveContext, cached.get().answer(), true, startTime);
-            // 命中路径复用首次回答时缓存的来源，保证来源卡片展示一致
-            if (cached.get().sources() != null && !cached.get().sources().isEmpty()) {
-                retrievalTrace.put(sessionId, cached.get().sources());
-            }
-            memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "user", query));
-            memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "assistant", answer));
-            return answer;
-        }
-
-        // RAG 前置检索（压测与体验验证结论：原先只在"熔断降级"时才检索知识库，
-        // 正常路径 LLM 看不到知识库 → 政策类问题要么拒答、要么答案不稳定；
-        // 改为正常路径也先检索并把命中上下文注入提示词，回答有据可依且更稳定，见 面试准备.md §十）。
-        // 检索同时输出"证据判定"（top-1 语义相似度 + BM25 命中）。
-        RagService.RetrievalOutcome outcome = ragService.retrieveWithEvidence(query, 3);
-        List<Document> ragDocs = outcome.documents();
-        evidenceTrace.put(sessionId, outcome);
-        retrievalTrace.put(sessionId, ragDocs == null ? List.of() : List.copyOf(ragDocs));
-
-        // 证据不足快路径：知识库没有可靠依据时不进入模型推理，直接拒答转人工。
-        // 两个收益：① 掐断"弱相关上下文被小模型聊成答案"的幻觉来源；
-        // ② 省掉 20s+ 的无效本地推理（实测拒答从 ~25s 降到毫秒级），见 面试准备.md 失败案例。
-        if (outcome.weakEvidence()) {
-            String refusal = RagService.NO_CONTEXT_ANSWER;
-            recordAudit(sessionId, effectiveContext, AuditEventType.GUARDRAIL_BLOCK,
-                    "检索证据不足(证据强度 " + String.format("%.2f", outcome.evidenceScore())
-                            + ")，直接拒答转人工", true, 0);
-            long costMs = System.currentTimeMillis() - startTime;
-            recordAudit(sessionId, effectiveContext, AuditEventType.FINAL_ANSWER, refusal, false, costMs);
-            memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "user", query));
-            memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "assistant", refusal));
-            return refusal;
-        }
-
-        if (policyDirectEnabled && PolicyQuestionIntent.matches(query)) {
-            PolicyAnswerComposer.Result composed = PolicyAnswerComposer.compose(query, ragDocs);
-            String answer = composed == null ? RagService.NO_CONTEXT_ANSWER
-                    : applyGuardrail(sessionId, effectiveContext, composed.answer(), true, startTime);
-            finalizeDeterministicAnswer(sessionId, query, answer, effectiveContext, startTime, true);
-            retrievalTrace.put(sessionId, composed == null ? List.of() : composed.sources());
-            return answer;
-        }
-
+        // 指令提示词只依赖工具清单（与检索无关），提前到缓存/检索之前构建：
+        // 证据不足拒答、语义缓存、政策直答等不进模型推理的路径也能统计上下文占用。
         String toolDescriptions = getToolDescriptions();
         String systemPrompt = String.format("""
                 你是一个智能客服助手，使用ReAct（思考-行动-观察）模式来回答问题。
@@ -277,6 +280,82 @@ public class ReActAgent {
                 如果不需要使用工具，直接给出Final Answer。
                 """, toolDescriptions, "知识库参考若能直接回答问题，请依据资料回答，无需调用工具。");
 
+        List<ChatMessage> history = memoryService.getShortTermMemory(sessionId);
+
+        // 语义缓存（LLM 回答复用）：相同/同义问句且会话上下文一致时直接命中，
+        // 跳过整条 LLM 推理链路（本机 2~3s → <50ms）。仅缓存不涉实时数据的通用回答
+        // （含工具取数的回答不入缓存），并有 TTL/LRU 边界，见 SemanticAnswerCacheService。
+        String ctxKey = memoryContextKey(history) + com.ai.mall.agent.customer.service.llm.RequestModelContext.cacheNamespace();
+        // Avoid attaching an earlier turn's evidence to a cache hit or refusal.
+        retrievalTrace.remove(sessionId);
+        evidenceTrace.remove(sessionId);
+        Optional<SemanticAnswerCacheService.CachedAnswer> cached = com.ai.mall.agent.customer.service.llm.RequestModelContext.cloud()
+                || policyDirectEnabled && PolicyQuestionIntent.matches(query)
+                ? Optional.empty() : semanticAnswerCache.lookup(query, ctxKey);
+        if (cached.isPresent()) {
+            log.info("ReAct 语义缓存命中, session={}, query={}", sessionId, query);
+            recordContextUsage(sessionId, systemPrompt, query, null, history, List.of());
+            String answer = applyGuardrail(sessionId, effectiveContext, cached.get().answer(), true, startTime);
+            // 命中路径复用首次回答时缓存的来源，保证来源卡片展示一致
+            if (cached.get().sources() != null && !cached.get().sources().isEmpty()) {
+                retrievalTrace.put(sessionId, cached.get().sources());
+            }
+            memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "user", query));
+            memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "assistant", answer));
+            return answer;
+        }
+
+        // RAG 前置检索（压测与体验验证结论：原先只在"熔断降级"时才检索知识库，
+        // 正常路径 LLM 看不到知识库 → 政策类问题要么拒答、要么答案不稳定；
+        // 改为正常路径也先检索并把命中上下文注入提示词，回答有据可依且更稳定，见 面试准备.md §十）。
+        // 检索同时输出"证据判定"（top-1 语义相似度 + BM25 命中）。
+        // top-5：分块变细后 top-3 容易被"字面相关但不可回答"的块占满，
+        // 放宽到 5 让模型在上下文预算内自选可用依据（512 字符预算裁剪兜底）。
+        RagService.RetrievalOutcome outcome = ragService.retrieveWithEvidence(query, 5);
+        List<Document> ragDocs = outcome.documents();
+        evidenceTrace.put(sessionId, outcome);
+        retrievalTrace.put(sessionId, ragDocs == null ? List.of() : List.copyOf(ragDocs));
+
+        // 证据不足快路径：知识库没有可靠依据时不进入模型推理，直接拒答转人工。
+        // 两个收益：① 掐断"弱相关上下文被小模型聊成答案"的幻觉来源；
+        // ② 省掉 20s+ 的无效本地推理（实测拒答从 ~25s 降到毫秒级），见 面试准备.md 失败案例。
+        if (outcome.weakEvidence()) {
+            // 业界分层兜底：按查询性质给不同话术，而不是把所有失败都说成"知识库检索失败"。
+            // 闲聊/无业务诉求漏网 → 能力引导（承认局限 + 意图菜单）；真实业务无依据 → 诚实拒答转人工。
+            String refusal;
+            String guardrailReason;
+            if (!GreetingIntent.isBusinessQuery(query)) {
+                int attempts = fallbackAttempts.merge(sessionId, 1, Integer::sum);
+                refusal = attempts >= 2 ? GreetingIntent.FALLBACK_GUIDANCE_REPEAT
+                        : GreetingIntent.FALLBACK_GUIDANCE_FIRST;
+                guardrailReason = "非业务输入未命中闲聊意图(证据强度 " + String.format("%.2f", outcome.evidenceScore())
+                        + ")，第 " + attempts + " 次给出分层引导";
+                // 弱相关检索内容与问题无关，不作为来源展示（避免误导）
+                retrievalTrace.put(sessionId, List.of());
+            } else {
+                refusal = RagService.NO_CONTEXT_ANSWER;
+                guardrailReason = "检索证据不足(证据强度 " + String.format("%.2f", outcome.evidenceScore())
+                        + ")，直接拒答转人工";
+            }
+            recordContextUsage(sessionId, systemPrompt, query, ragDocs, history, List.of());
+            recordAudit(sessionId, effectiveContext, AuditEventType.GUARDRAIL_BLOCK, guardrailReason, true, 0);
+            long costMs = System.currentTimeMillis() - startTime;
+            recordAudit(sessionId, effectiveContext, AuditEventType.FINAL_ANSWER, refusal, false, costMs);
+            memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "user", query));
+            memoryService.addMessage(sessionId, memoryService.createMessage(sessionId, "assistant", refusal));
+            return refusal;
+        }
+
+        if (policyDirectEnabled && PolicyQuestionIntent.matches(query)) {
+            recordContextUsage(sessionId, systemPrompt, query, ragDocs, history, List.of());
+            PolicyAnswerComposer.Result composed = PolicyAnswerComposer.compose(query, ragDocs);
+            String answer = composed == null ? RagService.NO_CONTEXT_ANSWER
+                    : applyGuardrail(sessionId, effectiveContext, composed.answer(), true, startTime);
+            finalizeDeterministicAnswer(sessionId, query, answer, effectiveContext, startTime, true);
+            retrievalTrace.put(sessionId, composed == null ? List.of() : composed.sources());
+            return answer;
+        }
+
         List<String> toolSteps = new ArrayList<>();
         List<Document> seenEvidence = new ArrayList<>();
 
@@ -285,8 +364,7 @@ public class ReActAgent {
 
         for (int i = 0; i < MAX_ITERATIONS; i++) {
             log.info("ReAct iteration: {}", i + 1);
-            var packed = PromptContextBudget.pack(systemPrompt, query, ragDocs, history, toolSteps,
-                    Math.max(1, contextMaxCharacters));
+            var packed = recordContextUsage(sessionId, systemPrompt, query, ragDocs, history, toolSteps);
             com.ai.mall.agent.customer.service.telemetry.AgentTelemetry.recordStage("context", 0,
                     !packed.fits() ? "refusal" : packed.omittedDocuments() + packed.omittedMessages() > 0 ? "fallback" : "success");
             if (!packed.fits()) {
@@ -1273,6 +1351,21 @@ public class ReActAgent {
         }
         recordAudit(sessionId, context, AuditEventType.FINAL_ANSWER, result.getAnswer(), false, costMs);
         return result.getAnswer();
+    }
+
+    /**
+     * 身份类闲聊的个性化回复（"你认识我吗"）：登录用户带昵称作答，游客引导登录。
+     * 昵称查询失败降级为非个性化话术，绝不因插槽失败阻断回复。
+     */
+    private String composeIdentityReply(ToolInvocationContext context) {
+        if (context.getMemberId() == null || context.getMemberId().isBlank()) {
+            return GreetingIntent.IDENTITY_GUEST_REPLY;
+        }
+        String nickname = toolRegistry.fetchMemberDisplayName(context);
+        return (nickname != null && !nickname.isBlank())
+                ? GreetingIntent.IDENTITY_MEMBER_PREFIX + nickname
+                        + "！我认得您的会员账号，可以直接帮您查订单、办售后。有什么可以帮您？"
+                : GreetingIntent.IDENTITY_MEMBER_FALLBACK;
     }
 
     /**

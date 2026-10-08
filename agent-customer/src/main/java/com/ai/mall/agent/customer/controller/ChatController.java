@@ -72,10 +72,11 @@ public class ChatController {
 
     @DeleteMapping("/session/{sessionId}")
     @Operation(summary = "清除会话", description = "清除指定会话的历史记录")
-    public void clearSession(@PathVariable String sessionId,
+    public java.util.Map<String, String> clearSession(@PathVariable String sessionId,
                              @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorization) {
         ToolInvocationContext identity = memberIdentityResolver.resolve(sessionId, authorization);
         chatService.clearSession(ChatService.memorySession(identity.getSessionId(), identity.getMemberId()));
+        return java.util.Map.of("status", "cleared");
     }
 
     /**

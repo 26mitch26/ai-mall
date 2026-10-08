@@ -675,7 +675,7 @@ public class RagService {
             String version = sha256(hash + "|" + (document.getVersion() == null ? "" : document.getVersion())
                     + "|" + (document.getEffectiveAt() == null ? "" : document.getEffectiveAt())
                     + "|" + (document.getScope() == null ? "public" : document.getScope())
-                    + (chunkStrategy == null || chunkStrategy.isBlank() ? "" : "|chunk:" + chunkStrategy + ":512:64:v1"));
+                    + (chunkStrategy == null || chunkStrategy.isBlank() ? "" : "|chunk:" + chunkStrategy + ":512:64:v2"));
             document.setVersion(version);
             document.setContentHash(hash);
             if (document.getScope() == null || document.getScope().isBlank()) document.setScope("public");
@@ -715,6 +715,33 @@ public class RagService {
 
         long totalDocs = 0;
         double totalLength = 0;
+
+        // 幂等分块索引：块 id 掺入版本号，同源重灌时若分块结果变化（策略调整/内容增删），
+        // 覆盖式写入会残留旧块（新块数 < 旧块数时尤其严重），同 version 的残留块还会绕过
+        // active-revision 过滤污染检索。先按注册表清除该 source 上一批块，再写入新块。
+        Map<String, List<String>> chunkIdsBySource = new LinkedHashMap<>();
+        for (Document doc : docsToIndex) {
+            chunkIdsBySource.computeIfAbsent(doc.getSource(), key -> new ArrayList<>()).add(doc.getId());
+        }
+        List<String> staleVectorIds = new ArrayList<>();
+        for (Map.Entry<String, List<String>> entry : chunkIdsBySource.entrySet()) {
+            Set<String> previousIds = redisTemplate.opsForSet().members("kb:chunk-ids:" + entry.getKey());
+            if (previousIds == null) continue;
+            for (String previousId : previousIds) {
+                if (!entry.getValue().contains(previousId)) {
+                    purgeIndexForDocument(previousId);
+                    staleVectorIds.add(previousId);
+                }
+            }
+        }
+        if (!staleVectorIds.isEmpty()) {
+            try {
+                vectorStore.delete(staleVectorIds);
+                log.info("已清理{}个旧版本分块（Milvus+BM25）", staleVectorIds.size());
+            } catch (Exception e) {
+                log.warn("清理旧向量分块失败（BM25 侧已清理）: {}", e.getMessage());
+            }
+        }
 
         for (Document doc : docsToIndex) {
             Map<Object, Object> existing = redisTemplate.opsForHash().entries("bm25:doc:" + doc.getId());
@@ -768,6 +795,15 @@ public class RagService {
         // 全量重算统计信息：增量导入单篇文档时不能只按本批文档覆盖 total_docs/avg_doc_length，
         // 否则 IDF 失真（甚至为负）导致检索排序错乱，见 面试准备.md 失败案例。
         refreshBm25Stats();
+
+        // 写入/更新分块注册表：下一次同源重灌时据此清理被替换的旧块
+        for (Map.Entry<String, List<String>> entry : chunkIdsBySource.entrySet()) {
+            String registryKey = "kb:chunk-ids:" + entry.getKey();
+            redisTemplate.delete(registryKey);
+            if (!entry.getValue().isEmpty()) {
+                redisTemplate.opsForSet().add(registryKey, entry.getValue().toArray(new String[0]));
+            }
+        }
 
         // 同步文档到Milvus向量库
         try {

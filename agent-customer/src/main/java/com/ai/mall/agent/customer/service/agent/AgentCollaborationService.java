@@ -15,20 +15,20 @@ public class AgentCollaborationService {
         String query = message == null ? "" : message.toLowerCase(Locale.ROOT);
         String active = route(query);
         List<AgentCollaboration> agents = List.of(
-                node("router", "接待分流 Agent", "识别意图并分派专家", "completed", true),
-                node("order", "订单管理 Agent", "查询订单、退换货与物流", active.equals("order") ? "completed" : "standby", active.equals("order")),
-                node("technical", "技术支持 Agent", "定位故障并给出处理方案", active.equals("technical") ? "completed" : "standby", active.equals("technical")),
-                node("complaint", "投诉处理 Agent", "安抚情绪、记录反馈并闭环", active.equals("complaint") ? "completed" : "standby", active.equals("complaint")),
-                node("coordinator", "协同汇总 Agent", "融合知识库与专家结果后回复", "completed", true)
+                node("router", "接待分流", "识别意图并分派服务角色", "completed", true),
+                node("order", "订单服务", "查询订单、退换货与物流", active.equals("order") ? "completed" : "standby", active.equals("order")),
+                node("technical", "技术支持", "定位故障并给出处理方案", active.equals("technical") ? "completed" : "standby", active.equals("technical")),
+                node("complaint", "投诉处理", "安抚情绪、记录反馈并闭环", active.equals("complaint") ? "completed" : "standby", active.equals("complaint")),
+                node("coordinator", "回复生成", "融合知识库与检索结果后回复", "completed", true)
         );
         String activeName = agents.stream()
                 .filter(AgentCollaboration::isActive)
                 .map(AgentCollaboration::getName)
-                .filter(name -> !"接待分流 Agent".equals(name) && !"协同汇总 Agent".equals(name))
+                .filter(name -> !"接待分流".equals(name) && !"回复生成".equals(name))
                 .findFirst()
-                .orElse("接待分流 Agent");
+                .orElse("接待分流");
         return CollaborationPlan.builder()
-                .routeSummary("接待分流 → " + activeName + " → 协同汇总")
+                .routeSummary("接待分流 → " + activeName + " → 回复生成")
                 .activeAgent(active)
                 .agents(agents)
                 .build();

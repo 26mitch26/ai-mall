@@ -8,6 +8,7 @@ import com.ai.mall.security.annotation.CacheException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * UmsMemberCacheService实现类
@@ -30,6 +31,8 @@ public class UmsMemberCacheServiceImpl implements UmsMemberCacheService {
     @Value("${redis.key.authCode}")
     private String REDIS_KEY_AUTH_CODE;
 
+    private static final long EXPIRE_JITTER_SECONDS = 300;
+
     @Override
     public void delMember(Long memberId) {
         UmsMember umsMember = memberMapper.selectByPrimaryKey(memberId);
@@ -48,14 +51,18 @@ public class UmsMemberCacheServiceImpl implements UmsMemberCacheService {
     @Override
     public void setMember(UmsMember member) {
         String key = REDIS_DATABASE + ":" + REDIS_KEY_MEMBER + ":" + member.getUsername();
-        redisService.set(key, member, REDIS_EXPIRE);
+        // 防雪崩：固定过期叠加随机抖动
+        long expire = REDIS_EXPIRE + ThreadLocalRandom.current().nextLong(EXPIRE_JITTER_SECONDS + 1);
+        redisService.set(key, member, expire);
     }
 
     @CacheException
     @Override
     public void setAuthCode(String telephone, String authCode) {
         String key = REDIS_DATABASE + ":" + REDIS_KEY_AUTH_CODE + ":" + telephone;
-        redisService.set(key,authCode,REDIS_EXPIRE_AUTH_CODE);
+        // 防雪崩：固定过期叠加随机抖动
+        long expire = REDIS_EXPIRE_AUTH_CODE + ThreadLocalRandom.current().nextLong(EXPIRE_JITTER_SECONDS + 1);
+        redisService.set(key, authCode, expire);
     }
 
     @CacheException

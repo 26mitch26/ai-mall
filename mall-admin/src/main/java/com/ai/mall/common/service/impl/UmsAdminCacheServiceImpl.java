@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 /**
@@ -39,6 +40,8 @@ public class UmsAdminCacheServiceImpl implements UmsAdminCacheService {
     private String REDIS_KEY_ADMIN;
     @Value("${redis.key.resourceList}")
     private String REDIS_KEY_RESOURCE_LIST;
+
+    private static final long EXPIRE_JITTER_SECONDS = 300;
 
     @Override
     public void delAdmin(Long adminId) {
@@ -98,7 +101,9 @@ public class UmsAdminCacheServiceImpl implements UmsAdminCacheService {
     @Override
     public void setAdmin(UmsAdmin admin) {
         String key = REDIS_DATABASE + ":" + REDIS_KEY_ADMIN + ":" + admin.getUsername();
-        redisService.set(key, admin, REDIS_EXPIRE);
+        // 防雪崩：固定过期叠加随机抖动
+        long expire = REDIS_EXPIRE + ThreadLocalRandom.current().nextLong(EXPIRE_JITTER_SECONDS + 1);
+        redisService.set(key, admin, expire);
     }
 
     @Override
@@ -110,6 +115,8 @@ public class UmsAdminCacheServiceImpl implements UmsAdminCacheService {
     @Override
     public void setResourceList(Long adminId, List<UmsResource> resourceList) {
         String key = REDIS_DATABASE + ":" + REDIS_KEY_RESOURCE_LIST + ":" + adminId;
-        redisService.set(key, resourceList, REDIS_EXPIRE);
+        // 防雪崩：固定过期叠加随机抖动
+        long expire = REDIS_EXPIRE + ThreadLocalRandom.current().nextLong(EXPIRE_JITTER_SECONDS + 1);
+        redisService.set(key, resourceList, expire);
     }
 }

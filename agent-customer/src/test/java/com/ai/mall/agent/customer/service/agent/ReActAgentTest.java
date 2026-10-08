@@ -69,6 +69,9 @@ class ReActAgentTest {
     private AuditService auditService;
 
     @Mock
+    private SemanticIntentRouter semanticIntentRouter;
+
+    @Mock
     private AfterSaleWorkflowService afterSaleWorkflowService;
 
     @Mock
@@ -99,7 +102,8 @@ class ReActAgentTest {
                 objectMapper,
                 inputSanitizer,
                 outputGuardrail,
-                auditService
+                auditService,
+                semanticIntentRouter
         );
         ReflectionTestUtils.setField(agent, "stateRedis", stateRedis);
         // Existing cases exercise the planning loop; the public-policy route has its own regression below.

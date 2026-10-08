@@ -195,4 +195,18 @@ public interface RedisService {
      * 返回 true=全部扣成功，false=有不够的（全部不扣）。
      */
     boolean luaBatchDecrStock(java.util.Map<String, Long> skuQuantities);
+
+    /**
+     * 限购原子校验 + 预占额度：
+     * 当前已购数量 + 本次数量 <= 限购上限时，预占额度（INCRBY）并返回 true；否则返回 false（不预占）。
+     *
+     * KEYS[1] = purchase:limit:{productId}:{memberId}
+     * ARGV[1] = 本次下单数量
+     * ARGV[2] = 限购上限（perLimit）
+     * ARGV[3] = key 过期秒数（兜底自愈，DB 才是权威）
+     *
+     * 为什么用 Lua：把"读取当前额度 + 判断是否超限 + 预占"写成一个脚本，
+     * Redis 单线程保证原子执行，避免并发下两个请求都读到"还差 1 件"然后都通过。
+     */
+    boolean luaCheckAndIncrPurchaseLimit(String key, long quantity, long perLimit, long ttlSeconds);
 }

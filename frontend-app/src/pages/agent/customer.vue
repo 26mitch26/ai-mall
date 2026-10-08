@@ -19,14 +19,40 @@
               <view class="message-content">
                 <text class="message-bubble">{{ message.content }}</text>
                 <text v-if="message.meta" class="message-meta">{{ message.meta }}</text>
+                <view v-if="message.collaboration" class="agent-flow">
+                  <text class="agent-flow-title">意图分流路线 · {{ message.collaboration.routeSummary }}</text>
+                  <view class="agent-flow-row">
+                    <template v-for="(agent, ai) in message.collaboration.agents" :key="agent.id">
+                      <view class="agent-node" :class="{ active: agent.active, standby: agent.status !== 'completed' }">
+                        <text class="agent-node-name">{{ agent.name }}</text>
+                        <text class="agent-node-status">{{ agent.active ? '路由选中' : '未参与' }}</text>
+                      </view>
+                      <text v-if="ai < (message.collaboration?.agents.length || 0) - 1" class="agent-arrow">→</text>
+                    </template>
+                  </view>
+                  <text class="agent-flow-note">节点为意图分流视图：实际执行由单一大模型推理核心完成（确定性工具 / RAG 检索 / 受限生成），非多模型并行。</text>
+                </view>
+                <scroll-view v-if="message.trace?.stages?.length" class="pipeline" scroll-x>
+                  <view class="pipeline-row">
+                    <view v-for="(stage, si) in message.trace?.stages || []" :key="si" class="pipe-step" :class="[stageClass(stage.name), stage.outcome]">
+                      <text class="pipe-name">{{ stageLabel(stage.name) }}<text v-if="stage.outcome" class="pipe-outcome">{{ outcomeMark(stage.outcome) }}</text></text>
+                      <text class="pipe-ms">{{ stage.durationMs }}ms</text>
+                    </view>
+                  </view>
+                </scroll-view>
                 <text v-if="message.evidenceReport && message.evidenceReport.unsupportedNumericClaims > 0" class="debug-line warn">部分金额或时效表述尚未通过原文核对，请查看政策与适用条件。</text>
                 <view v-if="message.sources?.length" class="source-list">
                   <view v-for="source in message.sources" :key="`${source.id}:${source.version || ''}`" class="source-item">
-                    <view class="source-head"><text class="source-name">{{ source.source }}</text><text class="source-action" @click="toggleSourceFull(source)">{{ expandedSources[sourceKey(source)] ? '收起原文' : '查看原文' }}</text></view>
+                    <view class="source-head">
+                      <text class="source-name">{{ source.source }}</text>
+                      <text class="source-action" @click="togglePreview(source)">{{ previewOpen[sourceKey(source)] ? '收起片段' : '展开片段' }}</text>
+                      <text class="source-action" @click="toggleSourceFull(source)">{{ fullStates[sourceKey(source)]?.open ? '收起原文' : '查看原文' }}</text>
+                    </view>
                     <text class="source-meta">{{ source.version ? `政策版本 ${source.version}` : '参考资料' }}<template v-if="source.effectiveAt"> · 生效于 {{ formatDate(source.effectiveAt) }}</template><template v-if="source.score != null"> · 相关度 {{ formatScore(source.score) }}</template></text>
                     <text class="source-meta">{{ source.contentKind === 'selected-excerpt' ? '本次引用片段' : '来源预览' }}</text>
-                    <text class="source-excerpt">{{ source.content }}</text>
-                    <text v-if="expandedSources[sourceKey(source)]" class="source-full">{{ expandedSources[sourceKey(source)] }}</text>
+                    <text class="source-excerpt" :class="{ clamp: !previewOpen[sourceKey(source)] }" @click="togglePreview(source)">{{ source.content }}</text>
+                    <text v-if="fullStates[sourceKey(source)]?.open && fullStates[sourceKey(source)]?.same" class="source-same">原文与预览一致：当前知识库按整篇文档入库（一个检索单元即一篇），因此没有更细的片段差异。</text>
+                    <text v-else-if="fullStates[sourceKey(source)]?.open" class="source-full">{{ fullStates[sourceKey(source)]?.full }}</text>
                   </view>
                 </view>
                 <details v-if="message.trace || message.evidenceReport" class="technical-details"><summary>回答详情</summary>
@@ -34,15 +60,20 @@
                   <text v-if="message.retrievalDecision" class="debug-line">{{ message.retrievalDecision }}</text>
                   <text v-if="message.evidenceReport?.conflicts?.length" class="debug-line warn">待核对：{{ message.evidenceReport.conflicts.join('；') }}</text>
                   <text v-if="message.trace?.traceId" class="debug-line">记录编号：{{ message.trace.traceId }}</text>
-                  <text v-for="(stage, stageIndex) in message.trace?.stages || []" :key="stageIndex" class="debug-line">{{ stage.name }} · {{ stage.durationMs }} ms<template v-if="stage.outcome"> · {{ stage.outcome }}</template></text>
                   <text v-if="message.trace" class="debug-line">模型调用 {{ message.trace.modelCalls ?? '—' }} 次 · 输入 {{ message.trace.inputTokens ?? '—' }} tokens · 输出 {{ message.trace.outputTokens ?? '—' }} tokens</text>
                 </details>
               </view>
             </view>
             <view v-if="loading" class="message-row assistant"><view class="message-avatar">AI</view><text class="message-bubble loading-text">{{ loadingText }}</text></view>
           </scroll-view>
+          <view v-if="latestContextUsage" class="ctx-meter" :class="ctxLevel(latestContextUsage)">
+            <view class="ctx-bar"><view class="ctx-fill" :style="{ width: ctxPercent(latestContextUsage) + '%' }"></view></view>
+            <text class="ctx-meter-text">上下文 {{ ctxPercent(latestContextUsage) }}% · 约 {{ latestContextUsage.estimatedTokens }}/{{ latestContextUsage.contextWindowTokens }} tokens</text>
+            <text v-if="latestContextUsage.documentsOmitted || latestContextUsage.historyOmitted" class="ctx-meter-text warn">已自动裁剪：知识 {{ latestContextUsage.documentsOmitted }} 段 · 历史 {{ latestContextUsage.historyOmitted }} 条</text>
+            <text v-else-if="ctxPercent(latestContextUsage) >= 85" class="ctx-meter-text warn">上下文接近上限，较早历史与低分知识将自动裁剪</text>
+          </view>
           <view class="quick-row"><button v-for="question in quickQuestions" :key="question" class="quick-chip" @click="ask(question)">{{ question }}</button></view>
-          <view class="composer"><textarea v-model="inputMessage" class="composer-input" auto-height :maxlength="500" placeholder="输入问题，例如：退款一般多久到账？" @confirm="sendMessage" /><button class="send-button" :disabled="loading || !inputMessage.trim()" @click="sendMessage">{{ loading ? '处理中' : '发送' }}</button></view>
+          <view class="composer"><textarea v-model="inputMessage" class="composer-input" auto-height :maxlength="500" placeholder="输入问题，例如：退款一般多久到账？（Enter 发送 / Shift+Enter 换行）" @confirm="sendMessage" @keydown.enter.exact.prevent="sendMessage" /><button class="send-button" :disabled="loading || !inputMessage.trim()" @click="sendMessage">{{ loading ? '处理中' : '发送' }}</button></view>
         </view>
 
         <aside class="side-panel">
@@ -82,7 +113,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { onLoad, onShow, onHide } from '@dcloudio/uni-app'
-import { agentStatusAPI, confirmAfterSaleAPI, customerChatAPI, getAfterSaleAPI, inspectAfterSaleImageAPI, knowledgeDocumentsAPI, knowledgeSourceAPI, prepareAfterSaleAPI, type AfterSaleWorkflowState, type AgentSource, type AgentStatus, type CustomerChatResponse, type KnowledgeDocument, type VisionInspection } from '@/apis/agent'
+import { agentStatusAPI, clearSessionAPI, confirmAfterSaleAPI, customerChatAPI, getAfterSaleAPI, inspectAfterSaleImageAPI, knowledgeDocumentsAPI, knowledgeSourceAPI, prepareAfterSaleAPI, type AfterSaleWorkflowState, type AgentSource, type AgentStatus, type CustomerChatResponse, type KnowledgeDocument, type VisionInspection } from '@/apis/agent'
 import { getMemberInfoAPI } from '@/apis/member'
 import { getOrderListAPI } from '@/apis/order'
 import { useMemberStore } from '@/stores/member'
@@ -100,6 +131,8 @@ interface Message {
   sources?: AgentSource[]
   trace?: CustomerChatResponse['trace']
   evidenceReport?: CustomerChatResponse['evidenceReport']
+  contextUsage?: CustomerChatResponse['contextUsage']
+  collaboration?: CustomerChatResponse['collaboration']
 }
 interface OrderItem { id: number; orderSn: string; status?: string | number; statusText?: string; createTime?: string }
 interface SavedConversation { sessionId: string; messages: Message[]; taskId?: string }
@@ -116,7 +149,10 @@ const hasToken = ref(false)
 const serviceOnline = ref(false)
 const agentStatus = ref<AgentStatus | null>(null)
 const scrollTarget = ref('')
-const expandedSources = ref<Record<string, string>>({})
+/** 来源片段展开状态（预览折叠切换） */
+const previewOpen = ref<Record<string, boolean>>({})
+/** 来源原文拉取状态：full 全文 / same 与预览是否一致 / open 是否展示 */
+const fullStates = ref<Record<string, { full: string; same: boolean; open: boolean }>>({})
 const messages = ref<Message[]>([{ role: 'assistant', content: '你好！我可以帮你了解商城政策、查询公开商品信息。登录后还可查询订单并准备售后申请。' }])
 const quickQuestions = ['退款多久到账？', '有哪些手机在售？', '怎么申请换货？']
 const helpDocuments = ref<KnowledgeDocument[]>([])
@@ -207,14 +243,41 @@ const loadStatus = async () => {
 const loadHelp = async () => { try { helpDocuments.value = (await knowledgeDocumentsAPI()).data?.documents || [] } catch { helpDocuments.value = [] } }
 watch(() => selectedModelConfig.value?.provider, () => { serviceOnline.value = Boolean(agentStatus.value?.online && (selectedModelConfig.value?.provider === 'openai-compatible' || agentStatus.value?.ollamaOnline)) })
 
+const togglePreview = (source: AgentSource) => {
+  const key = sourceKey(source)
+  previewOpen.value[key] = !previewOpen.value[key]
+}
+
 const toggleSourceFull = async (source: AgentSource) => {
   const key = sourceKey(source)
-  if (expandedSources.value[key]) { delete expandedSources.value[key]; return }
+  const state = fullStates.value[key]
+  if (state) { fullStates.value[key] = { ...state, open: !state.open }; return }
   try {
     const response = await knowledgeSourceAPI(source.source, source.version)
-    expandedSources.value[key] = response.data?.found && (!source.version || response.data.version === source.version) ? response.data.content : '该版本原文暂不可用，请联系人工客服核对。'
-  } catch { expandedSources.value[key] = '原文读取失败，请稍后重试。' }
+    const ok = Boolean(response.data?.found) && (!source.version || response.data.version === source.version)
+    const full = ok ? response.data.content : '该版本原文暂不可用，请联系人工客服核对。'
+    const same = ok && full.trim() === (source.content || '').trim()
+    fullStates.value[key] = { full, same, open: true }
+  } catch { fullStates.value[key] = { full: '原文读取失败，请稍后重试。', same: false, open: true } }
 }
+
+/** trace 阶段中文名映射（可视化检索/生成流水线） */
+const STAGE_LABELS: Record<string, string> = {
+  rewrite: '问题改写',
+  graph: '政策图谱',
+  retrieve: '混合检索',
+  rerank: '精排',
+  context: '上下文组装',
+  tool: '工具调用',
+  llm: '模型推理',
+  evidence: '证据核对',
+  chat: '总控',
+  vision: '图片识别',
+}
+const RETRIEVAL_STAGES = new Set(['rewrite', 'graph', 'retrieve', 'rerank'])
+const stageLabel = (name: string) => STAGE_LABELS[name] || name
+const stageClass = (name: string) => RETRIEVAL_STAGES.has(name) ? 'cat-retrieval' : 'cat-generation'
+const outcomeMark = (outcome?: string) => outcome === 'success' ? '✓' : outcome === 'fallback' ? '↩' : outcome === 'refusal' ? '✕' : ''
 
 const ask = (question: string) => { inputMessage.value = question; sendMessage() }
 const sendMessage = async () => {
@@ -231,7 +294,7 @@ const sendMessage = async () => {
     sessionId.value = response.data.sessionId || sessionId.value
     const data = response.data
     const modelMeta = data.generationUsed ? data.usedModels?.length ? ` · 模型调用 ${data.usedModels.join('、')}` : ' · 模型调用未成功' : data.selectedModel ? ' · 本条未调用生成模型' : ''
-    messages.value.push({ id: `a-${Date.now()}`, role: 'assistant', content: data.answer, meta: (typeof data.responseTime === 'number' ? `客服回复 · ${(data.responseTime / 1000).toFixed(1)} 秒` : '客服回复') + modelMeta, route: data.actualRoute || data.retrievalRoute, retrievalDecision: data.retrievalDecision, sources: data.sources || [], trace: data.trace, evidenceReport: data.evidenceReport })
+    messages.value.push({ id: `a-${Date.now()}`, role: 'assistant', content: data.answer, meta: (typeof data.responseTime === 'number' ? `客服回复 · ${(data.responseTime / 1000).toFixed(1)} 秒` : '客服回复') + modelMeta, route: data.actualRoute || data.retrievalRoute, retrievalDecision: data.retrievalDecision, sources: data.sources || [], trace: data.trace, evidenceReport: data.evidenceReport, contextUsage: data.contextUsage, collaboration: data.collaboration })
   } catch {
     messages.value.push({ id: `a-${Date.now()}`, role: 'assistant', content: '暂时无法连接客服服务，请稍后再试。若刚才的问题涉及订单操作，请先核对订单状态。' })
   } finally {
@@ -242,11 +305,31 @@ const sendMessage = async () => {
   }
 }
 
+const latestContextUsage = computed<CustomerChatResponse['contextUsage']>(() => {
+  for (let i = messages.value.length - 1; i >= 0; i--) {
+    const usage = messages.value[i]?.contextUsage
+    if (usage) return usage
+  }
+  return null
+})
+const ctxPercent = (usage: NonNullable<CustomerChatResponse['contextUsage']>) =>
+  usage.contextWindowTokens > 0 ? Math.min(100, Math.round((usage.estimatedTokens / usage.contextWindowTokens) * 1000) / 10) : 0
+const ctxLevel = (usage: NonNullable<CustomerChatResponse['contextUsage']>) => {
+  const percent = ctxPercent(usage)
+  return percent >= 85 ? 'full' : percent >= 60 ? 'warn' : 'ok'
+}
+
 const clearConversation = async () => {
+  // 同步清除后端旧会话的短期记忆（Redis 短期记忆 TTL 24h，不主动清会一直占着）；
+  // 清除失败不阻塞本地重置（旧记忆最多存活 24h，无安全影响）。
+  const oldSession = sessionId.value
+  if (oldSession) { try { await clearSessionAPI(oldSession) } catch { /* 静默降级 */ } }
   messages.value = [{ role: 'assistant', content: '新对话已开始。你可以继续咨询政策或商品。' }]
   sessionId.value = `${accountScope.value}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
   task.value = null
   taskId.value = ''
+  previewOpen.value = {}
+  fullStates.value = {}
   saveConversation()
 }
 
@@ -339,5 +422,43 @@ page { background: #f2f5fa; }
 .message-list { flex: 1; min-height: 0; padding: 22px 24px 10px; box-sizing: border-box; background: linear-gradient(180deg,#fcfdff,#f7f9fc); }.message-row { display: flex; gap: 10px; margin-bottom: 18px; }.message-row.user { flex-direction: row-reverse; }.message-avatar { display: grid; place-items: center; width: 32px; height: 32px; flex: 0 0 auto; border-radius: 10px; color: #fff; background: linear-gradient(135deg,#536bd8,#7359d2); font-size: 10px; }.user .message-avatar { background: linear-gradient(135deg,#1a9b8c,#2476af); }.message-content { display: flex; max-width: 78%; flex-direction: column; align-items: flex-start; }.user .message-content { align-items: flex-end; }.message-bubble { display: block; padding: 11px 14px; border: 1px solid #e2e7f0; border-radius: 4px 13px 13px; color: #39455e; background: #fff; font-size: 14px; line-height: 1.7; white-space: pre-wrap; }.user .message-bubble { border: 0; border-radius: 13px 4px 13px 13px; color: #fff; background: #4b62cf; }.message-meta { margin: 5px 2px 0; color: #9aa3b2; font-size: 11px; }.loading-text { color: #75829a; }.source-list { width: 100%; margin-top: 7px; }.source-item { margin-top: 6px; padding: 10px 12px; border: 1px solid #e0e7f2; border-radius: 9px; background: #f8faff; }.source-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }.source-name { color: #4053a6; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }.source-action { color: #3d60d3; font-size: 11px; text-decoration: underline; white-space: nowrap; }.source-meta,.source-excerpt,.source-full { display: block; }.source-meta { margin-top: 3px; color: #929db0; font-size: 10px; }.source-excerpt { margin-top: 4px; color: #748099; font-size: 12px; line-height: 1.55; }.source-full { margin-top: 7px; padding-top: 7px; border-top: 1px dashed #dfe6f1; color: #53617c; font-size: 12px; line-height: 1.7; white-space: pre-wrap; }.technical-details { margin-top: 8px; color: #77839a; font-size: 11px; }.technical-details summary { cursor: pointer; color: #66759a; }.debug-line { display: block; margin-top: 3px; }.warn { color: #a05a2c; }
 .quick-row { display: flex; flex-wrap: wrap; gap: 7px; padding: 6px 18px 10px; }.quick-chip { margin: 0; padding: 0 10px; height: 28px; border: 1px solid #e3e8f2; border-radius: 99px; color: #66738c; background: #fff; font-size: 11px; line-height: 26px; }.composer { display: flex; align-items: flex-end; gap: 10px; padding: 12px 16px; border-top: 1px solid #edf0f5; background: #fff; }.composer-input { flex: 1; min-height: 43px; max-height: 110px; padding: 10px 12px; box-sizing: border-box; border: 1px solid #dfe5ef; border-radius: 9px; color: #34405a; font-size: 14px; }.send-button { width: 76px; height: 43px; margin: 0; padding: 0; border-radius: 9px; color: #fff; background: #5268d5; font-size: 13px; }.send-button[disabled] { opacity: .5; }
 .side-panel { overflow: hidden; }.side-section { padding: 14px 15px; border-bottom: 1px solid #edf0f5; }.side-section:last-child { border-bottom: 0; }.side-section summary { color: #2d3a55; font-size: 13px; font-weight: 700; cursor: pointer; }.section-copy,.empty-note { display: block; margin-top: 9px; color: #8792a6; font-size: 11px; line-height: 1.6; }.help-row,.order-row { display: flex; justify-content: space-between; gap: 7px; margin-top: 9px; padding-top: 8px; border-top: 1px solid #f0f2f6; }.help-title,.order-number { color: #4d5d80; font-size: 11px; overflow-wrap: anywhere; }.help-type,.order-status { color: #9aa3b2; font-size: 10px; text-align: right; }.panel-action,.confirm-button { width: 100%; height: 34px; margin: 10px 0 0; padding: 0 8px; border-radius: 8px; color: #fff; background: #5268d5; font-size: 12px; }.panel-action[disabled],.confirm-button[disabled] { opacity: .5; }.side-login { display: flex; flex-direction: column; gap: 8px; margin-top: 9px; color: #8792a6; font-size: 11px; }.link { color: #5268d5; cursor: pointer; }.field { width: 100%; height: 35px; margin-top: 8px; padding: 0 9px; box-sizing: border-box; border: 1px solid #e0e6ef; border-radius: 7px; color: #3f4d68; font-size: 11px; }.description { height: 62px; padding-top: 8px; }.image-action,.refresh-button,.reject-button { height: 31px; margin-top: 7px; padding: 0 8px; border: 1px solid #e1e6ef; border-radius: 7px; color: #65718a; background: #fff; font-size: 10px; }.image-action { width: 100%; }.image-action[disabled],.refresh-button[disabled],.reject-button[disabled] { opacity: .5; }.task-card { margin-top: 12px; padding: 10px; border: 1px solid #dce5f5; border-radius: 9px; background: #f8faff; }.task-status { display: block; color: #4053a6; font-size: 12px; font-weight: 700; }.task-detail { display: block; margin-top: 6px; color: #65718a; font-size: 11px; line-height: 1.6; white-space: pre-wrap; }.task-actions { display: flex; gap: 7px; }.reject-button,.confirm-button { flex: 1; width: auto; }.confirm-button { height: 31px; margin-top: 7px; font-size: 10px; }.warn-note { display: block; margin-top: 8px; color: #a05a2c; font-size: 10px; line-height: 1.5; }.refresh-button { width: 100%; }
+.ctx-meter { display: flex; align-items: center; gap: 10px; padding: 7px 16px 0; }
+.ctx-meter .ctx-bar { flex: 1; height: 7px; margin: 0; border-radius: 4px; background: #e9edf4; overflow: hidden; }
+.ctx-fill { height: 100%; border-radius: 4px; background: #4fe09b; }
+.ctx-fill.warn { background: #fbbf24; }
+.ctx-fill.full { background: #f87171; }
+.ctx-meter.warn .ctx-meter-text { color: #a05a2c; }
+.ctx-meter.full .ctx-meter-text { color: #a05a2c; }
+.ctx-meter-text { color: #8792a6; font-size: 10px; white-space: nowrap; }
+.ctx-meter-text.warn { color: #a05a2c; }
+.message-bubble, .message-meta, .source-excerpt, .source-full, .source-meta, .technical-details, .debug-line, .ctx-meter-text { user-select: text; -webkit-user-select: text; }
+.agent-flow { margin-top: 8px; padding: 7px 10px; border: 1px solid #dce5f5; border-radius: 9px; background: #f8faff; }
+.agent-flow-title { display: block; color: #4053a6; font-size: 10px; font-weight: 700; }
+.agent-flow-row { display: flex; align-items: stretch; gap: 5px; margin-top: 6px; flex-wrap: wrap; }
+.agent-node { display: flex; flex-direction: column; gap: 1px; padding: 4px 8px; border: 1px solid #d5def0; border-radius: 7px; background: #fff; }
+.agent-node.active { border-color: #5268d5; background: #5268d5; }
+.agent-node.active .agent-node-name { color: #fff; font-weight: 700; }
+.agent-node.active .agent-node-status { color: #dce4ff; }
+.agent-node.standby { opacity: .55; }
+.agent-node-name { color: #34405a; font-size: 10px; }
+.agent-node-status { color: #8792a6; font-size: 9px; }
+.agent-flow-note { display: block; margin-top: 6px; color: #929db0; font-size: 9px; line-height: 1.5; }
+.agent-arrow { align-self: center; color: #9aa8c4; font-size: 11px; }
+.pipeline { margin-top: 8px; width: 100%; white-space: nowrap; }
+.pipeline-row { display: inline-flex; gap: 5px; align-items: stretch; }
+.pipe-step { display: inline-flex; flex-direction: column; gap: 1px; padding: 4px 8px; border: 1px solid #dfe5ef; border-radius: 7px; background: #fff; }
+.pipe-step.cat-retrieval { border-color: #b9d7f5; background: #f4f9ff; }
+.pipe-step.cat-generation { border-color: #ddd6f3; background: #faf8ff; }
+.pipe-step.refusal { border-color: #f3c1c1; background: #fff5f5; }
+.pipe-name { color: #39455e; font-size: 10px; }
+.pipe-step.cat-retrieval .pipe-name { color: #1d5da8; }
+.pipe-step.cat-generation .pipe-name { color: #5b46a8; }
+.pipe-outcome { margin-left: 4px; }
+.pipe-step.success .pipe-outcome { color: #1a9e6e; }
+.pipe-step.fallback .pipe-outcome { color: #b7791f; }
+.pipe-step.refusal .pipe-outcome { color: #c0392b; }
+.pipe-ms { color: #9aa3b2; font-size: 9px; }
+.source-excerpt.clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.source-same { display: block; margin-top: 5px; padding: 6px 8px; border: 1px dashed #cfe0d8; border-radius: 7px; color: #4d7a63; background: #f2faf6; font-size: 10px; line-height: 1.5; }
 @media (max-width: 768px) { .agent-page { padding: 0 0 20px; }.agent-hero { padding: 19px 17px; border-radius: 0 0 15px 15px; }.hero-title { font-size: 24px; }.hero-subtitle { max-width: 75vw; font-size: 12px; line-height: 1.5; }.service-status { font-size: 11px; }.login-hint { margin: 10px 10px 0; font-size: 11px; }.workspace { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }.chat-card { width: 100%; height: min(72vh, 700px); min-height: 520px; border-right: 0; border-left: 0; border-radius: 0; }.chat-heading { padding: 11px 14px; }.message-list { padding: 15px 12px 8px; }.message-content { max-width: 86%; }.message-bubble { font-size: 13px; }.quick-row { padding-right: 10px; padding-left: 10px; }.composer { padding: 9px 10px; }.side-panel { width: calc(100% - 20px); margin: 0 10px; box-sizing: border-box; }.side-section { padding: 13px; } }
 </style>

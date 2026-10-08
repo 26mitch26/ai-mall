@@ -616,6 +616,23 @@ public class ToolRegistry {
     // ==================== 公共方法 ====================
 
     /**
+     * 查询会员昵称（/sso/info，带用户 JWT）。用于闲聊回复的个性化插槽（"你认识我吗"），
+     * 失败返回 null 由调用方降级为非个性化话术。
+     */
+    public String fetchMemberDisplayName(ToolInvocationContext context) {
+        try {
+            String response = getWithAuth(mallPortalUrl + "/sso/info", Map.of(), context);
+            JsonNode data = objectMapper.readTree(response).path("data");
+            String nickname = data.path("nickname").asText("");
+            if (nickname.isBlank()) nickname = data.path("username").asText("");
+            return nickname.isBlank() ? null : nickname;
+        } catch (Exception e) {
+            log.warn("查询会员信息失败: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * 带鉴权头的 GET 请求
      */
     private String getWithAuth(String url, Map<String, Object> uriVariables, ToolInvocationContext context) {

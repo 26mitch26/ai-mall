@@ -9,6 +9,12 @@ public final class PolicySectionChunker {
     private static final java.util.regex.Pattern QUALIFIER = java.util.regex.Pattern.compile(
             "^(?:但|但是|不过|例外|除外|限制|不适用|不包括|注意|否则|以下.{0,12}不|Exceptions?\\b|However\\b|Except\\b).*",
             java.util.regex.Pattern.CASE_INSENSITIVE);
+    /**
+     * 触发分块的最高标题级别：H1/H2 结束一个聚合节，H3/H4 等小节标题只更新面包屑路径，
+     * 与兄弟小节按软预算聚合（对齐主流实践：结构分块聚合到 256~512 tokens，避免每小节
+     * 一块造成 50~150 字符碎片，检索时上下文不足）。
+     */
+    private static final int MAX_FLUSH_HEADING_LEVEL = 2;
     public static List<String> chunk(String text, int targetCharacters) {
         if(text==null || text.isBlank()) return List.of();
         int target=targetCharacters>0?targetCharacters:512;
@@ -25,8 +31,8 @@ public final class PolicySectionChunker {
             }
             if(fenced) { fence.append(raw).append('\n'); continue; }
             if(line.matches("#{1,6}\\s+.+")) {
-                flush(result,headings,units,target); units.clear();
                 int level=headingLevel(line);
+                if(level<=MAX_FLUSH_HEADING_LEVEL) { flush(result,headings,units,target); units.clear(); }
                 headings.removeIf(h -> headingLevel(h)>=level);
                 headings.add(line); gap=true;
             } else if(!line.isBlank()) {

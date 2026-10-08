@@ -32,6 +32,14 @@ spring:
     redis:
       host: localhost
       port: 6379
+  neo4j:
+    # 政策图谱（可选能力）与 actuator health 共用的连接；认证与 infra/docker-compose.yml
+    # 的 NEO4J_AUTH（neo4j/${NEO4J_PASSWORD:-neo4j123}）保持一致。
+    # 不配置时 health indicator 以 scheme=none 连接，容器开启认证后会把 /actuator/health 拖成 503。
+    uri: bolt://${AI_RAG_GRAPH_HOST:127.0.0.1}:7687
+    authentication:
+      username: ${AI_RAG_GRAPH_USERNAME:neo4j}
+      password: ${NEO4J_PASSWORD:neo4j123}
 
 # Milvus 连接参数（压测修复：idle timeout 默认 30s 是 46.72% 失败根因，见 MilvusVectorStoreConfig）
 milvus:
@@ -83,6 +91,9 @@ ai:
       model: ${AGENT_LLM_MODEL:qwen3.5-noVL:latest}
       max-tokens: 512
       temperature: 0.5
+      # Ollama num_ctx 的唯一事实来源（AgentLlmClient 与"上下文占用"展示共用此键）。
+      # 8192：本地显存/内存与长对话容量的折中；qwen3.5-4b 支持更高，按需上调。
+      context-tokens: ${AGENT_LLM_CONTEXT_TOKENS:8192}
     # LLM 回答语义缓存（前沿优化）：开 → 相同/同义问句复用已生成答案，跳过整条 LLM 推理；
     # 关 → 每轮都走全链路 RAG+生成。保留开关即能做 A/B 实测（结果见面试准备.md §十）。
   customer:

@@ -26,6 +26,8 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
+import com.ai.mall.common.lock.DistributedLock;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * 商品管理Service实现类（集成Redis缓存 + MyBatis Plus）
@@ -81,6 +83,13 @@ public class PmsProductServiceImpl implements PmsProductService {
     @Value("${redis.expire.product}")
     private Long REDIS_PRODUCT_EXPIRE;
 
+    @Autowired
+    private DistributedLock distributedLock;
+
+    private static final String CACHE_NULL_MARK = "__NULL__";
+    private static final long NULL_MARK_EXPIRE_SECONDS = 60;
+    private static final long EXPIRE_JITTER_SECONDS = 300;
+
     @Override
     public int create(PmsProductParam productParam) {
         int count;
@@ -119,11 +128,40 @@ public class PmsProductServiceImpl implements PmsProductService {
             LOGGER.debug("命中Redis缓存: {}", cacheKey);
             return (PmsProduct) cached;
         }
-        PmsProduct product = productMapper.selectById(id);
-        if (product != null) {
-            redisService.set(cacheKey, product, REDIS_PRODUCT_EXPIRE);
+        // 防穿透：命中空标记说明 DB 也无此数据，直接返回，避免反复打 DB
+        if (CACHE_NULL_MARK.equals(cached)) {
+            LOGGER.debug("命中空标记，跳过 DB 查询: {}", cacheKey);
+            return null;
         }
-        return product;
+        // 防击穿：热点 key 失效时仅一个线程回源，其余等待后重读缓存
+        String lockKey = "product:" + id;
+        String requestId = distributedLock.tryLock(lockKey, 10, 200);
+        if (requestId == null) {
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            Object retry = redisService.get(cacheKey);
+            if (retry instanceof PmsProduct) {
+                return (PmsProduct) retry;
+            }
+            return null;
+        }
+        try {
+            PmsProduct product = productMapper.selectById(id);
+            if (product != null) {
+                // 防雪崩：基础过期时间叠加随机抖动，避免大量 key 同时失效
+                long expire = REDIS_PRODUCT_EXPIRE + ThreadLocalRandom.current().nextLong(EXPIRE_JITTER_SECONDS + 1);
+                redisService.set(cacheKey, product, expire);
+            } else {
+                // 防穿透：查不到也缓存空标记，短 TTL
+                redisService.set(cacheKey, CACHE_NULL_MARK, NULL_MARK_EXPIRE_SECONDS);
+            }
+            return product;
+        } finally {
+            distributedLock.unlock(lockKey, requestId);
+        }
     }
 
     @Override

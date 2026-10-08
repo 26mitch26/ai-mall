@@ -107,6 +107,7 @@ public class ChatService {
                 .answer(answer)
                 .intent(classifyIntent(request.getMessage()))
                 .resolutionStatus(HumanSupportIntent.matches(request.getMessage()) || isRefusal(answer)
+                        || GreetingIntent.FALLBACK_GUIDANCE_REPEAT.equals(answer)
                         ? "HANDOFF_RECOMMENDED" : "RESPONSE_PROVIDED")
                 .handoffStatus("NOT_CONNECTED")
                 .responseTime(responseTime)
@@ -121,6 +122,7 @@ public class ChatService {
                 .knowledgeVersion(evidence != null ? evidence.knowledgeVersion() : null)
                 .evidenceReport(evidenceReport)
                 .graph(graph)
+                .contextUsage(reactAgent.getLastContextUsage(sessionId))
                 .build();
     }
 
@@ -134,6 +136,11 @@ public class ChatService {
      */
     private String buildRetrievalDecision(String answer, List<SourceReference> sources,
                                           RagService.RetrievalOutcome evidence) {
+        if (GreetingIntent.ANSWER.equals(answer)) return "寒暄问候 · 直接回复，未走检索与生成";
+        if (GreetingIntent.isIdentityReply(answer)) return "身份说明 · 已结合登录状态个性化回复，未走检索与生成";
+        if (GreetingIntent.CHAT_ANSWER.equals(answer)) return "闲聊陪聊 · 直接回复，未走检索与生成";
+        if (GreetingIntent.FALLBACK_GUIDANCE_FIRST.equals(answer)) return "闲聊引导 · 超出业务范围，给出能力菜单";
+        if (GreetingIntent.FALLBACK_GUIDANCE_REPEAT.equals(answer)) return "闲聊引导 · 重复未命中，建议更换问法或转人工";
         if (HumanSupportIntent.GUIDANCE.equals(answer)) return "处理指引 · 人工客服尚未接入";
         if (answer != null && answer.contains("无法凭知识库自行确认")) {
             return "检索判定 · 输出护栏拦截，建议联系人工客服";

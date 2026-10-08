@@ -36,6 +36,17 @@ export interface EvidenceReport {
   conflicts?: string[]
 }
 
+/** 提示词上下文占用快照（字符预算），对应后端 ContextUsage */
+export interface ContextUsage {
+  maxCharacters: number
+  promptCharacters: number
+  fits: boolean
+  documentsKept?: number
+  documentsOmitted?: number
+  historyKept?: number
+  historyOmitted?: number
+}
+
 export interface AgentCollaborationNode {
   id: string
   name: string
@@ -114,6 +125,10 @@ export const customerChatAPI = (data: CustomerChatParam) => {
     data,
   })
 }
+
+/** 清除指定会话的后端短期记忆（"新对话"时调用，不等 24h TTL） */
+export const clearSessionAPI = (sessionId: string) =>
+  http<{ status: string }>({ method: 'DELETE', url: `/agent/customer/api/v1/chat/session/${encodeURIComponent(sessionId)}` })
 
 /** RAG 运行状态，用于会员端展示本地模型与检索链路是否在线 */
 export const agentStatusAPI = () => {

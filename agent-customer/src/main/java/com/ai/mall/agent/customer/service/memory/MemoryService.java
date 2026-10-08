@@ -53,7 +53,9 @@ public class MemoryService {
         messages.add(message);
 
         if (messages.size() > MAX_SHORT_TERM_MESSAGES) {
-            messages = messages.subList(messages.size() - MAX_SHORT_TERM_MESSAGES, messages.size());
+            // 必须拷贝为新列表：subList 视图经 Jackson 序列化后类型为 ArrayList$SubList，
+            // 反序列化时无默认构造器，会话读取即抛 SerializationException（长会话 500 的根因）。
+            messages = new ArrayList<>(messages.subList(messages.size() - MAX_SHORT_TERM_MESSAGES, messages.size()));
         }
 
         redisTemplate.opsForValue().set(key, messages, SHORT_TERM_EXPIRE_HOURS, TimeUnit.HOURS);

@@ -14,7 +14,7 @@ public final class HumanSupportIntent {
         String text = query.toLowerCase(Locale.ROOT).trim();
         if (text.matches(".*(?:不要|不用|不想|无需).{0,6}(?:人工|真人).*")) return false;
         if (text.matches(".*(?:do not|don't|no need).{0,15}(?:human|live agent).*")) return false;
-        return text.matches(".*(?:转人工|真人客服|(?:联系|找|转接|接通|呼叫).{0,6}人工|人工客服(?:在哪|怎么联系)).*")
+        return text.matches(".*(?:转人工|真人客服|(?:联系|找|转接|接通|呼叫).{0,6}(?:人工|真人)|人工客服(?:在哪|怎么联系)).*")
                 || text.matches(".*(?:human agent|live agent|human support|speak (?:with|to) (?:a |an )?(?:person|someone|human)).*");
     }
 }

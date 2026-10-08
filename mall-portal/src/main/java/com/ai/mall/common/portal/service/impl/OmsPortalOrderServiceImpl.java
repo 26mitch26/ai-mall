@@ -289,6 +289,8 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
             portalOrderDao.releaseSkuStockLock(timeOutOrder.getOrderItemList());
             //同步恢复 Redis 可用库存
             releaseRedisStock(timeOutOrder.getOrderItemList());
+            //回滚该用户对商品的限购预占额度
+            releasePurchaseLimit(timeOutOrder.getOrderItemList(), timeOutOrder.getMemberId());
             //修改优惠券使用状态
             updateCouponStatus(timeOutOrder.getCouponId(), timeOutOrder.getMemberId(), 0);
             //返还使用积分
@@ -322,6 +324,8 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
                 portalOrderDao.releaseSkuStockLock(orderItemList);
                 //同步恢复 Redis 可用库存
                 releaseRedisStock(orderItemList);
+                //回滚该用户对商品的限购预占额度
+                releasePurchaseLimit(orderItemList, cancelOrder.getMemberId());
             }
             //修改优惠券使用状态
             updateCouponStatus(cancelOrder.getCouponId(), cancelOrder.getMemberId(), 0);
@@ -749,9 +753,17 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
     private static final String STOCK_KEY_PREFIX = "stock:available:";
 
     /**
-     * Redis 单人限购 key 前缀：purchase:limit:{skuId}:{memberId} = 该用户已锁定/已购数量
+     * Redis 单人限购 key 前缀：purchase:limit:{productId}:{memberId} = 该用户对该商品的已锁定/已购数量。
+     * 限购按 SPU（product）维度，与 pms_product.promotion_per_limit 配置一致。
      */
     private static final String PURCHASE_LIMIT_PREFIX = "purchase:limit:";
+
+    /**
+     * 限购计数 key 的过期时间（秒）：30 天。
+     * Redis 只作并发防超买的快速拦截层，DB（countPurchasedQuantity）才是权威；
+     * key 过期后自动从 DB 重新校验（自愈），不会因 Redis 丢数据导致真实超买。
+     */
+    private static final long PURCHASE_LIMIT_TTL_SECONDS = 30L * 24 * 3600;
 
     /**
      * 锁定下单商品的所有库存（Redis 原子预扣 + DB 持久化）。
@@ -840,6 +852,23 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
     }
 
     /**
+     * 释放限购预占：取消订单 / 超时未支付时，把 Redis 里该用户对商品的预占数量回滚。
+     * 与 releaseRedisStock 对称——库存要回滚，限购额度也要回滚，否则用户取消后无法重新购买。
+     * DB 的已购数量由订单状态（status=4 关闭）自然排除，Redis 这里同步回滚，两者保持一致。
+     */
+    private void releasePurchaseLimit(List<OmsOrderItem> orderItemList, Long memberId) {
+        if (orderItemList == null || memberId == null) return;
+        for (OmsOrderItem item : orderItemList) {
+            if (item.getProductId() == null || item.getProductQuantity() == null) continue;
+            try {
+                redisService.decr(PURCHASE_LIMIT_PREFIX + item.getProductId() + ":" + memberId, item.getProductQuantity());
+            } catch (Exception ignored) {
+                // Redis 不可用时仅打日志，DB 已回滚，不影响主流程
+            }
+        }
+    }
+
+    /**
      * 判断下单商品是否都有库存
      */
     private boolean hasStock(List<CartPromotionItem> cartPromotionItemList) {
@@ -855,12 +884,16 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
     }
 
     /**
-     * 单人限购检查：查用户对该商品的已购数量，超限拒绝。
+     * 单人限购检查：Redis 原子预占（防并发超买） + DB 已购数量兜底（权威）。
      *
      * 实现：
      * - 限购数量从 pms_product.promotion_per_limit 读取（0 或 null 表示不限购）
-     * - 已购数量从 DB 查询（SELECT SUM(quantity) FROM oms_order_item WHERE product_id=? AND member_id=? AND status IN (0,1,2)）
-     * - 可选：用 Redis 缓存已购数量加速，DB 作为兜底
+     * - 第一道：Redis Lua 脚本原子"判断当前额度 + 预占本次数量"，并发安全，
+     *           避免两个并发请求都查到"还差 1 件"然后都通过（原纯 DB 方案存在此竞态）
+     * - 第二道：DB 查已购数量（SELECT SUM(quantity) ... status IN (0,1,2)）兜底，
+     *           Redis 过期/不可用时仍准确
+     * - Redis 预占超限或 DB 兜底超限都拒绝；DB 兜底失败时回滚 Redis 预占，避免额度虚占
+     * - Redis 不可用则降级为纯 DB 校验（保持原行为）
      */
     private void checkPurchaseLimit(Long memberId, List<CartPromotionItem> cartPromotionItemList) {
         for (CartPromotionItem item : cartPromotionItemList) {
@@ -871,10 +904,28 @@ public class OmsPortalOrderServiceImpl implements OmsPortalOrderService {
             Integer perLimit = product.getPromotionPerLimit();
             if (perLimit == null || perLimit <= 0) continue;
 
-            // 查询用户已购数量（DB 兜底，保证准确）
-            long purchasedQty = portalOrderDao.countPurchasedQuantity(memberId, item.getProductId());
+            String limitKey = PURCHASE_LIMIT_PREFIX + item.getProductId() + ":" + memberId;
+            int qty = item.getQuantity();
 
-            if (purchasedQty + item.getQuantity() > perLimit) {
+            // 第一道：Redis 原子预占（防并发超买）
+            boolean redisReserved = false;
+            try {
+                redisReserved = redisService.luaCheckAndIncrPurchaseLimit(limitKey, qty, perLimit, PURCHASE_LIMIT_TTL_SECONDS);
+                if (!redisReserved) {
+                    Asserts.fail("商品限购" + perLimit + "件，您已购买或正在结算的件数已达上限");
+                }
+            } catch (Exception e) {
+                // Redis 不可用：降级为纯 DB 校验，保持原行为
+                redisReserved = false;
+            }
+
+            // 第二道：DB 已购数量兜底（权威）
+            long purchasedQty = portalOrderDao.countPurchasedQuantity(memberId, item.getProductId());
+            if (purchasedQty + qty > perLimit) {
+                // DB 兜底发现超限：回滚 Redis 预占，避免额度虚占
+                if (redisReserved) {
+                    try { redisService.decr(limitKey, qty); } catch (Exception ignored) { }
+                }
                 Asserts.fail("商品限购" + perLimit + "件，您已购买" + purchasedQty + "件");
             }
         }

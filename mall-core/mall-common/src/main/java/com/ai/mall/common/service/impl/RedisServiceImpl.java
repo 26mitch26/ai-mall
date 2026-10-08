@@ -258,4 +258,31 @@ public class RedisServiceImpl implements RedisService {
         Long result = redisTemplate.execute(script, keys, quantities.toArray());
         return Long.valueOf(1L).equals(result);
     }
+
+    /**
+     * 限购原子校验 + 预占脚本：
+     * KEYS[1] = purchase:limit:{productId}:{memberId}
+     * ARGV[1] = 本次数量, ARGV[2] = 限购上限, ARGV[3] = 过期秒数
+     *
+     * 逻辑：current = 当前已购/预占数量；current + qty <= limit 时 INCRBY 并刷新过期，返回 1；否则返回 0。
+     * 把"检查 + 预占"放在一个脚本里，Redis 单线程串行执行，天然防并发超买。
+     */
+    private static final String LUA_CHECK_INCR_PURCHASE_LIMIT_SCRIPT =
+            "local current = tonumber(redis.call('get', KEYS[1]) or '0') " +
+            "local qty = tonumber(ARGV[1]) " +
+            "local limit = tonumber(ARGV[2]) " +
+            "if current + qty <= limit then " +
+            "  redis.call('incrby', KEYS[1], qty) " +
+            "  redis.call('expire', KEYS[1], tonumber(ARGV[3])) " +
+            "  return 1 " +
+            "else " +
+            "  return 0 " +
+            "end";
+
+    @Override
+    public boolean luaCheckAndIncrPurchaseLimit(String key, long quantity, long perLimit, long ttlSeconds) {
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>(LUA_CHECK_INCR_PURCHASE_LIMIT_SCRIPT, Long.class);
+        Long result = redisTemplate.execute(script, Collections.singletonList(key), quantity, perLimit, ttlSeconds);
+        return Long.valueOf(1L).equals(result);
+    }
 }
